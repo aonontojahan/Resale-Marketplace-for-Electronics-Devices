@@ -16,33 +16,47 @@ function updateNav() {
     const nav = document.querySelector('nav');
     if (!nav) return;
 
+    // Ensure Logo text is consistent
+    const logoEl = document.querySelector('.logo');
+    if (logoEl) {
+        logoEl.innerText = "ReSale.";
+    }
+
     const user = getUser();
     const currentPath = window.location.pathname;
 
     if (user) {
         const role = user.role || 'buyer';
-        let navHtml = `<a href="index.html#about" class="">About Us</a>`;
+        let navHtml = ``;
 
         if (role === 'admin') {
             navHtml += `
                 <a href="#" class="">Dashboard</a>
                 <a href="#" class="">Users</a>
-                <a href="profile.html" class="${currentPath.includes('profile') ? 'active' : ''}">Profile</a>
             `;
         } else if (role === 'seller') {
             navHtml += `
                 <a href="chat.html" class="${currentPath.includes('chat') ? 'active' : ''}">Messages</a>
                 <a href="wallet.html" class="${currentPath.includes('wallet') ? 'active' : ''}">Wallet</a>
-                <a href="profile.html" class="${currentPath.includes('profile') ? 'active' : ''}">My Store</a>
             `;
         } else {
             // Buyer
             navHtml += `
                 <a href="chat.html" class="${currentPath.includes('chat') ? 'active' : ''}">Messages</a>
                 <a href="wallet.html" class="${currentPath.includes('wallet') ? 'active' : ''}">Wallet</a>
-                <a href="profile.html" class="${currentPath.includes('profile') ? 'active' : ''}">Profile</a>
             `;
         }
+
+        // Add User Profile Section (Clickable)
+        navHtml += `
+            <a href="profile.html" class="nav-user-container">
+                <div class="nav-user">
+                    <span class="nav-username">${user.full_name.split(' ')[0]}</span>
+                    <div class="nav-avatar">${user.initials}</div>
+                </div>
+            </a>
+        `;
+        
         nav.innerHTML = navHtml;
     } else {
         // Logged Out: Show Browse, Login, Signup
@@ -214,6 +228,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize Navigation
     updateNav();
 
+    // ---- APP VIEW MODE ----
+    // If a user is logged in, hide marketing sections (hero, about, features, safety)
+    const currentUser = getUser();
+    if (currentUser) {
+        document.body.classList.add('app-view');
+    }
+
     // Load Dynamic Product Details (if on product.html)
     if (window.location.pathname.includes('product.html')) {
         loadProductDetails();
@@ -271,7 +292,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const user = getUser();
         if (user) {
             const role = user.role || 'buyer';
-            if (userNameEl) userNameEl.innerText = user.name;
+            if (userNameEl) userNameEl.innerText = user.full_name;
             if (userEmailEl) userEmailEl.innerText = user.email;
             if (userInitialsEl) userInitialsEl.innerText = user.initials;
             

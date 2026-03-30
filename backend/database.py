@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Get DB URL from environment or fallback to common local configuration
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:password@localhost/resale_db")
+DATABASE_URL = "postgresql://aonontojahan:aonontojahan@localhost/resale_db"
 
 # Create engine
 engine = create_engine(DATABASE_URL)

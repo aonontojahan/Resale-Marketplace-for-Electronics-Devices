@@ -74,6 +74,9 @@ header .container {
 .logo {
   font-size: 2rem;
   font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   background: linear-gradient(135deg, var(--primary), var(--accent-cyan));
   -webkit-background-clip: text;
   background-clip: text;
@@ -109,6 +112,7 @@ header .container {
 
 nav {
   display: flex;
+  align-items: center;
   gap: 1.5rem;
 }
 
@@ -119,6 +123,46 @@ nav a {
 
 nav a:hover, nav a.active {
   color: var(--primary);
+}
+
+.nav-user-container {
+  text-decoration: none;
+  transition: transform 0.2s ease;
+}
+
+.nav-user-container:hover {
+  transform: translateY(-2px);
+}
+
+.nav-user {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-left: 1.5rem;
+  border-left: 1px solid var(--border);
+  margin-left: 0.5rem;
+  cursor: pointer;
+}
+
+.nav-avatar {
+  width: 34px;
+  height: 34px;
+  background: linear-gradient(135deg, var(--primary), var(--accent-purple));
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2);
+}
+
+.nav-username {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
 }
 
 /* PRODUCT GRID */
@@ -733,50 +777,115 @@ nav a:hover, nav a.active {
   font-size: 0.9rem;
 }
 
-/* ABOUT SECTION */
+/* ABOUT SECTION (RE-ORGANIZED) */
 .about-section {
-  padding: 5rem 0;
+  padding: 8rem 0;
   background: white;
+  position: relative;
+}
+
+.about-content-wrapper {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5rem;
+  align-items: center;
+}
+
+.about-text {
+  text-align: left;
+}
+
+.about-text p {
+  font-size: 1.15rem;
+  line-height: 1.8;
+  color: var(--text-muted);
+  margin-bottom: 2rem;
+}
+
+.about-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.stat-card {
+  padding: 2rem;
+  background: #f8fafc;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
   text-align: center;
 }
 
-.about-section p {
-  max-width: 800px;
-  margin: 0 auto 3rem;
-  color: var(--text-muted);
-  font-size: 1.1rem;
+.stat-number {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: var(--primary);
+  margin-bottom: 0.5rem;
 }
 
-.about-grid {
+.stat-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* FEATURES ENHANCEMENTS */
+.feature-grid-modern {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 2rem;
+  margin-top: 3rem;
 }
 
-.about-item {
-  padding: 2rem;
+/* SAFETY TIPS MODERNIZATION */
+.safety-grid-v2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2rem;
+}
+
+/* ASSISTANCE SECTION */
+.assistance-banner {
+  background: var(--secondary);
+  color: white;
+  padding: 5rem 0;
+  text-align: center;
+}
+
+.assistance-btns {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+.social-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 2rem;
   border-radius: var(--radius);
-  background: var(--bg);
-  transition: transform 0.3s ease;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.3s;
 }
 
-.about-item:hover {
+.social-btn.whatsapp {
+  background: #25d366;
+  color: white;
+}
+
+.social-btn.gmail {
+  background: #ea4335;
+  color: white;
+}
+
+.social-btn:hover {
   transform: translateY(-5px);
-}
-
-.about-icon {
-  font-size: 2.5rem;
-  margin-bottom: 1.5rem;
-}
-
-.about-item h3 {
-  margin-bottom: 1rem;
-  color: var(--secondary);
-}
-
-.about-item p {
-  font-size: 0.95rem;
-  margin-bottom: 0;
+  filter: brightness(1.1);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.2);
 }
 
 /* HERO SECTION */
@@ -966,4 +1075,65 @@ nav a:hover, nav a.active {
   .product-actions {
     grid-template-columns: 1fr;
   }
+}
+
+/* ==============================================
+   APP VIEW — Hide Marketing for Logged-in Users
+   ============================================== */
+body.app-view .hero,
+body.app-view .about-section,
+body.app-view #features,
+body.app-view .safety-tips-section {
+  display: none;
+}
+
+/* Dashboard banner shown only in app view */
+body.app-view .app-dashboard-header {
+  display: flex;
+}
+
+.app-dashboard-header {
+  display: none;
+  background: linear-gradient(135deg, var(--primary), var(--accent-purple));
+  color: white;
+  padding: 2.5rem 0;
+}
+
+.app-dashboard-header h1 {
+  font-size: 1.75rem;
+  font-weight: 800;
+  margin-bottom: 0.4rem;
+}
+
+.app-dashboard-header p {
+  opacity: 0.85;
+  font-size: 1rem;
+}
+
+.app-dashboard-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+}
+
+.app-dashboard-actions {
+  display: flex;
+  gap: 1rem;
+}
+
+.btn-dashboard {
+  background: rgba(255,255,255,0.15);
+  color: white;
+  padding: 0.6rem 1.25rem;
+  border-radius: 99px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  border: 1px solid rgba(255,255,255,0.3);
+  text-decoration: none;
+  transition: background 0.2s;
+}
+
+.btn-dashboard:hover {
+  background: rgba(255,255,255,0.3);
 }
