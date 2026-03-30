@@ -5,7 +5,7 @@
  * Simulated using localStorage.
  */
 function getUser() {
-    const userJson = localStorage.getItem('resell_user');
+    const userJson = localStorage.getItem('resale_user');
     return userJson ? JSON.parse(userJson) : null;
 }
 
@@ -69,7 +69,7 @@ function loginUser(email, password, role) {
         initials: 'AJ',
         role: role || 'buyer'
     };
-    localStorage.setItem('resell_user', JSON.stringify(mockUser));
+    localStorage.setItem('resale_user', JSON.stringify(mockUser));
     window.location.href = 'profile.html';
 }
 
@@ -83,7 +83,7 @@ function signupUser(name, email, password, role) {
         initials: (name || 'Aonontojahan').split(' ').map(n => n[0]).join('').toUpperCase(),
         role: role || 'buyer'
     };
-    localStorage.setItem('resell_user', JSON.stringify(mockUser));
+    localStorage.setItem('resale_user', JSON.stringify(mockUser));
     window.location.href = 'profile.html';
 }
 
@@ -91,7 +91,7 @@ function signupUser(name, email, password, role) {
  * Simulated Logout Function
  */
 function logoutUser() {
-    localStorage.removeItem('resell_user');
+    localStorage.removeItem('resale_user');
     window.location.href = 'index.html';
 }
 
@@ -129,6 +129,22 @@ const productsData = {
         condition: 'Flawless',
         rating: '⭐ 5.0 (10 reviews)',
         description: 'Crystal clear display with M1 power. Supports Apple Pencil 2nd Gen. Always kept in a screen protector and case. No dents or scratches.'
+    },
+    'samsung-s24': {
+        title: 'Samsung Galaxy S24 Ultra - 512GB Titanium Black',
+        price: '৳1,38,000',
+        image: 'assets/samsung_phone.png',
+        condition: 'Brand New',
+        rating: '⭐ 5.0 (8 reviews)',
+        description: 'The ultimate AI phone. Unopened box, full official warranty. 200MP camera, S-Pen included. Experience the best of Android.'
+    },
+    'xiaomi-14': {
+        title: 'Xiaomi 14 Ultra - 16GB/512GB (Leica Optics)',
+        price: '৳1,25,000',
+        image: 'assets/xiaomi_phone.png',
+        condition: 'Like New',
+        rating: '⭐ 4.9 (5 reviews)',
+        description: 'Photography beast with Leica Summilux lens. Barely used for a week. Zero scratches. Snapdragon 8 Gen 3. Global ROM.'
     }
 };
 
@@ -168,7 +184,7 @@ function loadProductDetails() {
     if (ratingEl) ratingEl.innerText = product.rating;
     
     // Update Page Title
-    document.title = `${product.title} | ReSell`;
+    document.title = `${product.title} | ReSale`;
 }
 
 // --- Page-Specific Logic ---
