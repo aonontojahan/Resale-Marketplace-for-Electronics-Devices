@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,106 +8,114 @@
   <link rel="stylesheet" href="css/style.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
+
 <body>
 
-<header>
-  <div class="container">
-    <a href="index.html" class="logo">ReSale.</a>
-    
-    <div class="search-container">
-      <input type="text" placeholder="Search for electronics..." class="search-bar">
+  <header>
+    <div class="container">
+      <a href="index.html" class="logo">ReSale.</a>
+
+      <div class="search-container">
+        <input type="text" placeholder="Search for electronics..." class="search-bar">
+      </div>
+
+      <nav>
+        <!-- Nav links will be injected by app.js -->
+      </nav>
     </div>
+  </header>
 
-    <nav>
-      <!-- Nav links will be injected by app.js -->
-    </nav>
-  </div>
-</header>
+  <main class="container">
+    <div class="profile-layout">
+      <!-- SIDEBAR -->
+      <aside class="profile-sidebar">
+        <div class="profile-info">
+          <div class="profile-avatar" id="userInitials">AJ</div>
+          <h2 id="userName" style="font-size: 1.25rem;">Aononto Jahan</h2>
+          <p id="userEmail" style="font-size: 0.85rem; color: var(--text-muted);">aonontojahan@gmail.com</p>
+          <div id="userRoleBadge"></div>
+        </div>
+        <div class="profile-menu">
+          <a href="#" class="profile-menu-item active">My Listings</a>
+          <a href="#" class="profile-menu-item">Order History</a>
+          <a href="wallet.html" class="profile-menu-item">Escrow Wallet</a>
+          <a href="#" class="profile-menu-item">Account Settings</a>
+          <a href="javascript:void(0)" onclick="logoutUser()" class="profile-menu-item logout">Logout</a>
+        </div>
+      </aside>
 
-<main class="container">
-  <div class="profile-layout">
-    <!-- SIDEBAR -->
-    <aside class="profile-sidebar">
-      <div class="profile-info">
-        <div class="profile-avatar" id="userInitials">AJ</div>
-        <h2 id="userName" style="font-size: 1.25rem;">Aononto Jahan</h2>
-        <p id="userEmail" style="font-size: 0.85rem; color: var(--text-muted);">aonontojahan@gmail.com</p>
-        <div id="userRoleBadge"></div>
-      </div>
-      <div class="profile-menu">
-        <a href="#" class="profile-menu-item active">My Listings</a>
-        <a href="#" class="profile-menu-item">Order History</a>
-        <a href="wallet.html" class="profile-menu-item">Escrow Wallet</a>
-        <a href="#" class="profile-menu-item">Account Settings</a>
-        <a href="javascript:void(0)" onclick="logoutUser()" class="profile-menu-item logout">Logout</a>
-      </div>
-    </aside>
+      <!-- CONTENT -->
+      <section class="profile-content">
+        <div class="profile-section-title">
+          <h2 id="profileSectionTitle" style="font-size: 1.5rem; font-weight: 700;">My Listings</h2>
+          <button id="createListingBtn" class="btn-primary" style="padding: 0.5rem 1rem; font-size: 0.9rem;">+ Create
+            New Listing</button>
+        </div>
 
-    <!-- CONTENT -->
-    <section class="profile-content">
-      <div class="profile-section-title">
-        <h2 id="profileSectionTitle" style="font-size: 1.5rem; font-weight: 700;">My Listings</h2>
-        <button id="createListingBtn" class="btn-primary" style="padding: 0.5rem 1rem; font-size: 0.9rem;">+ Create New Listing</button>
-      </div>
-
-      <!-- Mock listings -->
-      <div class="product-grid" style="grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));">
-        <div class="card">
-          <img src="assets/iphone.png" alt="iPhone" class="card-img" style="aspect-ratio: 16/9;">
-          <div class="card-content">
-            <h4 class="card-title" style="font-size: 0.95rem;">iPhone 13 Pro</h4>
-            <p class="card-price" style="font-size: 1rem;">৳82,500</p>
-            <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
-              <button class="btn-outline" style="flex: 1; padding: 0.4rem; font-size: 0.8rem;">Edit</button>
-              <button class="btn-outline" style="flex: 1; padding: 0.4rem; font-size: 0.8rem; color: #ef4444;">Delete</button>
+        <!-- Mock listings -->
+        <div class="product-grid" style="grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));">
+          <div class="card">
+            <img src="assets/iphone.png" alt="iPhone" class="card-img" style="aspect-ratio: 16/9;">
+            <div class="card-content">
+              <h4 class="card-title" style="font-size: 0.95rem;">iPhone 13 Pro</h4>
+              <p class="card-price" style="font-size: 1rem;">৳82,500</p>
+              <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+                <button class="btn-outline" style="flex: 1; padding: 0.4rem; font-size: 0.8rem;">Edit</button>
+                <button class="btn-outline"
+                  style="flex: 1; padding: 0.4rem; font-size: 0.8rem; color: #ef4444;">Delete</button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </section>
-  </div>
-</main>
+      </section>
+    </div>
+  </main>
 
-<footer class="site-footer">
-  <div class="container">
-    <div class="footer-grid">
-      <div>
-        <a href="index.html" class="footer-logo logo">ReSale.</a>
-        <p style="color: #94a3b8; line-height: 1.6;">Your ultimate destination for high-quality, pre-owned electronic devices. Secure, reliable, and transparent.</p>
-      </div>
-      <div>
-        <h4 class="footer-title">Quick Links</h4>
-        <ul class="footer-links">
-          <li><a href="index.html">Browse Listings</a></li>
-          <li><a href="wallet.html">Escrow Wallet</a></li>
-          <li><a href="chat.html">Messages</a></li>
-          <li><a href="profile.html">Become a Seller</a></li>
-        </ul>
-      </div>
-      <div>
-        <h4 class="footer-title">Support</h4>
-        <ul class="footer-links">
-          <li><a href="#">Safety Tips</a></li>
-          <li><a href="#">Help Center</a></li>
-          <li><a href="#">Escrow Policy</a></li>
-          <li><a href="#">Report Issue</a></li>
-        </ul>
-      </div>
-      <div>
-        <h4 class="footer-title">Newsletter</h4>
-        <p style="color: #94a3b8; font-size: 0.9rem; margin-bottom: 1rem;">Get the latest tech deals in your inbox.</p>
-        <div style="display: flex; gap: 0.5rem;">
-          <input type="text" placeholder="Email" class="form-input" style="background: #1e293b; border-color: #334155; color: white;">
-          <button class="btn-primary" style="padding: 0 1rem;">Join</button>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div>
+          <a href="index.html" class="footer-logo logo">ReSale.</a>
+          <p style="color: #94a3b8; line-height: 1.6;">Your ultimate destination for high-quality, pre-owned electronic
+            devices. Secure, reliable, and transparent.</p>
+        </div>
+        <div>
+          <h4 class="footer-title">Quick Links</h4>
+          <ul class="footer-links">
+            <li><a href="index.html">Browse Listings</a></li>
+            <li><a href="wallet.html">Escrow Wallet</a></li>
+            <li><a href="chat.html">Messages</a></li>
+            <li><a href="profile.html">Become a Seller</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="footer-title">Support</h4>
+          <ul class="footer-links">
+            <li><a href="#">Safety Tips</a></li>
+            <li><a href="#">Help Center</a></li>
+            <li><a href="#">Escrow Policy</a></li>
+            <li><a href="#">Report Issue</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="footer-title">Newsletter</h4>
+          <p style="color: #94a3b8; font-size: 0.9rem; margin-bottom: 1rem;">Get the latest tech deals in your inbox.
+          </p>
+          <div style="display: flex; gap: 0.5rem;">
+            <input type="text" placeholder="Email" class="form-input"
+              style="background: #1e293b; border-color: #334155; color: white;">
+            <button class="btn-primary" style="padding: 0 1rem;">Join</button>
+          </div>
         </div>
       </div>
+      <div class="footer-bottom">
+        &copy; 2026 ReSell Marketplace. Built with ❤️ for Aononto Jahan.
+      </div>
     </div>
-    <div class="footer-bottom">
-      &copy; 2026 ReSell Marketplace. Built with ❤️ for Aononto Jahan.
-    </div>
-  </div>
-</footer>
+  </footer>
 
-<script src="js/app.js"></script>
+  <script src="js/app.js"></script>
 </body>
+
 </html>
