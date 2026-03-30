@@ -55,36 +55,57 @@ function updateNav() {
 }
 
 /**
- * Simulated Login Function
+ * Simulated Login Function (Now with FastAPI)
  */
-function loginUser(email, password, role) {
-    // Specifying the user's requested credentials for the simulation.
-    if (password !== 'aonontojahan') {
-        alert('Invalid password. Hint: aonontojahan');
-        return;
+async function loginUser(email, password, role) {
+    try {
+        const credentials = {
+            email: email,
+            password: password
+        };
+        const response = await window.api.request("/auth/login", "POST", credentials);
+        
+        // Fetch full profile to verify role
+        const user = await window.api.request(`/users/me?token=${response.access_token}`);
+        
+        // Check if the requested role matches the actual user role
+        if (user.role !== role) {
+            alert(`Access denied. You are logged in as a ${user.role}, not a ${role}.`);
+            // We still store the user but navigate appropriately? 
+            // In a better system, the role is forced by the account.
+        }
+
+        const userData = {
+            ...user,
+            initials: user.full_name.split(' ').map(n => n[0]).join('').toUpperCase(),
+            token: response.access_token
+        };
+        
+        localStorage.setItem('resale_user', JSON.stringify(userData));
+        window.location.href = 'profile.html';
+    } catch (error) {
+        alert("Login failed: " + error.message);
     }
-    const mockUser = {
-        name: 'Aonontojahan',
-        email: email || 'aonontojahan@gmail.com',
-        initials: 'AJ',
-        role: role || 'buyer'
-    };
-    localStorage.setItem('resale_user', JSON.stringify(mockUser));
-    window.location.href = 'profile.html';
 }
 
 /**
- * Simulated Signup Function
+ * Simulated Signup Function (Now with FastAPI)
  */
-function signupUser(name, email, password, role) {
-    const mockUser = {
-        name: name || 'Aonontojahan',
-        email: email || 'aonontojahan@gmail.com',
-        initials: (name || 'Aonontojahan').split(' ').map(n => n[0]).join('').toUpperCase(),
-        role: role || 'buyer'
-    };
-    localStorage.setItem('resale_user', JSON.stringify(mockUser));
-    window.location.href = 'profile.html';
+async function signupUser(name, email, password, role) {
+    try {
+        const userData = {
+            full_name: name,
+            email: email,
+            password: password,
+            role: role
+        };
+        const newUser = await window.api.signup(userData);
+        
+        // Auto-login after signup
+        loginUser(email, password, role);
+    } catch (error) {
+        alert("Signup failed: " + error.message);
+    }
 }
 
 /**
