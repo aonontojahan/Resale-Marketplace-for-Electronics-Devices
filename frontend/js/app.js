@@ -16,33 +16,47 @@ function updateNav() {
     const nav = document.querySelector('nav');
     if (!nav) return;
 
+    // Ensure Logo text is consistent
+    const logoEl = document.querySelector('.logo');
+    if (logoEl) {
+        logoEl.innerText = "ReSale.";
+    }
+
     const user = getUser();
     const currentPath = window.location.pathname;
 
     if (user) {
         const role = user.role || 'buyer';
-        let navHtml = `<a href="index.html#about" class="">About Us</a>`;
+        let navHtml = ``;
 
         if (role === 'admin') {
             navHtml += `
                 <a href="#" class="">Dashboard</a>
                 <a href="#" class="">Users</a>
-                <a href="profile.html" class="${currentPath.includes('profile') ? 'active' : ''}">Profile</a>
             `;
         } else if (role === 'seller') {
             navHtml += `
                 <a href="chat.html" class="${currentPath.includes('chat') ? 'active' : ''}">Messages</a>
                 <a href="wallet.html" class="${currentPath.includes('wallet') ? 'active' : ''}">Wallet</a>
-                <a href="profile.html" class="${currentPath.includes('profile') ? 'active' : ''}">My Store</a>
             `;
         } else {
             // Buyer
             navHtml += `
                 <a href="chat.html" class="${currentPath.includes('chat') ? 'active' : ''}">Messages</a>
                 <a href="wallet.html" class="${currentPath.includes('wallet') ? 'active' : ''}">Wallet</a>
-                <a href="profile.html" class="${currentPath.includes('profile') ? 'active' : ''}">Profile</a>
             `;
         }
+
+        // Add User Profile Section (Clickable)
+        navHtml += `
+            <a href="profile.html" class="nav-user-container">
+                <div class="nav-user">
+                    <span class="nav-username">${user.full_name.split(' ')[0]}</span>
+                    <div class="nav-avatar">${user.initials}</div>
+                </div>
+            </a>
+        `;
+        
         nav.innerHTML = navHtml;
     } else {
         // Logged Out: Show Browse, Login, Signup
@@ -55,36 +69,57 @@ function updateNav() {
 }
 
 /**
- * Simulated Login Function
+ * Simulated Login Function (Now with FastAPI)
  */
-function loginUser(email, password, role) {
-    // Specifying the user's requested credentials for the simulation.
-    if (password !== 'aonontojahan') {
-        alert('Invalid password. Hint: aonontojahan');
-        return;
+async function loginUser(email, password, role) {
+    try {
+        const credentials = {
+            email: email,
+            password: password
+        };
+        const response = await window.api.request("/auth/login", "POST", credentials);
+        
+        // Fetch full profile to verify role
+        const user = await window.api.request(`/users/me?token=${response.access_token}`);
+        
+        // Check if the requested role matches the actual user role
+        if (user.role !== role) {
+            alert(`Access denied. You are logged in as a ${user.role}, not a ${role}.`);
+            // We still store the user but navigate appropriately? 
+            // In a better system, the role is forced by the account.
+        }
+
+        const userData = {
+            ...user,
+            initials: user.full_name.split(' ').map(n => n[0]).join('').toUpperCase(),
+            token: response.access_token
+        };
+        
+        localStorage.setItem('resale_user', JSON.stringify(userData));
+        window.location.href = 'profile.html';
+    } catch (error) {
+        alert("Login failed: " + error.message);
     }
-    const mockUser = {
-        name: 'Aonontojahan',
-        email: email || 'aonontojahan@gmail.com',
-        initials: 'AJ',
-        role: role || 'buyer'
-    };
-    localStorage.setItem('resale_user', JSON.stringify(mockUser));
-    window.location.href = 'profile.html';
 }
 
 /**
- * Simulated Signup Function
+ * Simulated Signup Function (Now with FastAPI)
  */
-function signupUser(name, email, password, role) {
-    const mockUser = {
-        name: name || 'Aonontojahan',
-        email: email || 'aonontojahan@gmail.com',
-        initials: (name || 'Aonontojahan').split(' ').map(n => n[0]).join('').toUpperCase(),
-        role: role || 'buyer'
-    };
-    localStorage.setItem('resale_user', JSON.stringify(mockUser));
-    window.location.href = 'profile.html';
+async function signupUser(name, email, password, role) {
+    try {
+        const userData = {
+            full_name: name,
+            email: email,
+            password: password,
+            role: role
+        };
+        const newUser = await window.api.signup(userData);
+        
+        // Auto-login after signup
+        loginUser(email, password, role);
+    } catch (error) {
+        alert("Signup failed: " + error.message);
+    }
 }
 
 /**
@@ -193,6 +228,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize Navigation
     updateNav();
 
+    // ---- APP VIEW MODE ----
+    // If a user is logged in, hide marketing sections (hero, about, features, safety)
+    const currentUser = getUser();
+    if (currentUser) {
+        document.body.classList.add('app-view');
+    }
+
     // Load Dynamic Product Details (if on product.html)
     if (window.location.pathname.includes('product.html')) {
         loadProductDetails();
@@ -250,7 +292,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const user = getUser();
         if (user) {
             const role = user.role || 'buyer';
-            if (userNameEl) userNameEl.innerText = user.name;
+            if (userNameEl) userNameEl.innerText = user.full_name;
             if (userEmailEl) userEmailEl.innerText = user.email;
             if (userInitialsEl) userInitialsEl.innerText = user.initials;
             
