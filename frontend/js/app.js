@@ -21,7 +21,7 @@ function updateNav() {
 
     if (user) {
         const role = user.role || 'buyer';
-        let navHtml = `<a href="index.html" class="${currentPath.includes('index') ? 'active' : ''}">Browse</a>`;
+        let navHtml = `<a href="index.html#about" class="">About Us</a>`;
 
         if (role === 'admin') {
             navHtml += `
@@ -47,7 +47,7 @@ function updateNav() {
     } else {
         // Logged Out: Show Browse, Login, Signup
         nav.innerHTML = `
-            <a href="index.html" class="${currentPath.includes('index') ? 'active' : ''}">Browse</a>
+            <a href="index.html#about">About Us</a>
             <a href="login.html" class="${currentPath.includes('login') ? 'active' : ''}">Login</a>
             <a href="signup.html" class="${currentPath.includes('signup') ? 'active' : ''}">Sign Up</a>
         `;
