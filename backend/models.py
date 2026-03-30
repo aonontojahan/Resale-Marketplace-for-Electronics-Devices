@@ -1,0 +1,25 @@
+import enum
+from sqlalchemy import Column, Integer, String, Enum, DateTime
+from sqlalchemy.sql import func
+from .database import Base
+
+class UserRole(str, enum.Enum):
+    ADMIN = "admin"
+    SELLER = "seller"
+    BUYER = "buyer"
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    full_name = Column(String, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    role = Column(Enum(UserRole), default=UserRole.BUYER, nullable=False)
+    
+    # Store user creation and update time
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    def __repr__(self):
+        return f"<User(email='{self.email}', role='{self.role}')>"
