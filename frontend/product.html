@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,110 +8,119 @@
   <link rel="stylesheet" href="css/style.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
+
 <body>
 
-<header>
-  <div class="container">
-    <a href="index.html" class="logo">ReSale.</a>
-    
-    <div class="search-container">
-      <input type="text" placeholder="Search for electronics..." class="search-bar">
+  <header>
+    <div class="container">
+      <a href="index.html" class="logo">ReSale.</a>
+
+      <div class="search-container">
+        <input type="text" placeholder="Search for electronics..." class="search-bar">
+      </div>
+
+      <nav>
+        <!-- Navigation links dynamically injected by app.js -->
+      </nav>
     </div>
+  </header>
 
-    <nav>
-      <!-- Navigation links dynamically injected by app.js -->
-    </nav>
-  </div>
-</header>
+  <main class="container">
+    <div class="product-layout">
+      <!-- LEFT: IMAGE GALLERY -->
+      <div class="product-gallery">
+        <img src="assets/iphone.png" alt="iPhone 13 Pro" id="productImg">
+      </div>
 
-<main class="container">
-  <div class="product-layout">
-    <!-- LEFT: IMAGE GALLERY -->
-    <div class="product-gallery">
-      <img src="assets/iphone.png" alt="iPhone 13 Pro" id="productImg">
-    </div>
+      <!-- RIGHT: PRODUCT INFO -->
+      <div class="product-details">
+        <div>
+          <h1 id="productTitle" class="card-title" style="font-size: 2rem;">iPhone 13 Pro - 256GB Midnight</h1>
+          <p id="productPrice" class="product-price-large">৳82,500</p>
+          <div style="margin-top: 0.5rem;">
+            <span id="productBadge" class="badge badge-condition">Like New</span>
+            <span id="productRating" class="badge badge-rating">⭐ 4.9 (42 reviews)</span>
+          </div>
+        </div>
 
-    <!-- RIGHT: PRODUCT INFO -->
-    <div class="product-details">
-      <div>
-        <h1 id="productTitle" class="card-title" style="font-size: 2rem;">iPhone 13 Pro - 256GB Midnight</h1>
-        <p id="productPrice" class="product-price-large">৳82,500</p>
-        <div style="margin-top: 0.5rem;">
-          <span id="productBadge" class="badge badge-condition">Like New</span>
-          <span id="productRating" class="badge badge-rating">⭐ 4.9 (42 reviews)</span>
+        <div class="product-description">
+          <h3 style="margin-bottom: 0.5rem; color: var(--text);">Description</h3>
+          <p id="productDesc">This iPhone 13 Pro is in excellent condition, barely used for 3 months. Battery health is
+            at 98%. It includes the original box and a protective case. Unlocked and ready for any carrier.</p>
+        </div>
+
+        <div class="seller-card">
+          <h3 style="margin-bottom: 1rem; color: var(--text);">Seller Information</h3>
+          <div style="display: flex; align-items: center; gap: 1rem;">
+            <div
+              style="width: 50px; height: 50px; background: #e2e8f0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--primary);">
+              AJ</div>
+            <div>
+              <p style="font-weight: 600;">Aonontojahan</p>
+              <p style="font-size: 0.85rem; color: var(--text-muted);">Member since 2026 • Verified Seller</p>
+              <p style="font-size: 0.85rem; color: var(--text-muted);">📍 Dhaka, Bangladesh</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="product-actions">
+          <button class="btn-outline" onclick="goToChat()">Message Seller</button>
+          <button class="btn-primary" onclick="alert('Proceeding to Escrow Checkout...')">Buy with Escrow</button>
         </div>
       </div>
+    </div>
+  </main>
 
-      <div class="product-description">
-        <h3 style="margin-bottom: 0.5rem; color: var(--text);">Description</h3>
-        <p id="productDesc">This iPhone 13 Pro is in excellent condition, barely used for 3 months. Battery health is at 98%. It includes the original box and a protective case. Unlocked and ready for any carrier.</p>
-      </div>
 
-      <div class="seller-card">
-        <h3 style="margin-bottom: 1rem; color: var(--text);">Seller Information</h3>
-        <div style="display: flex; align-items: center; gap: 1rem;">
-          <div style="width: 50px; height: 50px; background: #e2e8f0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--primary);">AJ</div>
-          <div>
-            <p style="font-weight: 600;">Aonontojahan</p>
-            <p style="font-size: 0.85rem; color: var(--text-muted);">Member since 2026 • Verified Seller</p>
-            <p style="font-size: 0.85rem; color: var(--text-muted);">📍 Dhaka, Bangladesh</p>
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div>
+          <a href="index.html" class="footer-logo logo">ReSale.</a>
+          <p style="color: #94a3b8; line-height: 1.6;">Your ultimate destination for high-quality, pre-owned electronic
+            devices. Secure, reliable, and transparent.</p>
+        </div>
+        <div>
+          <h4 class="footer-title">Quick Links</h4>
+          <ul class="footer-links">
+            <li><a href="index.html">Browse Listings</a></li>
+            <li><a href="wallet.html">Escrow Wallet</a></li>
+            <li><a href="chat.html">Messages</a></li>
+            <li><a href="profile.html">Become a Seller</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="footer-title">Support</h4>
+          <ul class="footer-links">
+            <li><a href="#">Safety Tips</a></li>
+            <li><a href="#">Help Center</a></li>
+            <li><a href="#">Escrow Policy</a></li>
+            <li><a href="#">Report Issue</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="footer-title">Newsletter</h4>
+          <p style="color: #94a3b8; font-size: 0.9rem; margin-bottom: 1rem;">Get the latest tech deals in your inbox.
+          </p>
+          <div style="display: flex; gap: 0.5rem;">
+            <input type="text" placeholder="Email" class="form-input"
+              style="background: #1e293b; border-color: #334155; color: white;">
+            <button class="btn-primary" style="padding: 0 1rem;">Join</button>
           </div>
         </div>
       </div>
-
-      <div class="product-actions">
-        <button class="btn-outline" onclick="goToChat()">Message Seller</button>
-        <button class="btn-primary" onclick="alert('Proceeding to Escrow Checkout...')">Buy with Escrow</button>
+      <div class="footer-bottom">
+        &copy; 2026 ReSell Marketplace. Built with ❤️ for Aononto Jahan.
       </div>
     </div>
-  </div>
-</main>
+  </footer>
 
-<footer class="site-footer">
-  <div class="container">
-    <div class="footer-grid">
-      <div>
-        <a href="index.html" class="footer-logo logo">ReSale.</a>
-        <p style="color: #94a3b8; line-height: 1.6;">Your ultimate destination for high-quality, pre-owned electronic devices. Secure, reliable, and transparent.</p>
-      </div>
-      <div>
-        <h4 class="footer-title">Quick Links</h4>
-        <ul class="footer-links">
-          <li><a href="index.html">Browse Listings</a></li>
-          <li><a href="wallet.html">Escrow Wallet</a></li>
-          <li><a href="chat.html">Messages</a></li>
-          <li><a href="profile.html">Become a Seller</a></li>
-        </ul>
-      </div>
-      <div>
-        <h4 class="footer-title">Support</h4>
-        <ul class="footer-links">
-          <li><a href="#">Safety Tips</a></li>
-          <li><a href="#">Help Center</a></li>
-          <li><a href="#">Escrow Policy</a></li>
-          <li><a href="#">Report Issue</a></li>
-        </ul>
-      </div>
-      <div>
-        <h4 class="footer-title">Newsletter</h4>
-        <p style="color: #94a3b8; font-size: 0.9rem; margin-bottom: 1rem;">Get the latest tech deals in your inbox.</p>
-        <div style="display: flex; gap: 0.5rem;">
-          <input type="text" placeholder="Email" class="form-input" style="background: #1e293b; border-color: #334155; color: white;">
-          <button class="btn-primary" style="padding: 0 1rem;">Join</button>
-        </div>
-      </div>
-    </div>
-    <div class="footer-bottom">
-      &copy; 2026 ReSell Marketplace. Built with ❤️ for Aononto Jahan.
-    </div>
-  </div>
-</footer>
-
-<script src="js/app.js"></script>
-<script>
-  function goToChat() {
-    window.location.href = 'chat.html';
-  }
-</script>
+  <script src="js/app.js"></script>
+  <script>
+    function goToChat() {
+      window.location.href = 'chat.html';
+    }
+  </script>
 </body>
+
 </html>
