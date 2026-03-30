@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,107 +8,114 @@
   <link rel="stylesheet" href="css/style.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
+
 <body>
 
-<header>
-  <div class="container">
-    <a href="index.html" class="logo">ReSale.</a>
-    
-    <div class="search-container">
-      <input type="text" placeholder="Search for electronics..." class="search-bar">
-    </div>
+  <header>
+    <div class="container">
+      <a href="index.html" class="logo">ReSale.</a>
 
-    <nav>
-      <!-- Navigation links dynamically injected by app.js -->
-    </nav>
-  </div>
-</header>
+      <div class="search-container">
+        <input type="text" placeholder="Search for electronics..." class="search-bar">
+      </div>
 
-<main class="container">
-  <h2 class="section-title">Wallet Dashboard</h2>
+      <nav>
+        <!-- Navigation links dynamically injected by app.js -->
+      </nav>
+    </div>
+  </header>
 
-  <div class="wallet-grid">
-    <div class="wallet-card available">
-      <h3>Available Balance</h3>
-      <p class="balance">৳1,45,000</p>
-      <div style="margin-top: 2rem;">
-        <button class="btn-primary" style="width: 100%; border-radius: 8px;">Withdraw Funds</button>
-      </div>
-    </div>
+  <main class="container">
+    <h2 class="section-title">Wallet Dashboard</h2>
 
-    <div class="wallet-card escrow">
-      <h3>Escrow Balance</h3>
-      <p class="balance">৳75,000</p>
-      <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 1rem;">These funds are held securely until the buyer confirms receipt of the item.</p>
-    </div>
-  </div>
-
-  <div class="recent-transactions">
-    <div class="transactions-header">Recent Transactions</div>
-    <div class="transaction-item">
-      <div>
-        <p style="font-weight: 600;">Sale: MacBook Air M1</p>
-        <p style="font-size: 0.85rem; color: var(--text-muted);">March 28, 2026</p>
-      </div>
-      <div style="color: var(--accent-green); font-weight: 700;">+৳85,000</div>
-    </div>
-    <div class="transaction-item">
-      <div>
-        <p style="font-weight: 600;">Withdrawal to Bank</p>
-        <p style="font-size: 0.85rem; color: var(--text-muted);">March 25, 2026</p>
-      </div>
-      <div style="color: var(--secondary); font-weight: 700;">-৳25,000</div>
-    </div>
-    <div class="transaction-item">
-      <div>
-        <p style="font-weight: 600;">Sale: Sony Headphones</p>
-        <p style="font-size: 0.85rem; color: var(--text-muted);">March 20, 2026</p>
-      </div>
-      <div style="color: var(--accent-green); font-weight: 700;">+৳12,500</div>
-    </div>
-  </div>
-</main>
-
-<footer class="site-footer">
-  <div class="container">
-    <div class="footer-grid">
-      <div>
-        <a href="index.html" class="footer-logo logo">ReSale.</a>
-        <p style="color: #94a3b8; line-height: 1.6;">Your ultimate destination for high-quality, pre-owned electronic devices. Secure, reliable, and transparent.</p>
-      </div>
-      <div>
-        <h4 class="footer-title">Quick Links</h4>
-        <ul class="footer-links">
-          <li><a href="index.html">Browse Listings</a></li>
-          <li><a href="wallet.html">Escrow Wallet</a></li>
-          <li><a href="chat.html">Messages</a></li>
-          <li><a href="profile.html">Become a Seller</a></li>
-        </ul>
-      </div>
-      <div>
-        <h4 class="footer-title">Support</h4>
-        <ul class="footer-links">
-          <li><a href="#">Safety Tips</a></li>
-          <li><a href="#">Help Center</a></li>
-          <li><a href="#">Escrow Policy</a></li>
-          <li><a href="#">Report Issue</a></li>
-        </ul>
-      </div>
-      <div>
-        <h4 class="footer-title">Newsletter</h4>
-        <p style="color: #94a3b8; font-size: 0.9rem; margin-bottom: 1rem;">Get the latest tech deals in your inbox.</p>
-        <div style="display: flex; gap: 0.5rem;">
-          <input type="text" placeholder="Email" class="form-input" style="background: #1e293b; border-color: #334155; color: white;">
-          <button class="btn-primary" style="padding: 0 1rem;">Join</button>
+    <div class="wallet-grid">
+      <div class="wallet-card available">
+        <h3>Available Balance</h3>
+        <p class="balance">৳1,45,000</p>
+        <div style="margin-top: 2rem;">
+          <button class="btn-primary" style="width: 100%; border-radius: 8px;">Withdraw Funds</button>
         </div>
       </div>
-    </div>
-    <div class="footer-bottom">
-      &copy; 2026 ReSell Marketplace. Built with ❤️ for Aononto Jahan.
-    </div>
-  </div>
-</footer>
 
-<script src="js/app.js"></script>
+      <div class="wallet-card escrow">
+        <h3>Escrow Balance</h3>
+        <p class="balance">৳75,000</p>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 1rem;">These funds are held securely until
+          the buyer confirms receipt of the item.</p>
+      </div>
+    </div>
+
+    <div class="recent-transactions">
+      <div class="transactions-header">Recent Transactions</div>
+      <div class="transaction-item">
+        <div>
+          <p style="font-weight: 600;">Sale: MacBook Air M1</p>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">March 28, 2026</p>
+        </div>
+        <div style="color: var(--accent-green); font-weight: 700;">+৳85,000</div>
+      </div>
+      <div class="transaction-item">
+        <div>
+          <p style="font-weight: 600;">Withdrawal to Bank</p>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">March 25, 2026</p>
+        </div>
+        <div style="color: var(--secondary); font-weight: 700;">-৳25,000</div>
+      </div>
+      <div class="transaction-item">
+        <div>
+          <p style="font-weight: 600;">Sale: Sony Headphones</p>
+          <p style="font-size: 0.85rem; color: var(--text-muted);">March 20, 2026</p>
+        </div>
+        <div style="color: var(--accent-green); font-weight: 700;">+৳12,500</div>
+      </div>
+    </div>
+  </main>
+
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div>
+          <a href="index.html" class="footer-logo logo">ReSale.</a>
+          <p style="color: #94a3b8; line-height: 1.6;">Your ultimate destination for high-quality, pre-owned electronic
+            devices. Secure, reliable, and transparent.</p>
+        </div>
+        <div>
+          <h4 class="footer-title">Quick Links</h4>
+          <ul class="footer-links">
+            <li><a href="index.html">Browse Listings</a></li>
+            <li><a href="wallet.html">Escrow Wallet</a></li>
+            <li><a href="chat.html">Messages</a></li>
+            <li><a href="profile.html">Become a Seller</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="footer-title">Support</h4>
+          <ul class="footer-links">
+            <li><a href="#">Safety Tips</a></li>
+            <li><a href="#">Help Center</a></li>
+            <li><a href="#">Escrow Policy</a></li>
+            <li><a href="#">Report Issue</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="footer-title">Newsletter</h4>
+          <p style="color: #94a3b8; font-size: 0.9rem; margin-bottom: 1rem;">Get the latest tech deals in your inbox.
+          </p>
+          <div style="display: flex; gap: 0.5rem;">
+            <input type="text" placeholder="Email" class="form-input"
+              style="background: #1e293b; border-color: #334155; color: white;">
+            <button class="btn-primary" style="padding: 0 1rem;">Join</button>
+          </div>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        &copy; 2026 ReSell Marketplace. Built with ❤️ for Aononto Jahan.
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/app.js"></script>
 </body>
+
 </html>
