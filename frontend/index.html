@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ReSale | Secure Electronics Marketplace</title>
+  <link rel="stylesheet" href="css/style.css">
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<header>
+  <div class="container">
+    <a href="index.html" class="logo">ReSale.</a>
+    
+    <div class="search-container">
+      <input type="text" placeholder="Search for iPhones, MacBooks, Sony Cameras..." class="search-bar">
+    </div>
+
+    <nav>
+      <!-- Navigation links dynamically injected by app.js -->
+    </nav>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="container">
+    <div class="hero-content">
+      <h1>Upgrade Your Tech, <span class="text-gradient">Securely.</span></h1>
+      <p>The most trusted marketplace for pre-owned electronic devices in Bangladesh. Buy and sell with 100% Escrow security.</p>
+      <div class="hero-btns">
+        <a href="#listings" class="btn-primary" style="padding: 1rem 2rem;">Browse All</a>
+        <a href="profile.html" class="btn-outline" style="padding: 1rem 2rem;">Start Selling</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<main class="container" id="listings">
+  <h2 class="section-title">Featured Listings</h2>
+
+  <div class="product-grid">
+    <!-- PRODUCT CARD 1 -->
+    <div class="card">
+      <img src="assets/iphone.png" alt="iPhone 13 Pro" class="card-img">
+      <div class="card-content">
+        <h3 class="card-title">iPhone 13 Pro - 256GB</h3>
+        <p class="card-price">৳82,500</p>
+        <p class="card-meta">
+          <span class="badge badge-condition">Like New</span>
+          <span class="badge badge-rating">⭐ 4.9</span>
+        </p>
+        <button class="btn-view" onclick="viewProduct('iphone-13')">View Details</button>
+      </div>
+    </div>
+
+    <!-- PRODUCT CARD 2 -->
+    <div class="card">
+      <img src="assets/macbook.png" alt="MacBook Air M2" class="card-img">
+      <div class="card-content">
+        <h3 class="card-title">MacBook Air M2 (2022)</h3>
+        <p class="card-price">৳1,15,000</p>
+        <p class="card-meta">
+          <span class="badge badge-condition">Excellent</span>
+          <span class="badge badge-rating">⭐ 4.8</span>
+        </p>
+        <button class="btn-view" onclick="viewProduct('macbook-m2')">View Details</button>
+      </div>
+    </div>
+
+    <!-- PRODUCT CARD 3 -->
+    <div class="card">
+      <img src="assets/sony.png" alt="Sony Alpha a7 III" class="card-img">
+      <div class="card-content">
+        <h3 class="card-title">Sony Alpha a7 III - Body</h3>
+        <p class="card-price">৳1,35,000</p>
+        <p class="card-meta">
+          <span class="badge badge-condition">Good</span>
+          <span class="badge badge-rating">⭐ 4.7</span>
+        </p>
+        <button class="btn-view" onclick="viewProduct('sony-a7iii')">View Details</button>
+      </div>
+    </div>
+
+    <!-- PRODUCT CARD 4 -->
+    <div class="card">
+      <img src="assets/ipad.png" alt="iPad Pro 11-inch" class="card-img">
+      <div class="card-content">
+        <h3 class="card-title">iPad Pro 11-inch (M1)</h3>
+        <p class="card-price">৳72,000</p>
+        <p class="card-meta">
+          <span class="badge badge-condition">Flawless</span>
+          <span class="badge badge-rating">⭐ 5.0</span>
+        </p>
+        <button class="btn-view" onclick="viewProduct('ipad-pro')">View Details</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <a href="index.html" class="footer-logo logo">ReSale.</a>
+        <p style="color: #94a3b8; line-height: 1.6;">Your ultimate destination for high-quality, pre-owned electronic devices. Secure, reliable, and transparent.</p>
+      </div>
+      <div>
+        <h4 class="footer-title">Quick Links</h4>
+        <ul class="footer-links">
+          <li><a href="index.html">Browse Listings</a></li>
+          <li><a href="wallet.html">Escrow Wallet</a></li>
+          <li><a href="chat.html">Messages</a></li>
+          <li><a href="profile.html">Become a Seller</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="footer-title">Support</h4>
+        <ul class="footer-links">
+          <li><a href="#">Safety Tips</a></li>
+          <li><a href="#">Help Center</a></li>
+          <li><a href="#">Escrow Policy</a></li>
+          <li><a href="#">Report Issue</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="footer-title">Newsletter</h4>
+        <p style="color: #94a3b8; font-size: 0.9rem; margin-bottom: 1rem;">Get the latest tech deals in your inbox.</p>
+        <div style="display: flex; gap: 0.5rem;">
+          <input type="text" placeholder="Email" class="form-input" style="background: #1e293b; border-color: #334155; color: white;">
+          <button class="btn-primary" style="padding: 0 1rem;">Join</button>
+        </div>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      &copy; 2026 ReSell Marketplace. Built with ❤️ for Aononto Jahan.
+    </div>
+  </div>
+</footer>
+
+<script src="js/app.js"></script>
+</body>
+</html>
