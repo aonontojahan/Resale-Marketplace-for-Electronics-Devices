@@ -21,7 +21,7 @@ ReSale is a full-stack, secure marketplace for pre-owned high-end electronics in
 pip install -r requirements.txt
 
 # Start the FastAPI server
-uvicorn backend.main:app --reload
+
 ```
 
 ### 3. Accessing the Application
