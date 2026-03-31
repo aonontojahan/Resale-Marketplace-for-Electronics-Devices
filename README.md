@@ -22,11 +22,11 @@ pip install -r requirements.txt
 
 # Start the FastAPI server
 
-```
+uvicorn backend.main:app --reload
 
 ### 3. Accessing the Application
 - **Frontend**: Open `frontend/index.html` in your browser.
 - **API Documentation**: Visit `http://localhost:8000/docs`.
 
 ---
-Built with ❤️ for ReSale Marketplace.
+Built by Aononto Jahan. 

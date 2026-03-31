@@ -328,6 +328,29 @@ function updateNav() {
             </a>
         `;
         nav.innerHTML = navHtml;
+
+        // Dynamic Footer and Empty State Updates
+        const emptyBtn = document.getElementById('emptySignupBtn');
+        if (emptyBtn) {
+            if (role === 'seller') {
+                emptyBtn.href = 'profile.html';
+                emptyBtn.innerText = 'Go to Dashboard to List →';
+            } else {
+                emptyBtn.style.display = 'none';
+            }
+        }
+        
+        // Hide marketing footer links for logged-in users
+        const footerLinks = document.querySelectorAll('.footer-links li a');
+        footerLinks.forEach(link => {
+            const href = link.getAttribute('href');
+            if (href === 'signup.html' || href === '#safety' || href === 'index.html#safety' || href === 'escrow-policy.html' || href === 'escrow-policy.html#dispute' || href === 'escrow-policy.html#terms' || href === 'escrow-policy.html#privacy') {
+                // Keep the legal links that might still be applicable, but definitely hide signup and safety (if safety is hidden on app view)
+                if (href === 'signup.html' || href === '#safety') {
+                    link.parentElement.style.display = 'none';
+                }
+            }
+        });
     } else {
         nav.innerHTML = `
             <a href="index.html#about">About Us</a>
