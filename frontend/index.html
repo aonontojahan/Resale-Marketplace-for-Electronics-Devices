@@ -5,6 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ReSale | Secure Electronics Marketplace</title>
+  <meta name="description" content="Bangladesh's most trusted pre-owned electronics marketplace with full Escrow protection. Buy and sell iPhones, MacBooks, Cameras and more — securely.">
   <link rel="stylesheet" href="css/style.css">
   <!-- Google Fonts: Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,7 +20,7 @@
       <a href="index.html" class="logo">ReSale.</a>
 
       <div class="search-container">
-        <input type="text" placeholder="Search for iPhones, MacBooks, Sony Cameras..." class="search-bar">
+        <input type="text" id="mainSearchBar" placeholder="Search for iPhones, MacBooks, Sony Cameras..." class="search-bar">
       </div>
 
       <nav>
@@ -28,22 +29,22 @@
     </div>
   </header>
 
+  <!-- ===== HERO (guest only — hidden in app-view) ===== -->
   <section class="hero">
     <div class="container">
       <div class="hero-content">
         <h1>Upgrade Your Tech, <span class="text-gradient">Securely.</span></h1>
-        <p>The most trusted marketplace for pre-owned electronic devices in Bangladesh. Buy and sell with 100% Escrow
-          security.</p>
+        <p>The most trusted marketplace for pre-owned electronic devices in Bangladesh. Buy and sell with 100% Escrow security.</p>
         <div class="hero-btns">
-          <a href="#listings" class="btn-primary">Browse All</a>
-          <a href="profile.html" class="btn-outline">Start Selling</a>
+          <a href="#listings" class="btn-primary">Browse All Listings</a>
+          <a href="signup.html" class="btn-outline">Start Selling</a>
           <a href="signup.html" class="btn-outline">Become a Buyer</a>
         </div>
       </div>
     </div>
   </section>
 
-
+  <!-- ===== ABOUT (guest only) ===== -->
   <section id="about" class="about-section">
     <div class="container">
       <div class="about-content-wrapper">
@@ -55,19 +56,20 @@
         </div>
         <div class="about-stats">
           <div class="stat-card">
-            <div class="stat-number">5K+</div>
+            <div class="stat-number" id="statTotalUsers">—</div>
             <div class="stat-label">Happy Users</div>
+            <div class="stat-sub" id="statUserBreakdown" style="font-size:0.75rem; color:var(--text-muted); margin-top:0.25rem;"></div>
           </div>
           <div class="stat-card">
-            <div class="stat-number">৳20M+</div>
-            <div class="stat-label">Secured Trade</div>
+            <div class="stat-number" id="statSellers">—</div>
+            <div class="stat-label">Active Sellers</div>
           </div>
           <div class="stat-card">
-            <div class="stat-number">99%</div>
+            <div class="stat-number" id="statSatisfaction">—</div>
             <div class="stat-label">Satisfaction</div>
           </div>
           <div class="stat-card">
-            <div class="stat-number">24h</div>
+            <div class="stat-number" id="statAvgSale">—</div>
             <div class="stat-label">Avg. Sale Time</div>
           </div>
         </div>
@@ -75,78 +77,73 @@
     </div>
   </section>
 
-  <section id="features" class="container" style="padding: 1rem 0 8rem;">
-    <h2 class="section-title" style="text-align: center;">Why Choose <span class="text-gradient">ReSale?</span></h2>
-    <div class="feature-grid-modern">
-      <div class="feature-card">
-        <div class="feature-icon">🛡️</div>
-        <h3>Smart Escrow</h3>
-        <p>Funds are held securely by us and only released when the buyer confirms the item's quality.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">💬</div>
-        <h3>Direct Chat</h3>
-        <p>Negotiate prices and share high-res photos directly through our encrypted messaging system.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">🚀</div>
-        <h3>Verified Tech</h3>
-        <p>Our team (or verified sellers) ensures that every serial number and IMEI is legitimate.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">💎</div>
-        <h3>Premium Only</h3>
-        <p>We focus exclusively on high-end electronics like iPhones, MacBooks, and Professional Cameras.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">📦</div>
-        <h3>Safe Shipping</h3>
-        <p>Optional doorstep inspection and delivery service for a completely hands-off experience.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">⌛</div>
-        <h3>7-Day Returns</h3>
-        <p>Not what you expected? Our standard protection includes a mock 7-day dispute window.</p>
-      </div>
-    </div>
-  </section>
-
-  <section id="safety" class="safety-tips-section">
+  <!-- ===== ESCROW SYSTEM OVERVIEW ===== -->
+  <section id="escrow" class="escrow-overview-section">
     <div class="container">
-      <h2 class="section-title">Safety <span class="text-gradient">Tips</span></h2>
-      <div class="about-grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem;">
-        <div class="safety-card">
-          <span style="font-size: 2.5rem;">📍</span>
+      <h2 class="section-title" style="text-align:center;">How Our <span class="text-gradient">Escrow System</span> Works</h2>
+      <p class="section-subtitle">Every transaction on ReSale is protected by our intelligent escrow engine — your money is always safe.</p>
+
+      <div class="escrow-steps">
+        <div class="escrow-step">
+          <div class="escrow-step-icon">💳</div>
+          <div class="escrow-step-num">01</div>
+          <h3>Buyer Deposits</h3>
+          <p>Buyer sends payment to the ReSale Escrow wallet. Funds are locked — seller cannot touch them yet.</p>
+        </div>
+        <div class="escrow-arrow">→</div>
+        <div class="escrow-step">
+          <div class="escrow-step-icon">📦</div>
+          <div class="escrow-step-num">02</div>
+          <h3>Seller Ships</h3>
+          <p>Seller sees funds are secured and ships the device. A tracking ID is submitted to the platform.</p>
+        </div>
+        <div class="escrow-arrow">→</div>
+        <div class="escrow-step">
+          <div class="escrow-step-icon">🔍</div>
+          <div class="escrow-step-num">03</div>
+          <h3>Buyer Inspects</h3>
+          <p>Buyer has a 7-day inspection window to verify condition, IMEI, and functionality of the device.</p>
+        </div>
+        <div class="escrow-arrow">→</div>
+        <div class="escrow-step">
+          <div class="escrow-step-icon">✅</div>
+          <div class="escrow-step-num">04</div>
+          <h3>Funds Released</h3>
+          <p>Buyer confirms satisfaction. Escrow releases funds immediately to the seller's wallet.</p>
+        </div>
+      </div>
+
+      <div class="escrow-policy-highlight">
+        <div class="escrow-policy-item">
+          <span class="policy-icon">🛡️</span>
           <div>
-            <h4 style="margin-bottom: 0.5rem;">Meeting Point</h4>
-            <p style="color: var(--text-muted); font-size: 0.9rem;">Always meet in a public, well-lit place like a mall or cafe. Never go to a private residence alone.</p>
+            <strong>7-Day Buyer Protection</strong>
+            <p>Raise a dispute within 7 days of receiving the item for a full refund.</p>
           </div>
         </div>
-        <div class="safety-card">
-          <span style="font-size: 2.5rem;">🔍</span>
+        <div class="escrow-policy-item">
+          <span class="policy-icon">⚖️</span>
           <div>
-            <h4 style="margin-bottom: 0.5rem;">Inspect Device</h4>
-            <p style="color: var(--text-muted); font-size: 0.9rem;">Thoroughly check the device (IMEI, battery health, screens) before releasing funds from Escrow.</p>
+            <strong>Neutral Dispute Resolution</strong>
+            <p>Our trust team reviews evidence from both parties and resolves within 48 hours.</p>
           </div>
         </div>
-        <div class="safety-card">
-          <span style="font-size: 2.5rem;">💳</span>
+        <div class="escrow-policy-item">
+          <span class="policy-icon">💰</span>
           <div>
-            <h4 style="margin-bottom: 0.5rem;">Secure Payment</h4>
-            <p style="color: var(--text-muted); font-size: 0.9rem;">Always use the ReSale Escrow system. Avoid cash or direct bank transfers outside the platform.</p>
+            <strong>2.5% Escrow Service Fee</strong>
+            <p>A small fee paid by the seller upon successful transaction completion only.</p>
           </div>
         </div>
-        <div class="safety-card">
-          <span style="font-size: 2.5rem;">📞</span>
-          <div>
-            <h4 style="margin-bottom: 0.5rem;">Verification</h4>
-            <p style="color: var(--text-muted); font-size: 0.9rem;">Only deal with verified users with good ratings and previous successful transactions.</p>
-          </div>
-        </div>
+      </div>
+
+      <div style="text-align:center; margin-top:2.5rem;">
+        <a href="escrow-policy.html" class="btn-primary" id="escrowPolicyBtn">Read Full Escrow &amp; Policy →</a>
       </div>
     </div>
   </section>
 
+  <!-- ===== SAFETY TIPS ===== -->
   <section id="safety" class="safety-tips-section">
     <div class="container">
       <h2 class="section-title" style="text-align: center; margin-bottom: 3rem;">Tradewise <span class="text-gradient">Safety Guard</span></h2>
@@ -162,7 +159,7 @@
           <span style="font-size: 2.5rem;">🔍</span>
           <div>
             <h4 style="margin-bottom: 0.5rem;">Technical Audit</h4>
-            <p style="color: var(--text-muted); font-size: 0.95rem;">Check the internal health—run benchmark tests and check for iCloud/Google locks before the final handshake.</p>
+            <p style="color: var(--text-muted); font-size: 0.95rem;">Check the internal health — run benchmark tests and check for iCloud/Google locks before the final handshake.</p>
           </div>
         </div>
         <div class="safety-card">
@@ -183,99 +180,34 @@
     </div>
   </section>
 
-
-
+  <!-- ===== LIVE LISTINGS ===== -->
   <main class="container" id="listings">
-    <h2 class="section-title">Featured Listings</h2>
-
-    <div class="product-grid">
-      <!-- PRODUCT CARD 1 -->
-      <div class="card">
-        <img src="assets/iphone.png" alt="iPhone 13 Pro" class="card-img">
-        <div class="card-content">
-          <h3 class="card-title">iPhone 13 Pro - 256GB</h3>
-          <p class="card-price">৳82,500</p>
-          <p class="card-meta">
-            <span class="badge badge-condition">Like New</span>
-            <span class="badge badge-rating">⭐ 4.9</span>
-          </p>
-          <button class="btn-view" onclick="viewProduct('iphone-13')">View Details</button>
-        </div>
+    <div class="listings-header">
+      <h2 class="section-title" style="margin-bottom:0;">Live <span class="text-gradient">Listings</span></h2>
+      <div class="listings-filter" id="listingsFilter">
+        <button class="filter-btn active" data-category="all" id="filterAll">All</button>
+        <button class="filter-btn" data-category="phone" id="filterPhone">📱 Phones</button>
+        <button class="filter-btn" data-category="laptop" id="filterLaptop">💻 Laptops</button>
+        <button class="filter-btn" data-category="camera" id="filterCamera">📷 Cameras</button>
+        <button class="filter-btn" data-category="tablet" id="filterTablet">📟 Tablets</button>
+        <button class="filter-btn" data-category="other" id="filterOther">🔧 Other</button>
       </div>
+    </div>
 
-      <!-- PRODUCT CARD 2 -->
-      <div class="card">
-        <img src="assets/macbook.png" alt="MacBook Air M2" class="card-img">
-        <div class="card-content">
-          <h3 class="card-title">MacBook Air M2 (2022)</h3>
-          <p class="card-price">৳1,15,000</p>
-          <p class="card-meta">
-            <span class="badge badge-condition">Excellent</span>
-            <span class="badge badge-rating">⭐ 4.8</span>
-          </p>
-          <button class="btn-view" onclick="viewProduct('macbook-m2')">View Details</button>
-        </div>
-      </div>
+    <div class="product-grid" id="listingsGrid">
+      <!-- Dynamically populated by app.js -->
+    </div>
 
-      <!-- PRODUCT CARD 3 -->
-      <div class="card">
-        <img src="assets/sony.png" alt="Sony Alpha a7 III" class="card-img">
-        <div class="card-content">
-          <h3 class="card-title">Sony Alpha a7 III - Body</h3>
-          <p class="card-price">৳1,35,000</p>
-          <p class="card-meta">
-            <span class="badge badge-condition">Good</span>
-            <span class="badge badge-rating">⭐ 4.7</span>
-          </p>
-          <button class="btn-view" onclick="viewProduct('sony-a7iii')">View Details</button>
-        </div>
-      </div>
-
-
-      <!-- PRODUCT CARD 4 -->
-      <div class="card">
-        <img src="assets/ipad.png" alt="iPad Pro 11-inch" class="card-img">
-        <div class="card-content">
-          <h3 class="card-title">iPad Pro 11-inch (M1)</h3>
-          <p class="card-price">৳72,000</p>
-          <p class="card-meta">
-            <span class="badge badge-condition">Flawless</span>
-            <span class="badge badge-rating">⭐ 5.0</span>
-          </p>
-          <button class="btn-view" onclick="viewProduct('ipad-pro')">View Details</button>
-        </div>
-      </div>
-
-      <!-- PRODUCT CARD 5 -->
-      <div class="card">
-        <img src="assets/samsung_phone.png" alt="Samsung Galaxy S24 Ultra" class="card-img">
-        <div class="card-content">
-          <h3 class="card-title">Samsung S24 Ultra</h3>
-          <p class="card-price">৳1,38,000</p>
-          <p class="card-meta">
-            <span class="badge badge-condition">Brand New</span>
-            <span class="badge badge-rating">⭐ 5.0</span>
-          </p>
-          <button class="btn-view" onclick="viewProduct('samsung-s24')">View Details</button>
-        </div>
-      </div>
-
-      <!-- PRODUCT CARD 6 -->
-      <div class="card">
-        <img src="assets/xiaomi_phone.png" alt="Xiaomi 14 Ultra" class="card-img">
-        <div class="card-content">
-          <h3 class="card-title">Xiaomi 14 Ultra</h3>
-          <p class="card-price">৳1,25,000</p>
-          <p class="card-meta">
-            <span class="badge badge-condition">Like New</span>
-            <span class="badge badge-rating">⭐ 4.9</span>
-          </p>
-          <button class="btn-view" onclick="viewProduct('xiaomi-14')">View Details</button>
-        </div>
-      </div>
+    <!-- Empty state -->
+    <div class="listings-empty" id="listingsEmpty" style="display:none;">
+      <div class="empty-icon">📭</div>
+      <h3>No Listings Yet</h3>
+      <p>Be the first to list your device! Sellers post here, admin approves, and buyers browse.</p>
+      <a href="signup.html" class="btn-primary" id="emptySignupBtn">Get Started →</a>
     </div>
   </main>
 
+  <!-- ===== FOOTER ===== -->
   <footer class="site-footer">
     <div class="container">
       <div class="footer-grid">
@@ -284,25 +216,25 @@
           <p style="color: #94a3b8; line-height: 1.6; margin-bottom: 2rem;">Bangladesh's most trusted destination for pre-owned high-end electronics. Secure, reliable, and transparent.</p>
           <div style="display: flex; align-items: center; gap: 1rem; color: #10b981; font-weight: 600; font-size: 0.9rem;">
             <span style="width: 8px; height: 8px; background: #10b981; border-radius: 50%; box-shadow: 0 0 10px #10b981;"></span>
-            Security Systems: ACTIVE
+            Escrow Security: ACTIVE
           </div>
         </div>
         <div>
           <h4 class="footer-title">Quick Links</h4>
           <ul class="footer-links">
-            <li><a href="#listings">Browse Items</a></li>
-            <li><a href="profile.html">Sell Now</a></li>
-            <li><a href="signup.html">Create Account</a></li>
-            <li><a href="wallet.html">Escrow Info</a></li>
+            <li><a href="#listings">Browse Listings</a></li>
+            <li><a href="signup.html">Start Selling</a></li>
+            <li><a href="signup.html">Become a Buyer</a></li>
+            <li><a href="escrow-policy.html">Escrow &amp; Policy</a></li>
           </ul>
         </div>
         <div>
-          <h4 class="footer-title">Legal & Trust</h4>
+          <h4 class="footer-title">Legal &amp; Trust</h4>
           <ul class="footer-links">
             <li><a href="#safety">Safety Center</a></li>
-            <li><a href="#">Privacy Policy</a></li>
-            <li><a href="#">Terms of Service</a></li>
-            <li><a href="#">Transaction Security</a></li>
+            <li><a href="escrow-policy.html#privacy">Privacy Policy</a></li>
+            <li><a href="escrow-policy.html#terms">Terms of Service</a></li>
+            <li><a href="escrow-policy.html#dispute">Dispute Resolution</a></li>
           </ul>
         </div>
         <div>
@@ -315,12 +247,12 @@
               </a>
             </li>
             <li style="margin-top: 0.5rem;">
-              <a href="mailto:aonontojahan@gmail.com" style="display: flex; align-items: center; gap: 0.5rem; color: #ea4335;">
-                <span style="font-size: 1.2rem;">📧</span> Email Assistance
+              <a href="https://mail.google.com/mail/?view=cm&to=aonontojahan@gmail.com&su=ReSale%20Support" target="_blank" rel="noopener" style="display: flex; align-items: center; gap: 0.5rem; color: #ea4335;">
+                <span style="font-size: 1.2rem;">📧</span> Gmail Support
               </a>
             </li>
             <li style="margin-top: 1rem; border-top: 1px solid #334155; padding-top: 1rem;">
-              <a href="#" style="color: var(--accent-cyan); font-weight: 600;">Report an Issue</a>
+              <a href="escrow-policy.html#dispute" style="color: var(--accent-cyan); font-weight: 600;">Report an Issue</a>
             </li>
           </ul>
         </div>
