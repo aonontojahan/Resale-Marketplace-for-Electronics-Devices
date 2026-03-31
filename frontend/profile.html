@@ -168,9 +168,10 @@
           <textarea id="listingDesc" class="form-input" rows="3" placeholder="Describe the device — battery health, accessories included, reason for selling..." required style="resize:vertical;"></textarea>
         </div>
         <div class="form-group">
-          <label for="listingImage">Image URL (optional)</label>
-          <input type="url" id="listingImage" class="form-input" placeholder="https://example.com/device-photo.jpg">
-          <small style="color:var(--text-muted); font-size:0.8rem;">Paste a public image link for your device. Leave blank for a default icon.</small>
+          <label for="listingImages">Upload Device Images *</label>
+          <input type="file" id="listingImages" class="form-input" multiple accept="image/*" required>
+          <small style="color:var(--text-muted); font-size:0.8rem;">Select clear photos of your device. First image will be the cover photo. Max 5 images to avoid storage limits.</small>
+          <div id="imagePreviewContainer" style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px;"></div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn-outline" id="cancelListingBtn">Cancel</button>

@@ -76,7 +76,7 @@ const STATUS_CONFIG = {
  * Renders a listing card for the public/buyer view.
  */
 function renderListingCard(listing) {
-    const imgSrc = listing.imageUrl || CATEGORY_ICONS[listing.category] || '';
+    const imgSrc = (listing.imageUrls && listing.imageUrls.length > 0) ? listing.imageUrls[0] : (listing.imageUrl || CATEGORY_ICONS[listing.category] || '');
     const imgHtml = imgSrc
         ? `<img src="${imgSrc}" alt="${listing.title}" class="card-img" onerror="this.style.display='none'">`
         : `<div class="card-img-placeholder">${CATEGORY_EMOJIS[listing.category] || '📦'}</div>`;
@@ -95,7 +95,8 @@ function renderListingCard(listing) {
                 </p>
                 <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.8rem; line-height:1.5;">${listing.description.substring(0, 90)}${listing.description.length > 90 ? '…' : ''}</p>
                 <p style="font-size:0.78rem; color:var(--text-muted);">By: <strong style="color:var(--text-secondary);">${listing.sellerName}</strong></p>
-                <button class="btn-view" onclick="handleBuyClick('${listing.id}')" id="buyBtn-${listing.id}">🛒 Buy with Escrow</button>
+                <button class="btn-view" style="margin-top: 1rem; margin-bottom: 0.5rem; border-radius: 8px;" onclick="handleBuyClick('${listing.id}')" id="buyBtn-${listing.id}">🛒 Buy with Escrow</button>
+                <button class="btn-outline" style="width: 100%; padding: 0.75rem; border-radius: 8px; text-align: center; font-weight: 600;" onclick="handleMessageClick('${listing.id}', '${listing.sellerId}')" id="msgBtn-${listing.id}">💬 Message Seller</button>
             </div>
         </div>`;
 }
@@ -104,7 +105,7 @@ function renderListingCard(listing) {
  * Renders a listing card in the seller's dashboard (with status + edit/delete).
  */
 function renderSellerCard(listing) {
-    const imgSrc = listing.imageUrl || CATEGORY_ICONS[listing.category] || '';
+    const imgSrc = (listing.imageUrls && listing.imageUrls.length > 0) ? listing.imageUrls[0] : (listing.imageUrl || CATEGORY_ICONS[listing.category] || '');
     const imgHtml = imgSrc
         ? `<img src="${imgSrc}" alt="${listing.title}" class="card-img" style="aspect-ratio:16/9;" onerror="this.style.display='none'">`
         : `<div class="card-img-placeholder">${CATEGORY_EMOJIS[listing.category] || '📦'}</div>`;
@@ -130,7 +131,7 @@ function renderSellerCard(listing) {
  * Renders an admin review card with Approve/Reject actions.
  */
 function renderAdminCard(listing) {
-    const imgSrc = listing.imageUrl || CATEGORY_ICONS[listing.category] || '';
+    const imgSrc = (listing.imageUrls && listing.imageUrls.length > 0) ? listing.imageUrls[0] : (listing.imageUrl || CATEGORY_ICONS[listing.category] || '');
     const imgHtml = imgSrc
         ? `<img src="${imgSrc}" alt="${listing.title}" class="card-img" style="aspect-ratio:16/9;" onerror="this.parentElement.querySelector('.card-img-placeholder') && (this.style.display='none')">`
         : `<div class="card-img-placeholder">${CATEGORY_EMOJIS[listing.category] || '📦'}</div>`;
@@ -288,6 +289,28 @@ function handleBuyClick(id) {
     window.location.href = `wallet.html?action=buy&listing=${id}`;
 }
 
+function handleMessageClick(id, sellerId) {
+    const user = getUser();
+    if (!user) {
+        alert('Please log in to message sellers.');
+        window.location.href = 'login.html';
+        return;
+    }
+    if (user.role === 'seller') {
+        alert('Sellers cannot negotiate with other sellers. Switch to a Buyer account.');
+        return;
+    }
+    
+    // Create or retrieve existing chat session via API
+    window.api.createChat(id, user.id, sellerId)
+        .then(session => {
+            window.location.href = `chat.html?session=${session.id}`;
+        })
+        .catch(err => {
+            alert("Could not initialize chat session: " + err.message);
+        });
+}
+
 // ─── Navigation ───────────────────────────────────────────────
 
 function updateNav() {
@@ -328,6 +351,29 @@ function updateNav() {
             </a>
         `;
         nav.innerHTML = navHtml;
+
+        // Dynamic Footer and Empty State Updates
+        const emptyBtn = document.getElementById('emptySignupBtn');
+        if (emptyBtn) {
+            if (role === 'seller') {
+                emptyBtn.href = 'profile.html';
+                emptyBtn.innerText = 'Go to Dashboard to List →';
+            } else {
+                emptyBtn.style.display = 'none';
+            }
+        }
+        
+        // Hide marketing footer links for logged-in users
+        const footerLinks = document.querySelectorAll('.footer-links li a');
+        footerLinks.forEach(link => {
+            const href = link.getAttribute('href');
+            if (href === 'signup.html' || href === '#safety' || href === 'index.html#safety' || href === 'escrow-policy.html' || href === 'escrow-policy.html#dispute' || href === 'escrow-policy.html#terms' || href === 'escrow-policy.html#privacy') {
+                // Keep the legal links that might still be applicable, but definitely hide signup and safety (if safety is hidden on app view)
+                if (href === 'signup.html' || href === '#safety') {
+                    link.parentElement.style.display = 'none';
+                }
+            }
+        });
     } else {
         nav.innerHTML = `
             <a href="index.html#about">About Us</a>
@@ -524,6 +570,7 @@ document.addEventListener('DOMContentLoaded', () => {
     //  LISTING MODAL — Create New Listing
     // ──────────────────────────────────────────────────────────
     const listingModal = document.getElementById('listingModal');
+    let pendingImageUrls = [];
     if (listingModal) {
         // Close buttons
         const closeBtns = [
@@ -538,6 +585,37 @@ document.addEventListener('DOMContentLoaded', () => {
         listingModal.addEventListener('click', (e) => {
             if (e.target === listingModal) closeModal('listingModal');
         });
+
+        // File upload handling
+        const imagesInput = document.getElementById('listingImages');
+        const previewContainer = document.getElementById('imagePreviewContainer');
+        if (imagesInput && previewContainer) {
+            imagesInput.addEventListener('change', (e) => {
+                const files = Array.from(e.target.files).slice(0, 5); // Max 5 limit
+                pendingImageUrls = [];
+                previewContainer.innerHTML = '';
+                
+                files.forEach(file => {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        const base64 = ev.target.result;
+                        pendingImageUrls.push(base64);
+                        
+                        const imgWrapper = document.createElement('div');
+                        imgWrapper.style.cssText = 'width: 60px; height: 60px; position: relative; border-radius: 4px; overflow: hidden; border: 1px solid var(--border);';
+                        
+                        const img = document.createElement('img');
+                        img.src = base64;
+                        img.className = 'card-img';
+                        img.style.cssText = 'width: 100%; height: 100%; object-fit: cover;';
+                        
+                        imgWrapper.appendChild(img);
+                        previewContainer.appendChild(imgWrapper);
+                    };
+                    reader.readAsDataURL(file);
+                });
+            });
+        }
 
         // Form submit
         const form = document.getElementById('createListingForm');
@@ -554,7 +632,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     price:       document.getElementById('listingPrice').value,
                     condition:   document.getElementById('listingCondition').value,
                     description: document.getElementById('listingDesc').value.trim(),
-                    imageUrl:    document.getElementById('listingImage').value.trim(),
+                    imageUrl:    pendingImageUrls.length > 0 ? pendingImageUrls[0] : '',
+                    imageUrls:   [...pendingImageUrls],
                     status:      'pending',
                     sellerId:    user.id,
                     sellerEmail: user.email,
@@ -564,6 +643,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 addListing(listing);
                 form.reset();
+                if (previewContainer) previewContainer.innerHTML = '';
+                pendingImageUrls = [];
                 closeModal('listingModal');
 
                 // Show success notification
@@ -617,31 +698,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const role  = document.getElementById('selectedRole').value;
             signupUser(name, email, pass, role);
         });
-    }
-
-    // ──────────────────────────────────────────────────────────
-    //  CHAT
-    // ──────────────────────────────────────────────────────────
-    const chatForm  = document.getElementById('chatForm');
-    const chatInput = document.getElementById('chatInput');
-    const chatBox   = document.getElementById('chatBox');
-
-    if (chatForm && chatInput && chatBox) {
-        chatForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const text = chatInput.value.trim();
-            if (!text) return;
-            addMessage(text, 'user');
-            chatInput.value = '';
-        });
-    }
-
-    function addMessage(text, type) {
-        const div = document.createElement('div');
-        div.classList.add('message', type);
-        div.innerText = text;
-        chatBox.appendChild(div);
-        chatBox.scrollTop = chatBox.scrollHeight;
     }
 
     // ──────────────────────────────────────────────────────────
@@ -737,8 +793,118 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (window.location.pathname.includes('chat.html') && user) {
         const chatBox = document.getElementById('chatBox');
-        if (chatBox) {
-            chatBox.innerHTML = '';
+        const sidebar = document.querySelector('.chat-sidebar');
+        const chatHeader = document.querySelector('.chat-header');
+        const chatForm = document.getElementById('chatForm');
+        let currentSocket = null;
+        let activeSessionId = new URLSearchParams(window.location.search).get('session');
+        
+        // Load User Chats
+        window.api.getUserChats(user.id).then(chats => {
+            if (sidebar) sidebar.innerHTML = '';
+            if (chats.length === 0) {
+                if (sidebar) sidebar.innerHTML = '<div style="padding:1rem;color:var(--text-muted);">No active chats</div>';
+                if (!activeSessionId) return;
+            }
+            
+            if (sidebar) {
+                chats.forEach(chat => {
+                    const otherParty = user.role === 'buyer' ? chat.seller.full_name : chat.buyer.full_name;
+                    const activeClass = chat.id.toString() === activeSessionId ? 'active' : '';
+                    
+                    const item = document.createElement('div');
+                    item.className = `chat-list-item ${activeClass}`;
+                    item.innerHTML = `
+                      <div style="font-weight: 600;">${otherParty}</div>
+                      <div style="font-size: 0.85rem; color: var(--text-muted);">Listing: ${chat.listing_id.split('_')[1] || 'Item'}</div>
+                    `;
+                    item.onclick = () => window.location.href = `chat.html?session=${chat.id}`;
+                    sidebar.appendChild(item);
+                });
+            }
+            
+            if (activeSessionId) {
+                const currentChat = chats.find(c => c.id.toString() === activeSessionId);
+                if (currentChat) initActiveChat(currentChat);
+            }
+        }).catch(err => console.error(err));
+
+        function initActiveChat(chat) {
+            const otherParty = user.role === 'buyer' ? chat.seller : chat.buyer;
+            if (chatHeader) {
+                chatHeader.innerHTML = `
+                  <div style="width: 40px; height: 40px; background: #e2e8f0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--primary);">
+                    ${otherParty.full_name.split(' ').map(n=>n[0]).join('').toUpperCase()}
+                  </div>
+                  <div>
+                    <p style="font-weight: 600;">${otherParty.full_name}</p>
+                    <p style="font-size: 0.75rem; color: #10b981;">● Online</p>
+                  </div>
+                `;
+            }
+
+            const bannerContainer = document.getElementById('chatListingBanner');
+            if (bannerContainer) {
+                const allListings = getListings();
+                const activeListing = allListings.find(l => l.id === chat.listing_id);
+                if (activeListing) {
+                    const imgSrc = (activeListing.imageUrls && activeListing.imageUrls.length > 0) ? activeListing.imageUrls[0] : (activeListing.imageUrl || CATEGORY_ICONS[activeListing.category] || '');
+                    const imgHtml = imgSrc ? `<img src="${imgSrc}" style="width: 48px; height: 48px; object-fit: cover; border-radius: 8px;">` : `<div style="width: 48px; height: 48px; background: #e2e8f0; border-radius: 8px; display:flex; align-items:center; justify-content:center;">📦</div>`;
+                    
+                    bannerContainer.innerHTML = `
+                        <div style="display:flex; align-items:center; gap: 1rem;">
+                            ${imgHtml}
+                            <div>
+                                <div style="font-weight: 600; font-size: 0.95rem;">${activeListing.title}</div>
+                                <div style="color: var(--primary); font-weight: 700;">৳${Number(activeListing.price).toLocaleString('en-IN')}</div>
+                            </div>
+                        </div>
+                        <button class="btn-primary" style="padding: 0.5rem 1rem; font-size: 0.85rem;" onclick="handleBuyClick('${activeListing.id}')">🛒 Buy with Escrow</button>
+                    `;
+                    bannerContainer.style.display = 'flex';
+                }
+            }
+
+            if (chatBox) chatBox.innerHTML = '';
+            window.api.getChatMessages(chat.id).then(messages => {
+                messages.forEach(msg => appendMessage(msg));
+                if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
+            });
+
+            // WebSocket connection directly to FastAPI
+            const wsUrl = `ws://localhost:8000/ws/chat/${chat.id}?token=${user.token}`;
+            currentSocket = new WebSocket(wsUrl);
+
+            currentSocket.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                appendMessage(msg);
+                if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
+            };
+            
+            if (chatForm) {
+                const newForm = chatForm.cloneNode(true);
+                chatForm.parentNode.replaceChild(newForm, chatForm);
+                const newChatInput = newForm.querySelector('#chatInput');
+                
+                newForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const text = newChatInput.value.trim();
+                    if (!text || !currentSocket) return;
+                    currentSocket.send(text);
+                    newChatInput.value = '';
+                });
+            }
+        }
+
+        function appendMessage(msg) {
+            if (!chatBox) return;
+            const div = document.createElement('div');
+            const isMe = msg.sender_id === user.id;
+            // The existing CSS has .user (gray bubble right side) and .seller (blue bubble left side). 
+            // We repurpose: .user = sent by me, .seller = sent by them.
+            div.className = `message ${isMe ? 'user' : 'seller'}`;
+            div.innerText = msg.text;
+            chatBox.appendChild(div);
         }
     }
 });

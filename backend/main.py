@@ -1,7 +1,8 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from datetime import timedelta
+from typing import List, Dict
 
 from . import models, schemas, auth, database
 from .database import engine, get_db
@@ -19,6 +20,29 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: Dict[int, List[WebSocket]] = {}
+
+    async def connect(self, websocket: WebSocket, user_id: int):
+        await websocket.accept()
+        if user_id not in self.active_connections:
+            self.active_connections[user_id] = []
+        self.active_connections[user_id].append(websocket)
+
+    def disconnect(self, websocket: WebSocket, user_id: int):
+        if user_id in self.active_connections:
+            self.active_connections[user_id].remove(websocket)
+            if not self.active_connections[user_id]:
+                del self.active_connections[user_id]
+
+    async def send_personal_message(self, message: dict, user_id: int):
+        if user_id in self.active_connections:
+            for connection in self.active_connections[user_id]:
+                await connection.send_json(message)
+
+manager = ConnectionManager()
 
 @app.get("/")
 def read_root():
@@ -108,3 +132,95 @@ def get_platform_stats(db: Session = Depends(get_db)):
         "satisfaction_pct": satisfaction,
         "avg_sale_hours":   24,
     }
+
+@app.post("/chats", response_model=schemas.ChatSessionResponse)
+def create_chat(chat_in: schemas.ChatSessionCreate, db: Session = Depends(get_db)):
+    """Create a new chat session between buyer and seller for a listing."""
+    existing_chat = db.query(models.ChatSession).filter(
+        models.ChatSession.listing_id == chat_in.listing_id,
+        models.ChatSession.buyer_id == chat_in.buyer_id,
+        models.ChatSession.seller_id == chat_in.seller_id
+    ).first()
+    
+    if existing_chat:
+        return existing_chat
+        
+    new_chat = models.ChatSession(
+        listing_id=chat_in.listing_id,
+        buyer_id=chat_in.buyer_id,
+        seller_id=chat_in.seller_id
+    )
+    db.add(new_chat)
+    db.commit()
+    db.refresh(new_chat)
+    return new_chat
+
+@app.get("/chats", response_model=List[schemas.ChatSessionResponse])
+def get_user_chats(user_id: int, db: Session = Depends(get_db)):
+    """Fetch all chat sessions for a specific user."""
+    chats = db.query(models.ChatSession).filter(
+        (models.ChatSession.buyer_id == user_id) | (models.ChatSession.seller_id == user_id)
+    ).all()
+    return chats
+
+@app.get("/chats/{session_id}/messages", response_model=List[schemas.MessageResponse])
+def get_chat_messages(session_id: int, db: Session = Depends(get_db)):
+    """Fetch message history for a chat session."""
+    messages = db.query(models.ChatMessage).filter(
+        models.ChatMessage.session_id == session_id
+    ).order_by(models.ChatMessage.created_at).all()
+    return messages
+
+@app.websocket("/ws/chat/{session_id}")
+async def websocket_chat(websocket: WebSocket, session_id: int, token: str, db: Session = Depends(get_db)):
+    """WebSocket endpoint for real-time messaging."""
+    payload = auth.decode_access_token(token)
+    if not payload:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+        
+    email = payload.get("sub")
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if not user:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    chat_session = db.query(models.ChatSession).filter(models.ChatSession.id == session_id).first()
+    if not chat_session:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    if user.id not in [chat_session.buyer_id, chat_session.seller_id]:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    await manager.connect(websocket, user.id)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            
+            # Save message to DB
+            new_msg = models.ChatMessage(
+                session_id=session_id,
+                sender_id=user.id,
+                text=data
+            )
+            db.add(new_msg)
+            db.commit()
+            db.refresh(new_msg)
+            
+            # Broadcast to participants
+            msg_dict = {
+                "id": new_msg.id,
+                "session_id": new_msg.session_id,
+                "sender_id": new_msg.sender_id,
+                "text": new_msg.text,
+                "created_at": new_msg.created_at.isoformat()
+            }
+            
+            await manager.send_personal_message(msg_dict, chat_session.buyer_id)
+            if chat_session.buyer_id != chat_session.seller_id:
+                await manager.send_personal_message(msg_dict, chat_session.seller_id)
+                
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, user.id)
