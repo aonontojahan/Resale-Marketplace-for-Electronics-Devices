@@ -56,6 +56,31 @@ const api = {
         // My current main.py uses a query param 'token' which is odd for Bearer. 
         // I should fix main.py to use proper OAuth2 dependency, but for now I'll match the param.
         return this.request(`/users/me?token=${token}`, "GET");
+    },
+
+    /**
+     * Chat: Create or fetch existing session
+     */
+    async createChat(listingId, buyerId, sellerId) {
+        return this.request("/chats", "POST", {
+            listing_id: listingId,
+            buyer_id: buyerId,
+            seller_id: sellerId
+        });
+    },
+
+    /**
+     * Chat: Get all user sessions
+     */
+    async getUserChats(userId) {
+        return this.request(`/chats?user_id=${userId}`, "GET");
+    },
+    
+    /**
+     * Chat: Get message history
+     */
+    async getChatMessages(sessionId) {
+        return this.request(`/chats/${sessionId}/messages`, "GET");
     }
 };
 

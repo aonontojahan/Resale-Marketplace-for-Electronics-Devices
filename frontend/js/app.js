@@ -95,10 +95,8 @@ function renderListingCard(listing) {
                 </p>
                 <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.8rem; line-height:1.5;">${listing.description.substring(0, 90)}${listing.description.length > 90 ? '…' : ''}</p>
                 <p style="font-size:0.78rem; color:var(--text-muted);">By: <strong style="color:var(--text-secondary);">${listing.sellerName}</strong></p>
-                <div style="display:flex; gap:0.5rem; margin-top:1rem;">
-                    <button class="btn-outline" style="flex:1; padding:0.6rem; font-size:0.85rem;" onclick="handleMessageClick('${listing.id}')" id="msgBtn-${listing.id}">💬 Message</button>
-                    <button class="btn-primary" style="flex:1; padding:0.6rem; font-size:0.85rem;" onclick="handleBuyClick('${listing.id}')" id="buyBtn-${listing.id}">🛒 Buy</button>
-                </div>
+                <button class="btn-view" style="margin-top: 1rem; margin-bottom: 0.5rem; border-radius: 8px;" onclick="handleBuyClick('${listing.id}')" id="buyBtn-${listing.id}">🛒 Buy with Escrow</button>
+                <button class="btn-outline" style="width: 100%; padding: 0.75rem; border-radius: 8px; text-align: center; font-weight: 600;" onclick="handleMessageClick('${listing.id}', '${listing.sellerId}')" id="msgBtn-${listing.id}">💬 Message Seller</button>
             </div>
         </div>`;
 }
@@ -291,7 +289,7 @@ function handleBuyClick(id) {
     window.location.href = `wallet.html?action=buy&listing=${id}`;
 }
 
-function handleMessageClick(id) {
+function handleMessageClick(id, sellerId) {
     const user = getUser();
     if (!user) {
         alert('Please log in to message sellers.');
@@ -302,7 +300,15 @@ function handleMessageClick(id) {
         alert('Sellers cannot negotiate with other sellers. Switch to a Buyer account.');
         return;
     }
-    window.location.href = `chat.html?listing=${id}`;
+    
+    // Create or retrieve existing chat session via API
+    window.api.createChat(id, user.id, sellerId)
+        .then(session => {
+            window.location.href = `chat.html?session=${session.id}`;
+        })
+        .catch(err => {
+            alert("Could not initialize chat session: " + err.message);
+        });
 }
 
 // ─── Navigation ───────────────────────────────────────────────
@@ -695,31 +701,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ──────────────────────────────────────────────────────────
-    //  CHAT
-    // ──────────────────────────────────────────────────────────
-    const chatForm  = document.getElementById('chatForm');
-    const chatInput = document.getElementById('chatInput');
-    const chatBox   = document.getElementById('chatBox');
-
-    if (chatForm && chatInput && chatBox) {
-        chatForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const text = chatInput.value.trim();
-            if (!text) return;
-            addMessage(text, 'user');
-            chatInput.value = '';
-        });
-    }
-
-    function addMessage(text, type) {
-        const div = document.createElement('div');
-        div.classList.add('message', type);
-        div.innerText = text;
-        chatBox.appendChild(div);
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }
-
-    // ──────────────────────────────────────────────────────────
     //  SEARCH BAR
     // ──────────────────────────────────────────────────────────
     const searchBar = document.getElementById('mainSearchBar') || document.querySelector('.search-bar');
@@ -812,40 +793,118 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (window.location.pathname.includes('chat.html') && user) {
         const chatBox = document.getElementById('chatBox');
-        if (chatBox) {
-            chatBox.innerHTML = '';
+        const sidebar = document.querySelector('.chat-sidebar');
+        const chatHeader = document.querySelector('.chat-header');
+        const chatForm = document.getElementById('chatForm');
+        let currentSocket = null;
+        let activeSessionId = new URLSearchParams(window.location.search).get('session');
+        
+        // Load User Chats
+        window.api.getUserChats(user.id).then(chats => {
+            if (sidebar) sidebar.innerHTML = '';
+            if (chats.length === 0) {
+                if (sidebar) sidebar.innerHTML = '<div style="padding:1rem;color:var(--text-muted);">No active chats</div>';
+                if (!activeSessionId) return;
+            }
+            
+            if (sidebar) {
+                chats.forEach(chat => {
+                    const otherParty = user.role === 'buyer' ? chat.seller.full_name : chat.buyer.full_name;
+                    const activeClass = chat.id.toString() === activeSessionId ? 'active' : '';
+                    
+                    const item = document.createElement('div');
+                    item.className = `chat-list-item ${activeClass}`;
+                    item.innerHTML = `
+                      <div style="font-weight: 600;">${otherParty}</div>
+                      <div style="font-size: 0.85rem; color: var(--text-muted);">Listing: ${chat.listing_id.split('_')[1] || 'Item'}</div>
+                    `;
+                    item.onclick = () => window.location.href = `chat.html?session=${chat.id}`;
+                    sidebar.appendChild(item);
+                });
+            }
+            
+            if (activeSessionId) {
+                const currentChat = chats.find(c => c.id.toString() === activeSessionId);
+                if (currentChat) initActiveChat(currentChat);
+            }
+        }).catch(err => console.error(err));
+
+        function initActiveChat(chat) {
+            const otherParty = user.role === 'buyer' ? chat.seller : chat.buyer;
+            if (chatHeader) {
+                chatHeader.innerHTML = `
+                  <div style="width: 40px; height: 40px; background: #e2e8f0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--primary);">
+                    ${otherParty.full_name.split(' ').map(n=>n[0]).join('').toUpperCase()}
+                  </div>
+                  <div>
+                    <p style="font-weight: 600;">${otherParty.full_name}</p>
+                    <p style="font-size: 0.75rem; color: #10b981;">● Online</p>
+                  </div>
+                `;
+            }
+
+            const bannerContainer = document.getElementById('chatListingBanner');
+            if (bannerContainer) {
+                const allListings = getListings();
+                const activeListing = allListings.find(l => l.id === chat.listing_id);
+                if (activeListing) {
+                    const imgSrc = (activeListing.imageUrls && activeListing.imageUrls.length > 0) ? activeListing.imageUrls[0] : (activeListing.imageUrl || CATEGORY_ICONS[activeListing.category] || '');
+                    const imgHtml = imgSrc ? `<img src="${imgSrc}" style="width: 48px; height: 48px; object-fit: cover; border-radius: 8px;">` : `<div style="width: 48px; height: 48px; background: #e2e8f0; border-radius: 8px; display:flex; align-items:center; justify-content:center;">📦</div>`;
+                    
+                    bannerContainer.innerHTML = `
+                        <div style="display:flex; align-items:center; gap: 1rem;">
+                            ${imgHtml}
+                            <div>
+                                <div style="font-weight: 600; font-size: 0.95rem;">${activeListing.title}</div>
+                                <div style="color: var(--primary); font-weight: 700;">৳${Number(activeListing.price).toLocaleString('en-IN')}</div>
+                            </div>
+                        </div>
+                        <button class="btn-primary" style="padding: 0.5rem 1rem; font-size: 0.85rem;" onclick="handleBuyClick('${activeListing.id}')">🛒 Buy with Escrow</button>
+                    `;
+                    bannerContainer.style.display = 'flex';
+                }
+            }
+
+            if (chatBox) chatBox.innerHTML = '';
+            window.api.getChatMessages(chat.id).then(messages => {
+                messages.forEach(msg => appendMessage(msg));
+                if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
+            });
+
+            // WebSocket connection directly to FastAPI
+            const wsUrl = `ws://localhost:8000/ws/chat/${chat.id}?token=${user.token}`;
+            currentSocket = new WebSocket(wsUrl);
+
+            currentSocket.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                appendMessage(msg);
+                if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
+            };
+            
+            if (chatForm) {
+                const newForm = chatForm.cloneNode(true);
+                chatForm.parentNode.replaceChild(newForm, chatForm);
+                const newChatInput = newForm.querySelector('#chatInput');
+                
+                newForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const text = newChatInput.value.trim();
+                    if (!text || !currentSocket) return;
+                    currentSocket.send(text);
+                    newChatInput.value = '';
+                });
+            }
         }
 
-        // Handle Active Listing Banner
-        const urlParams = new URLSearchParams(window.location.search);
-        const listingId = urlParams.get('listing');
-        const bannerContainer = document.getElementById('chatListingBanner');
-        
-        if (listingId && bannerContainer) {
-            const listings = getListings();
-            const activeListing = listings.find(l => l.id === listingId);
-            
-            if (activeListing) {
-                const imgSrc = (activeListing.imageUrls && activeListing.imageUrls.length > 0) ? activeListing.imageUrls[0] : (activeListing.imageUrl || CATEGORY_ICONS[activeListing.category] || '');
-                const imgHtml = imgSrc ? `<img src="${imgSrc}" style="width: 48px; height: 48px; object-fit: cover; border-radius: 8px;">` : `<div style="width: 48px; height: 48px; background: #e2e8f0; border-radius: 8px; display:flex; align-items:center; justify-content:center;">📦</div>`;
-                
-                bannerContainer.innerHTML = `
-                    <div style="display:flex; align-items:center; gap: 1rem;">
-                        ${imgHtml}
-                        <div>
-                            <div style="font-weight: 600; font-size: 0.95rem;">${activeListing.title}</div>
-                            <div style="color: var(--primary); font-weight: 700;">৳${Number(activeListing.price).toLocaleString('en-IN')}</div>
-                        </div>
-                    </div>
-                    <button class="btn-primary" style="padding: 0.5rem 1rem; font-size: 0.85rem;" onclick="handleBuyClick('${activeListing.id}')">🛒 Buy with Escrow</button>
-                `;
-                bannerContainer.style.display = 'flex';
-                
-                // Add a welcome message to chat as visual starting point (mock)
-                setTimeout(() => {
-                    addMessage(`Hi, I'm interested in your ${activeListing.title}. Is it still available?`, 'user');
-                }, 400);
-            }
+        function appendMessage(msg) {
+            if (!chatBox) return;
+            const div = document.createElement('div');
+            const isMe = msg.sender_id === user.id;
+            // The existing CSS has .user (gray bubble right side) and .seller (blue bubble left side). 
+            // We repurpose: .user = sent by me, .seller = sent by them.
+            div.className = `message ${isMe ? 'user' : 'seller'}`;
+            div.innerText = msg.text;
+            chatBox.appendChild(div);
         }
     }
 });
