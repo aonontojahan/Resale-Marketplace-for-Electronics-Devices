@@ -1,53 +1,328 @@
-// --- Session Management ---
+// =============================================================
+//  ReSale Marketplace — app.js
+//  Handles: Auth, Nav, Listings (localStorage), Role Views, Modal
+// =============================================================
 
-/**
- * Checks if a user is currently 'logged in'.
- * Simulated using localStorage.
- */
+// ─── Session Management ─────────────────────────────────────
+
 function getUser() {
     const userJson = localStorage.getItem('resale_user');
     return userJson ? JSON.parse(userJson) : null;
 }
 
+function logoutUser() {
+    localStorage.removeItem('resale_user');
+    window.location.href = 'index.html';
+}
+
+// ─── Listings Storage (simulated DB) ─────────────────────────
+
+function getListings() {
+    const data = localStorage.getItem('resale_listings');
+    return data ? JSON.parse(data) : [];
+}
+
+function saveListings(listings) {
+    localStorage.setItem('resale_listings', JSON.stringify(listings));
+}
+
+function addListing(listing) {
+    const listings = getListings();
+    listings.push(listing);
+    saveListings(listings);
+}
+
+function updateListingStatus(id, status) {
+    const listings = getListings();
+    const idx = listings.findIndex(l => l.id === id);
+    if (idx !== -1) {
+        listings[idx].status = status;
+        saveListings(listings);
+    }
+}
+
+function deleteListing(id) {
+    const listings = getListings().filter(l => l.id !== id);
+    saveListings(listings);
+}
+
+// ─── Category Icon Map ────────────────────────────────────────
+
+const CATEGORY_ICONS = {
+    phone: 'assets/iphone.png',
+    laptop: 'assets/macbook.png',
+    camera: 'assets/sony.png',
+    tablet: 'assets/ipad.png',
+    other: null
+};
+
+const CATEGORY_EMOJIS = {
+    phone: '📱',
+    laptop: '💻',
+    camera: '📷',
+    tablet: '📟',
+    other: '🔧'
+};
+
+const STATUS_CONFIG = {
+    pending:  { label: '⏳ Pending Review', cls: 'badge-pending' },
+    approved: { label: '✅ Approved',        cls: 'badge-approved' },
+    rejected: { label: '❌ Rejected',        cls: 'badge-rejected' }
+};
+
+// ─── Card Renderers ───────────────────────────────────────────
+
 /**
- * Updates the navigation bar based on auth state.
+ * Renders a listing card for the public/buyer view.
  */
+function renderListingCard(listing) {
+    const imgSrc = listing.imageUrl || CATEGORY_ICONS[listing.category] || '';
+    const imgHtml = imgSrc
+        ? `<img src="${imgSrc}" alt="${listing.title}" class="card-img" onerror="this.style.display='none'">`
+        : `<div class="card-img-placeholder">${CATEGORY_EMOJIS[listing.category] || '📦'}</div>`;
+
+    const priceFormatted = Number(listing.price).toLocaleString('en-IN');
+
+    return `
+        <div class="card" data-category="${listing.category}" data-id="${listing.id}">
+            ${imgHtml}
+            <div class="card-content">
+                <h3 class="card-title">${listing.title}</h3>
+                <p class="card-price">৳${priceFormatted}</p>
+                <p class="card-meta">
+                    <span class="badge badge-condition">${listing.condition}</span>
+                    <span class="badge badge-rating" style="background:rgba(59,130,246,0.15); color:#60a5fa; border-color:#60a5fa;">${CATEGORY_EMOJIS[listing.category] || '📦'} ${listing.category}</span>
+                </p>
+                <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.8rem; line-height:1.5;">${listing.description.substring(0, 90)}${listing.description.length > 90 ? '…' : ''}</p>
+                <p style="font-size:0.78rem; color:var(--text-muted);">By: <strong style="color:var(--text-secondary);">${listing.sellerName}</strong></p>
+                <button class="btn-view" onclick="handleBuyClick('${listing.id}')" id="buyBtn-${listing.id}">🛒 Buy with Escrow</button>
+            </div>
+        </div>`;
+}
+
+/**
+ * Renders a listing card in the seller's dashboard (with status + edit/delete).
+ */
+function renderSellerCard(listing) {
+    const imgSrc = listing.imageUrl || CATEGORY_ICONS[listing.category] || '';
+    const imgHtml = imgSrc
+        ? `<img src="${imgSrc}" alt="${listing.title}" class="card-img" style="aspect-ratio:16/9;" onerror="this.style.display='none'">`
+        : `<div class="card-img-placeholder">${CATEGORY_EMOJIS[listing.category] || '📦'}</div>`;
+
+    const priceFormatted = Number(listing.price).toLocaleString('en-IN');
+    const status = STATUS_CONFIG[listing.status] || STATUS_CONFIG['pending'];
+
+    return `
+        <div class="card" data-category="${listing.category}" data-id="${listing.id}" data-status="${listing.status}">
+            ${imgHtml}
+            <div class="card-content">
+                <span class="listing-status-badge ${status.cls}">${status.label}</span>
+                <h4 class="card-title" style="font-size:0.95rem; margin-top:0.5rem;">${listing.title}</h4>
+                <p class="card-price" style="font-size:1rem;">৳${priceFormatted}</p>
+                <div style="margin-top:1rem; display:flex; gap:0.5rem;">
+                    <button class="btn-outline" style="flex:1; padding:0.4rem; font-size:0.8rem;" onclick="deleteMyListing('${listing.id}')">🗑 Delete</button>
+                </div>
+            </div>
+        </div>`;
+}
+
+/**
+ * Renders an admin review card with Approve/Reject actions.
+ */
+function renderAdminCard(listing) {
+    const imgSrc = listing.imageUrl || CATEGORY_ICONS[listing.category] || '';
+    const imgHtml = imgSrc
+        ? `<img src="${imgSrc}" alt="${listing.title}" class="card-img" style="aspect-ratio:16/9;" onerror="this.parentElement.querySelector('.card-img-placeholder') && (this.style.display='none')">`
+        : `<div class="card-img-placeholder">${CATEGORY_EMOJIS[listing.category] || '📦'}</div>`;
+
+    const priceFormatted = Number(listing.price).toLocaleString('en-IN');
+    const status = STATUS_CONFIG[listing.status] || STATUS_CONFIG['pending'];
+
+    const actionBtns = listing.status === 'pending' ? `
+        <button class="btn-primary" style="flex:1; padding:0.45rem; font-size:0.82rem; background:linear-gradient(135deg,#10b981,#059669);" onclick="adminAction('${listing.id}','approved')" id="approve-${listing.id}">✅ Approve</button>
+        <button class="btn-outline" style="flex:1; padding:0.45rem; font-size:0.82rem; color:#ef4444; border-color:#ef4444;" onclick="adminAction('${listing.id}','rejected')" id="reject-${listing.id}">❌ Reject</button>
+    ` : `
+        <button class="btn-outline" style="flex:1; padding:0.45rem; font-size:0.82rem; color:#94a3b8;" onclick="adminAction('${listing.id}','pending')" id="reset-${listing.id}">↩ Reset to Pending</button>
+    `;
+
+    return `
+        <div class="admin-listing-card" data-status="${listing.status}" data-id="${listing.id}">
+            <div class="admin-card-img">
+                ${imgHtml}
+            </div>
+            <div class="admin-card-body">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem;">
+                    <div>
+                        <span class="listing-status-badge ${status.cls}">${status.label}</span>
+                        <h4 style="margin:0.4rem 0 0.2rem; font-size:1.05rem;">${listing.title}</h4>
+                        <p style="color:var(--accent-cyan); font-weight:700; font-size:1.1rem; margin:0;">৳${priceFormatted}</p>
+                    </div>
+                    <div style="text-align:right; flex-shrink:0;">
+                        <span class="badge badge-condition">${listing.condition}</span><br>
+                        <small style="color:var(--text-muted);">${CATEGORY_EMOJIS[listing.category] || '📦'} ${listing.category}</small>
+                    </div>
+                </div>
+                <p style="color:var(--text-muted); font-size:0.88rem; margin:0.75rem 0; line-height:1.55;">${listing.description}</p>
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem; flex-wrap:wrap;">
+                    <small style="color:var(--text-muted);">Seller: <strong style="color:var(--text-secondary);">${listing.sellerName}</strong> &nbsp;|&nbsp; ${new Date(listing.createdAt).toLocaleDateString('en-GB')}</small>
+                    <div style="display:flex; gap:0.5rem;">
+                        ${actionBtns}
+                    </div>
+                </div>
+            </div>
+        </div>`;
+}
+
+// ─── Page Renderers ───────────────────────────────────────────
+
+/**
+ * Renders public listings on index.html
+ */
+function renderPublicListings(category = 'all') {
+    const grid = document.getElementById('listingsGrid');
+    const emptyEl = document.getElementById('listingsEmpty');
+    if (!grid) return;
+
+    let listings = getListings().filter(l => l.status === 'approved');
+    if (category !== 'all') listings = listings.filter(l => l.category === category);
+
+    if (listings.length === 0) {
+        grid.innerHTML = '';
+        if (emptyEl) emptyEl.style.display = 'flex';
+    } else {
+        if (emptyEl) emptyEl.style.display = 'none';
+        grid.innerHTML = listings.map(renderListingCard).join('');
+    }
+}
+
+/**
+ * Renders seller's own listings on profile.html
+ */
+function renderSellerListings(statusFilter = 'all') {
+    const grid = document.getElementById('sellerListingsGrid');
+    const emptyEl = document.getElementById('sellerEmpty');
+    if (!grid) return;
+
+    const user = getUser();
+    let listings = getListings().filter(l => l.sellerId === user.id || l.sellerEmail === user.email);
+    if (statusFilter !== 'all') listings = listings.filter(l => l.status === statusFilter);
+
+    if (listings.length === 0) {
+        grid.innerHTML = '';
+        if (emptyEl) emptyEl.style.display = 'flex';
+    } else {
+        if (emptyEl) emptyEl.style.display = 'none';
+        grid.innerHTML = listings.map(renderSellerCard).join('');
+    }
+}
+
+/**
+ * Renders buyer browse view on profile.html
+ */
+function renderBuyerListings(category = 'all') {
+    const grid = document.getElementById('buyerListingsGrid');
+    const emptyEl = document.getElementById('buyerEmpty');
+    if (!grid) return;
+
+    let listings = getListings().filter(l => l.status === 'approved');
+    if (category !== 'all') listings = listings.filter(l => l.category === category);
+
+    if (listings.length === 0) {
+        grid.innerHTML = '';
+        if (emptyEl) emptyEl.style.display = 'flex';
+    } else {
+        if (emptyEl) emptyEl.style.display = 'none';
+        grid.innerHTML = listings.map(renderListingCard).join('');
+    }
+}
+
+/**
+ * Renders admin listing panel on profile.html
+ */
+function renderAdminListings(statusFilter = 'all') {
+    const container = document.getElementById('adminListingsContainer');
+    const emptyEl = document.getElementById('adminEmpty');
+    if (!container) return;
+
+    let listings = getListings();
+    if (statusFilter !== 'all') listings = listings.filter(l => l.status === statusFilter);
+    listings = listings.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    if (listings.length === 0) {
+        container.innerHTML = '';
+        if (emptyEl) emptyEl.style.display = 'flex';
+    } else {
+        if (emptyEl) emptyEl.style.display = 'none';
+        container.innerHTML = `<div class="admin-listings-list">${listings.map(renderAdminCard).join('')}</div>`;
+    }
+}
+
+// ─── Action Handlers ──────────────────────────────────────────
+
+function adminAction(id, newStatus) {
+    updateListingStatus(id, newStatus);
+    const activeTab = document.querySelector('#adminStatusTabs .status-tab.active');
+    const filter = activeTab ? activeTab.dataset.status : 'all';
+    renderAdminListings(filter);
+}
+
+function deleteMyListing(id) {
+    if (!confirm('Are you sure you want to delete this listing?')) return;
+    deleteListing(id);
+    const activeTab = document.querySelector('#sellerStatusTabs .status-tab.active');
+    const filter = activeTab ? activeTab.dataset.status : 'all';
+    renderSellerListings(filter);
+}
+
+function handleBuyClick(id) {
+    const user = getUser();
+    if (!user) {
+        alert('Please log in as a Buyer to purchase this item.');
+        window.location.href = 'login.html';
+        return;
+    }
+    if (user.role === 'seller') {
+        alert('Sellers cannot buy items. Switch to a Buyer account.');
+        return;
+    }
+    window.location.href = `wallet.html?action=buy&listing=${id}`;
+}
+
+// ─── Navigation ───────────────────────────────────────────────
+
 function updateNav() {
     const nav = document.querySelector('nav');
     if (!nav) return;
 
-    // Ensure Logo text is consistent
     const logoEl = document.querySelector('.logo');
-    if (logoEl) {
-        logoEl.innerText = "ReSale.";
-    }
+    if (logoEl) logoEl.innerText = 'ReSale.';
 
     const user = getUser();
     const currentPath = window.location.pathname;
 
     if (user) {
         const role = user.role || 'buyer';
-        let navHtml = ``;
+        let navHtml = '';
 
         if (role === 'admin') {
             navHtml += `
-                <a href="#" class="">Dashboard</a>
-                <a href="#" class="">Users</a>
+                <a href="profile.html" class="${currentPath.includes('profile') ? 'active' : ''}">Admin Panel</a>
             `;
         } else if (role === 'seller') {
             navHtml += `
+                <a href="profile.html" class="${currentPath.includes('profile') ? 'active' : ''}">My Listings</a>
                 <a href="chat.html" class="${currentPath.includes('chat') ? 'active' : ''}">Messages</a>
                 <a href="wallet.html" class="${currentPath.includes('wallet') ? 'active' : ''}">Wallet</a>
             `;
         } else {
             // Buyer
             navHtml += `
+                <a href="index.html" class="${currentPath.includes('index') || currentPath === '/' ? 'active' : ''}">Browse</a>
                 <a href="chat.html" class="${currentPath.includes('chat') ? 'active' : ''}">Messages</a>
                 <a href="wallet.html" class="${currentPath.includes('wallet') ? 'active' : ''}">Wallet</a>
             `;
         }
 
-        // Add User Profile Section (Clickable)
         navHtml += `
             <a href="profile.html" class="nav-user-container">
                 <div class="nav-user">
@@ -56,37 +331,27 @@ function updateNav() {
                 </div>
             </a>
         `;
-        
         nav.innerHTML = navHtml;
     } else {
-        // Logged Out: Show Browse, Login, Signup
         nav.innerHTML = `
             <a href="index.html#about">About Us</a>
-            <a href="login.html" class="${currentPath.includes('login') ? 'active' : ''}">Login</a>
-            <a href="signup.html" class="${currentPath.includes('signup') ? 'active' : ''}">Sign Up</a>
+            <a href="index.html#escrow">How It Works</a>
+            <a href="login.html" class="${window.location.pathname.includes('login') ? 'active' : ''}">Login</a>
+            <a href="signup.html" class="${window.location.pathname.includes('signup') ? 'active' : ''}">Sign Up</a>
         `;
     }
 }
 
-/**
- * Simulated Login Function (Now with FastAPI)
- */
+// ─── Auth ─────────────────────────────────────────────────────
+
 async function loginUser(email, password, role) {
     try {
-        const credentials = {
-            email: email,
-            password: password
-        };
-        const response = await window.api.request("/auth/login", "POST", credentials);
-        
-        // Fetch full profile to verify role
+        const response = await window.api.request('/auth/login', 'POST', { email, password });
         const user = await window.api.request(`/users/me?token=${response.access_token}`);
-        
-        // Check if the requested role matches the actual user role
+
         if (user.role !== role) {
-            alert(`Access denied. You are logged in as a ${user.role}, not a ${role}.`);
-            // We still store the user but navigate appropriately? 
-            // In a better system, the role is forced by the account.
+            alert(`Access denied. Your account is registered as "${user.role}", not "${role}". Please select the correct role.`);
+            return;
         }
 
         const userData = {
@@ -94,153 +359,222 @@ async function loginUser(email, password, role) {
             initials: user.full_name.split(' ').map(n => n[0]).join('').toUpperCase(),
             token: response.access_token
         };
-        
         localStorage.setItem('resale_user', JSON.stringify(userData));
         window.location.href = 'profile.html';
     } catch (error) {
-        alert("Login failed: " + error.message);
+        alert('Login failed: ' + error.message);
     }
 }
 
-/**
- * Simulated Signup Function (Now with FastAPI)
- */
 async function signupUser(name, email, password, role) {
     try {
-        const userData = {
-            full_name: name,
-            email: email,
-            password: password,
-            role: role
-        };
-        const newUser = await window.api.signup(userData);
-        
-        // Auto-login after signup
-        loginUser(email, password, role);
+        await window.api.signup({ full_name: name, email, password, role });
+        await loginUser(email, password, role);
     } catch (error) {
-        alert("Signup failed: " + error.message);
+        alert('Signup failed: ' + error.message);
     }
 }
 
-/**
- * Simulated Logout Function
- */
-function logoutUser() {
-    localStorage.removeItem('resale_user');
-    window.location.href = 'index.html';
-}
+// ─── Modal Helpers ────────────────────────────────────────────
 
-// --- Product Data ---
-
-const productsData = {
-    'iphone-13': {
-        title: 'iPhone 13 Pro - 256GB Midnight',
-        price: '৳82,500',
-        image: 'assets/iphone.png',
-        condition: 'Like New',
-        rating: '⭐ 4.9 (42 reviews)',
-        description: 'This iPhone 13 Pro is in excellent condition, barely used for 3 months. Battery health is at 98%. It includes the original box and a protective case. Unlocked and ready for any carrier.'
-    },
-    'macbook-m2': {
-        title: 'MacBook Air M2 (2022) - 8GB/256GB Platinum',
-        price: '৳1,15,000',
-        image: 'assets/macbook.png',
-        condition: 'Excellent',
-        rating: '⭐ 4.8 (15 reviews)',
-        description: 'Blazing fast MacBook Air with the M2 chip. Only 20 battery cycles. Perfect for students and professionals. Original charger included.'
-    },
-    'sony-a7iii': {
-        title: 'Sony Alpha a7 III - Full Frame Mirrorless (Body Only)',
-        price: '৳1,35,000',
-        image: 'assets/sony.png',
-        condition: 'Good',
-        rating: '⭐ 4.7 (28 reviews)',
-        description: 'Professional full-frame camera body. Minor scratches on the base but sensor is spotless. Shutter count around 15k. Great for videography.'
-    },
-    'ipad-pro': {
-        title: 'iPad Pro 11-inch (M1) - 128GB Wi-Fi',
-        price: '৳72,000',
-        image: 'assets/ipad.png',
-        condition: 'Flawless',
-        rating: '⭐ 5.0 (10 reviews)',
-        description: 'Crystal clear display with M1 power. Supports Apple Pencil 2nd Gen. Always kept in a screen protector and case. No dents or scratches.'
-    },
-    'samsung-s24': {
-        title: 'Samsung Galaxy S24 Ultra - 512GB Titanium Black',
-        price: '৳1,38,000',
-        image: 'assets/samsung_phone.png',
-        condition: 'Brand New',
-        rating: '⭐ 5.0 (8 reviews)',
-        description: 'The ultimate AI phone. Unopened box, full official warranty. 200MP camera, S-Pen included. Experience the best of Android.'
-    },
-    'xiaomi-14': {
-        title: 'Xiaomi 14 Ultra - 16GB/512GB (Leica Optics)',
-        price: '৳1,25,000',
-        image: 'assets/xiaomi_phone.png',
-        condition: 'Like New',
-        rating: '⭐ 4.9 (5 reviews)',
-        description: 'Photography beast with Leica Summilux lens. Barely used for a week. Zero scratches. Snapdragon 8 Gen 3. Global ROM.'
+function openModal(id) {
+    const modal = document.getElementById(id);
+    if (modal) {
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
     }
-};
-
-// --- Navigation Logic ---
-
-function viewProduct(productId) {
-    window.location.href = `product.html?id=${productId}`;
 }
 
-/**
- * Dynamically loads product data onto product.html based on URL id.
- */
-function loadProductDetails() {
-    const params = new URLSearchParams(window.location.search);
-    const productId = params.get('id');
-    
-    if (!productId || !productsData[productId]) return;
-
-    const product = productsData[productId];
-
-    // Update DOM elements
-    const titleEl = document.getElementById('productTitle');
-    const priceEl = document.getElementById('productPrice');
-    const imgEl = document.getElementById('productImg');
-    const descEl = document.getElementById('productDesc');
-    const badgeEl = document.getElementById('productBadge');
-    const ratingEl = document.getElementById('productRating');
-
-    if (titleEl) titleEl.innerText = product.title;
-    if (priceEl) priceEl.innerText = product.price;
-    if (imgEl) {
-        imgEl.src = product.image;
-        imgEl.alt = product.title;
+function closeModal(id) {
+    const modal = document.getElementById(id);
+    if (modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
     }
-    if (descEl) descEl.innerText = product.description;
-    if (badgeEl) badgeEl.innerText = product.condition;
-    if (ratingEl) ratingEl.innerText = product.rating;
-    
-    // Update Page Title
-    document.title = `${product.title} | ReSale`;
 }
 
-// --- Page-Specific Logic ---
+// ─── DOMContentLoaded ─────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Initialize Navigation
     updateNav();
 
-    // ---- APP VIEW MODE ----
-    // If a user is logged in, hide marketing sections (hero, about, features, safety)
-    const currentUser = getUser();
-    if (currentUser) {
+    const user = getUser();
+
+    // ── App-view mode on index.html (hide marketing for logged-in users)
+    if (user) {
         document.body.classList.add('app-view');
     }
 
-    // Load Dynamic Product Details (if on product.html)
-    if (window.location.pathname.includes('product.html')) {
-        loadProductDetails();
+    // ──────────────────────────────────────────────────────────
+    //  INDEX.HTML — Public Listings + Filter
+    // ──────────────────────────────────────────────────────────
+    const listingsGrid = document.getElementById('listingsGrid');
+    if (listingsGrid) {
+        renderPublicListings('all');
+
+        // Filter buttons
+        const filterBtns = document.querySelectorAll('#listingsFilter .filter-btn');
+        filterBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                filterBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                renderPublicListings(btn.dataset.category);
+            });
+        });
     }
 
-    // Role Selector Logic
+    // ──────────────────────────────────────────────────────────
+    //  INDEX.HTML — Live Stats from Backend (/stats)
+    // ──────────────────────────────────────────────────────────
+    const statTotalUsers    = document.getElementById('statTotalUsers');
+    const statSellers       = document.getElementById('statSellers');
+    const statSatisfaction  = document.getElementById('statSatisfaction');
+    const statAvgSale       = document.getElementById('statAvgSale');
+    const statUserBreakdown = document.getElementById('statUserBreakdown');
+
+    if (statTotalUsers) {
+        loadLiveStats();
+    }
+
+    // ──────────────────────────────────────────────────────────
+    //  PROFILE.HTML — Role-Based Views
+    // ──────────────────────────────────────────────────────────
+    const sellerView = document.getElementById('sellerView');
+    const buyerView  = document.getElementById('buyerView');
+    const adminView  = document.getElementById('adminView');
+
+    if (sellerView || buyerView || adminView) {
+        if (!user) {
+            window.location.href = 'login.html';
+            return;
+        }
+
+        const role = user.role || 'buyer';
+
+        // Fill profile sidebar
+        const userNameEl    = document.getElementById('userName');
+        const userEmailEl   = document.getElementById('userEmail');
+        const userInitialsEl = document.getElementById('userInitials');
+        const userRoleBadgeEl = document.getElementById('userRoleBadge');
+
+        if (userNameEl)    userNameEl.innerText = user.full_name;
+        if (userEmailEl)   userEmailEl.innerText = user.email;
+        if (userInitialsEl) userInitialsEl.innerText = user.initials;
+        if (userRoleBadgeEl) {
+            userRoleBadgeEl.innerHTML = `<span class="badge-role badge-${role}">${role}</span>`;
+        }
+
+        // Show the correct view
+        if (role === 'seller' && sellerView) {
+            sellerView.style.display = 'block';
+            renderSellerListings('all');
+
+            // Seller status tabs
+            const tabs = document.querySelectorAll('#sellerStatusTabs .status-tab');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    renderSellerListings(tab.dataset.status);
+                });
+            });
+
+            // Open listing modal
+            const openBtn = document.getElementById('openListingModalBtn');
+            if (openBtn) openBtn.addEventListener('click', () => openModal('listingModal'));
+
+        } else if (role === 'buyer' && buyerView) {
+            buyerView.style.display = 'block';
+            renderBuyerListings('all');
+
+            // Buyer category filter
+            const filterBtns = document.querySelectorAll('#buyerFilter .filter-btn');
+            filterBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    filterBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    renderBuyerListings(btn.dataset.category);
+                });
+            });
+
+        } else if (role === 'admin' && adminView) {
+            adminView.style.display = 'block';
+            renderAdminListings('all');
+
+            // Admin status tabs
+            const tabs = document.querySelectorAll('#adminStatusTabs .status-tab');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    renderAdminListings(tab.dataset.status);
+                });
+            });
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────
+    //  LISTING MODAL — Create New Listing
+    // ──────────────────────────────────────────────────────────
+    const listingModal = document.getElementById('listingModal');
+    if (listingModal) {
+        // Close buttons
+        const closeBtns = [
+            document.getElementById('closeListingModal'),
+            document.getElementById('cancelListingBtn')
+        ];
+        closeBtns.forEach(btn => {
+            if (btn) btn.addEventListener('click', () => closeModal('listingModal'));
+        });
+
+        // Click outside to close
+        listingModal.addEventListener('click', (e) => {
+            if (e.target === listingModal) closeModal('listingModal');
+        });
+
+        // Form submit
+        const form = document.getElementById('createListingForm');
+        if (form) {
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const user = getUser();
+                if (!user) return;
+
+                const listing = {
+                    id: `listing_${Date.now()}_${Math.random().toString(36).substr(2,6)}`,
+                    title:       document.getElementById('listingTitle').value.trim(),
+                    category:    document.getElementById('listingCategory').value,
+                    price:       document.getElementById('listingPrice').value,
+                    condition:   document.getElementById('listingCondition').value,
+                    description: document.getElementById('listingDesc').value.trim(),
+                    imageUrl:    document.getElementById('listingImage').value.trim(),
+                    status:      'pending',
+                    sellerId:    user.id,
+                    sellerEmail: user.email,
+                    sellerName:  user.full_name,
+                    createdAt:   new Date().toISOString()
+                };
+
+                addListing(listing);
+                form.reset();
+                closeModal('listingModal');
+
+                // Show success notification
+                showToast('🎉 Listing submitted! Awaiting admin approval.');
+                renderSellerListings('all');
+
+                // Reset seller tabs to 'all'
+                const tabs = document.querySelectorAll('#sellerStatusTabs .status-tab');
+                tabs.forEach(t => t.classList.remove('active'));
+                const allTab = document.getElementById('sellerTabAll');
+                if (allTab) allTab.classList.add('active');
+            });
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────
+    //  LOGIN & SIGNUP FORMS
+    // ──────────────────────────────────────────────────────────
     const roleSelector = document.getElementById('roleSelector');
     if (roleSelector) {
         const tabs = roleSelector.querySelectorAll('.role-tab');
@@ -248,122 +582,188 @@ document.addEventListener('DOMContentLoaded', () => {
         tabs.forEach(tab => {
             tab.addEventListener('click', () => {
                 const role = tab.getAttribute('data-role');
-                roleInput.value = role;
+                if (roleInput) roleInput.value = role;
                 tabs.forEach(t => t.classList.remove('active'));
                 tab.classList.add('active');
             });
         });
     }
 
-    // Login Form Handling
     const loginForm = document.getElementById('loginForm');
     if (loginForm) {
         loginForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const email = document.getElementById('email').value;
-            const pass = document.getElementById('password').value;
-            const role = document.getElementById('selectedRole').value;
+            const pass  = document.getElementById('password').value;
+            const role  = document.getElementById('selectedRole').value;
             loginUser(email, pass, role);
         });
     }
 
-    // Signup Form Handling
     const signupForm = document.getElementById('signupForm');
     if (signupForm) {
         signupForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            const name = document.getElementById('name').value;
+            const name  = document.getElementById('name').value;
             const email = document.getElementById('email').value;
-            const pass = document.getElementById('password').value;
-            const role = document.getElementById('selectedRole').value;
+            const pass  = document.getElementById('password').value;
+            const role  = document.getElementById('selectedRole').value;
             signupUser(name, email, pass, role);
         });
     }
 
-    // Profile Handling
-    const userNameEl = document.getElementById('userName');
-    const userEmailEl = document.getElementById('userEmail');
-    const userInitialsEl = document.getElementById('userInitials');
-    const userRoleBadgeEl = document.getElementById('userRoleBadge');
-    const createListingBtn = document.getElementById('createListingBtn');
-    const profileSectionTitle = document.getElementById('profileSectionTitle');
-
-    if (userNameEl || userEmailEl) {
-        const user = getUser();
-        if (user) {
-            const role = user.role || 'buyer';
-            if (userNameEl) userNameEl.innerText = user.full_name;
-            if (userEmailEl) userEmailEl.innerText = user.email;
-            if (userInitialsEl) userInitialsEl.innerText = user.initials;
-            
-            if (userRoleBadgeEl) {
-                userRoleBadgeEl.innerHTML = `<span class="badge-role badge-${role}">${role}</span>`;
-            }
-
-            // Role-based UI visibility
-            if (createListingBtn && profileSectionTitle) {
-                if (role === 'buyer') {
-                    createListingBtn.style.display = 'none';
-                    profileSectionTitle.innerText = 'My Orders';
-                } else if (role === 'admin') {
-                    createListingBtn.innerText = '+ Add New Product';
-                    profileSectionTitle.innerText = 'Global Management';
-                } else {
-                    // Seller
-                    createListingBtn.style.display = 'block';
-                    profileSectionTitle.innerText = 'My Listings';
-                }
-            }
-        } else if (window.location.pathname.includes('profile')) {
-            // Redirect to login if trying to access profile while logged out
-            window.location.href = 'login.html';
-        }
-    }
-
-    // Chat Interactivity
-    const chatForm = document.getElementById('chatForm');
+    // ──────────────────────────────────────────────────────────
+    //  CHAT
+    // ──────────────────────────────────────────────────────────
+    const chatForm  = document.getElementById('chatForm');
     const chatInput = document.getElementById('chatInput');
-    const chatBox = document.getElementById('chatBox');
+    const chatBox   = document.getElementById('chatBox');
 
     if (chatForm && chatInput && chatBox) {
         chatForm.addEventListener('submit', (e) => {
             e.preventDefault();
-            const messageText = chatInput.value.trim();
-
-            if (messageText !== "") {
-                addMessage(messageText, 'user');
-                chatInput.value = "";
-
-                setTimeout(() => {
-                    const responses = [
-                        "That sounds good! When can we meet?",
-                        "Is the price negotiable?",
-                        "I can meet you this afternoon.",
-                        "Great! I'll be there."
-                    ];
-                    const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-                    addMessage(randomResponse, 'seller');
-                }, 1000);
-            }
+            const text = chatInput.value.trim();
+            if (!text) return;
+            addMessage(text, 'user');
+            chatInput.value = '';
+            setTimeout(() => {
+                const replies = [
+                    'That sounds good! When can we meet?',
+                    'Is the price negotiable?',
+                    'I can meet you this afternoon.',
+                    'Great! I\'ll be there.'
+                ];
+                addMessage(replies[Math.floor(Math.random() * replies.length)], 'seller');
+            }, 1000);
         });
     }
 
     function addMessage(text, type) {
-        const messageDiv = document.createElement('div');
-        messageDiv.classList.add('message', type);
-        messageDiv.innerText = text;
-        chatBox.appendChild(messageDiv);
+        const div = document.createElement('div');
+        div.classList.add('message', type);
+        div.innerText = text;
+        chatBox.appendChild(div);
         chatBox.scrollTop = chatBox.scrollHeight;
     }
 
-    // Search Logic (Mock)
-    const searchBar = document.querySelector('.search-bar');
+    // ──────────────────────────────────────────────────────────
+    //  SEARCH BAR
+    // ──────────────────────────────────────────────────────────
+    const searchBar = document.getElementById('mainSearchBar') || document.querySelector('.search-bar');
     if (searchBar) {
         searchBar.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
-                const query = searchBar.value.toLowerCase();
-                alert(`Searching for: ${query}\n(Normally this would redirect)`);
+                const query = searchBar.value.toLowerCase().trim();
+                if (!query) return;
+                // Filter live listings
+                const grid = document.getElementById('listingsGrid');
+                if (grid) {
+                    const listings = getListings().filter(l =>
+                        l.status === 'approved' &&
+                        (l.title.toLowerCase().includes(query) || l.description.toLowerCase().includes(query))
+                    );
+                    if (listings.length === 0) {
+                        grid.innerHTML = '';
+                        const emptyEl = document.getElementById('listingsEmpty');
+                        if (emptyEl) emptyEl.style.display = 'flex';
+                    } else {
+                        const emptyEl = document.getElementById('listingsEmpty');
+                        if (emptyEl) emptyEl.style.display = 'none';
+                        grid.innerHTML = listings.map(renderListingCard).join('');
+                    }
+                }
             }
         });
     }
 });
+
+// ─── Toast Notification ───────────────────────────────────────
+
+function showToast(message) {
+    const existing = document.getElementById('resaleToast');
+    if (existing) existing.remove();
+
+    const toast = document.createElement('div');
+    toast.id = 'resaleToast';
+    toast.style.cssText = `
+        position: fixed; bottom: 2rem; right: 2rem; z-index: 9999;
+        background: linear-gradient(135deg, #0f172a, #1e293b);
+        border: 1px solid #22d3ee44;
+        color: #f1f5f9; padding: 1rem 1.5rem;
+        border-radius: 12px; font-size: 0.95rem; font-weight: 500;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        animation: slideInToast 0.3s ease;
+        max-width: 340px; line-height: 1.4;
+    `;
+    toast.innerText = message;
+    document.body.appendChild(toast);
+
+    const style = document.createElement('style');
+    style.textContent = `@keyframes slideInToast { from { opacity:0; transform: translateY(20px);} to { opacity:1; transform:translateY(0);} }`;
+    document.head.appendChild(style);
+
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(20px)';
+        toast.style.transition = 'all 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+    }, 3500);
+}
+
+// ─── Live Stats ──────────────────────────────────────────────────
+
+async function loadLiveStats() {
+    try {
+        const stats = await window.api.request('/stats', 'GET');
+        
+        animateCount('statTotalUsers', stats.total_users, '+');
+        animateCount('statSellers', stats.total_sellers, '');
+        animateCount('statSatisfaction', stats.satisfaction_pct, '%');
+        animateCount('statAvgSale', stats.avg_sale_hours, 'h');
+
+        const breakdown = document.getElementById('statUserBreakdown');
+        if (breakdown) {
+            breakdown.innerText = `(${stats.total_buyers} Buyers, ${stats.total_sellers} Sellers)`;
+        }
+    } catch (error) {
+        console.error("Failed to load live stats:", error);
+        // Fallback to static numbers if backend is down
+        document.getElementById('statTotalUsers').innerText = '5K+';
+        document.getElementById('statSellers').innerText = '500+';
+        document.getElementById('statSatisfaction').innerText = '99%';
+        document.getElementById('statAvgSale').innerText = '24h';
+    }
+}
+
+function animateCount(elementId, target, suffix = '') {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    
+    // If target is 0, just set it
+    if (target === 0) {
+        el.innerText = '0' + suffix;
+        return;
+    }
+
+    const duration = 1500; // ms
+    const steps = 30;
+    const stepTime = duration / steps;
+    const increment = target / steps;
+    let current = 0;
+
+    const timer = setInterval(() => {
+        current += increment;
+        if (current >= target) {
+            el.innerText = target + suffix;
+            clearInterval(timer);
+        } else {
+            el.innerText = Math.floor(current) + suffix;
+        }
+    }, stepTime);
+}
+
+// Expose globals needed by inline onclick attributes
+window.adminAction    = adminAction;
+window.deleteMyListing = deleteMyListing;
+window.handleBuyClick = handleBuyClick;
+window.logoutUser     = logoutUser;

@@ -4,7 +4,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Your Profile | ReSale</title>
+  <title>Dashboard | ReSale</title>
+  <meta name="description" content="Your ReSale dashboard — manage listings, orders, and your escrow wallet.">
   <link rel="stylesheet" href="css/style.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
@@ -14,11 +15,9 @@
   <header>
     <div class="container">
       <a href="index.html" class="logo">ReSale.</a>
-
       <div class="search-container">
         <input type="text" placeholder="Search for electronics..." class="search-bar">
       </div>
-
       <nav>
         <!-- Nav links will be injected by app.js -->
       </nav>
@@ -27,6 +26,7 @@
 
   <main class="container">
     <div class="profile-layout">
+
       <!-- SIDEBAR -->
       <aside class="profile-sidebar">
         <div class="profile-info">
@@ -36,75 +36,192 @@
           <div id="userRoleBadge"></div>
         </div>
         <div class="profile-menu">
-          <a href="#" class="profile-menu-item active">My Listings</a>
-          <a href="#" class="profile-menu-item">Order History</a>
+          <a href="#" class="profile-menu-item active" id="menuListings">My Dashboard</a>
           <a href="wallet.html" class="profile-menu-item">Escrow Wallet</a>
-          <a href="#" class="profile-menu-item">Account Settings</a>
+          <a href="chat.html" class="profile-menu-item">Messages</a>
+          <a href="escrow-policy.html" class="profile-menu-item">Escrow &amp; Policy</a>
           <a href="javascript:void(0)" onclick="logoutUser()" class="profile-menu-item logout">Logout</a>
         </div>
       </aside>
 
       <!-- CONTENT -->
       <section class="profile-content">
-        <div class="profile-section-title">
-          <h2 id="profileSectionTitle" style="font-size: 1.5rem; font-weight: 700;">My Listings</h2>
-          <button id="createListingBtn" class="btn-primary" style="padding: 0.5rem 1rem; font-size: 0.9rem;">+ Create
-            New Listing</button>
-        </div>
 
-        <!-- Mock listings -->
-        <div class="product-grid" style="grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));">
-          <div class="card">
-            <img src="assets/iphone.png" alt="iPhone" class="card-img" style="aspect-ratio: 16/9;">
-            <div class="card-content">
-              <h4 class="card-title" style="font-size: 0.95rem;">iPhone 13 Pro</h4>
-              <p class="card-price" style="font-size: 1rem;">৳82,500</p>
-              <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
-                <button class="btn-outline" style="flex: 1; padding: 0.4rem; font-size: 0.8rem;">Edit</button>
-                <button class="btn-outline"
-                  style="flex: 1; padding: 0.4rem; font-size: 0.8rem; color: #ef4444;">Delete</button>
-              </div>
-            </div>
+        <!-- ====== SELLER VIEW ====== -->
+        <div id="sellerView" style="display:none;">
+          <div class="profile-section-title">
+            <h2 style="font-size: 1.5rem; font-weight: 700;">My <span class="text-gradient">Listings</span></h2>
+            <button id="openListingModalBtn" class="btn-primary" style="padding: 0.5rem 1.2rem; font-size: 0.9rem;">+ Create New Listing</button>
+          </div>
+
+          <!-- Status Filter Tabs (Seller) -->
+          <div class="status-tabs" id="sellerStatusTabs">
+            <button class="status-tab active" data-status="all" id="sellerTabAll">All</button>
+            <button class="status-tab pending" data-status="pending" id="sellerTabPending">⏳ Pending</button>
+            <button class="status-tab approved" data-status="approved" id="sellerTabApproved">✅ Approved</button>
+            <button class="status-tab rejected" data-status="rejected" id="sellerTabRejected">❌ Rejected</button>
+          </div>
+
+          <div class="product-grid" id="sellerListingsGrid" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));"></div>
+          <div class="listings-empty" id="sellerEmpty" style="display:none;">
+            <div class="empty-icon">📸</div>
+            <h3>No Listings Yet</h3>
+            <p>Click "Create New Listing" to post your first device and reach thousands of buyers.</p>
           </div>
         </div>
+
+        <!-- ====== BUYER VIEW ====== -->
+        <div id="buyerView" style="display:none;">
+          <div class="profile-section-title">
+            <h2 style="font-size: 1.5rem; font-weight: 700;">Browse <span class="text-gradient">Approved Listings</span></h2>
+            <span class="badge badge-condition" style="font-size:0.85rem;">Buyer Mode</span>
+          </div>
+
+          <!-- Category Filter -->
+          <div class="listings-filter" id="buyerFilter" style="margin-bottom:1.5rem;">
+            <button class="filter-btn active" data-category="all" id="buyerFilterAll">All</button>
+            <button class="filter-btn" data-category="phone" id="buyerFilterPhone">📱 Phones</button>
+            <button class="filter-btn" data-category="laptop" id="buyerFilterLaptop">💻 Laptops</button>
+            <button class="filter-btn" data-category="camera" id="buyerFilterCamera">📷 Cameras</button>
+            <button class="filter-btn" data-category="tablet" id="buyerFilterTablet">📟 Tablets</button>
+            <button class="filter-btn" data-category="other" id="buyerFilterOther">🔧 Other</button>
+          </div>
+
+          <div class="product-grid" id="buyerListingsGrid" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));"></div>
+          <div class="listings-empty" id="buyerEmpty" style="display:none;">
+            <div class="empty-icon">🔎</div>
+            <h3>No Listings Available</h3>
+            <p>Check back soon — sellers are listing their devices and admins are approving them.</p>
+          </div>
+        </div>
+
+        <!-- ====== ADMIN VIEW ====== -->
+        <div id="adminView" style="display:none;">
+          <div class="profile-section-title">
+            <h2 style="font-size: 1.5rem; font-weight: 700;">Admin <span class="text-gradient">Panel</span></h2>
+            <span class="badge badge-condition" style="font-size:0.85rem; background:rgba(234,179,8,0.15); color:#eab308; border-color:#eab308;">Admin Mode</span>
+          </div>
+
+          <!-- Status Filter Tabs (Admin) -->
+          <div class="status-tabs" id="adminStatusTabs">
+            <button class="status-tab active" data-status="all" id="adminTabAll">All</button>
+            <button class="status-tab pending" data-status="pending" id="adminTabPending">⏳ Pending Review</button>
+            <button class="status-tab approved" data-status="approved" id="adminTabApproved">✅ Approved</button>
+            <button class="status-tab rejected" data-status="rejected" id="adminTabRejected">❌ Rejected</button>
+          </div>
+
+          <div id="adminListingsContainer"></div>
+          <div class="listings-empty" id="adminEmpty" style="display:none;">
+            <div class="empty-icon">📋</div>
+            <h3>No Listings to Review</h3>
+            <p>When sellers submit devices, they will appear here for your review.</p>
+          </div>
+        </div>
+
       </section>
     </div>
   </main>
 
+  <!-- ====== CREATE LISTING MODAL ====== -->
+  <div class="modal-overlay" id="listingModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>📱 Create New Listing</h3>
+        <button class="modal-close" id="closeListingModal">&times;</button>
+      </div>
+      <form id="createListingForm" class="modal-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="listingTitle">Device Title *</label>
+            <input type="text" id="listingTitle" class="form-input" placeholder="e.g. iPhone 14 Pro 256GB" required>
+          </div>
+          <div class="form-group">
+            <label for="listingCategory">Category *</label>
+            <select id="listingCategory" class="form-input" required>
+              <option value="">Select Category</option>
+              <option value="phone">📱 Phone</option>
+              <option value="laptop">💻 Laptop / MacBook</option>
+              <option value="camera">📷 Camera</option>
+              <option value="tablet">📟 Tablet / iPad</option>
+              <option value="other">🔧 Other</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="listingPrice">Price (৳) *</label>
+            <input type="number" id="listingPrice" class="form-input" placeholder="e.g. 82500" min="1" required>
+          </div>
+          <div class="form-group">
+            <label for="listingCondition">Condition *</label>
+            <select id="listingCondition" class="form-input" required>
+              <option value="">Select Condition</option>
+              <option value="Brand New">Brand New</option>
+              <option value="Like New">Like New (Barely Used)</option>
+              <option value="Excellent">Excellent</option>
+              <option value="Good">Good</option>
+              <option value="Fair">Fair</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="listingDesc">Description *</label>
+          <textarea id="listingDesc" class="form-input" rows="3" placeholder="Describe the device — battery health, accessories included, reason for selling..." required style="resize:vertical;"></textarea>
+        </div>
+        <div class="form-group">
+          <label for="listingImage">Image URL (optional)</label>
+          <input type="url" id="listingImage" class="form-input" placeholder="https://example.com/device-photo.jpg">
+          <small style="color:var(--text-muted); font-size:0.8rem;">Paste a public image link for your device. Leave blank for a default icon.</small>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-outline" id="cancelListingBtn">Cancel</button>
+          <button type="submit" class="btn-primary" id="submitListingBtn">Submit for Review →</button>
+        </div>
+      </form>
+    </div>
+  </div>
 
+  <!-- ====== FOOTER ====== -->
   <footer class="site-footer">
     <div class="container">
       <div class="footer-grid">
         <div>
           <a href="index.html" class="footer-logo logo">ReSale.</a>
-          <p style="color: #94a3b8; line-height: 1.6;">Your ultimate destination for high-quality, pre-owned electronic
-            devices. Secure, reliable, and transparent.</p>
+          <p style="color: #94a3b8; line-height: 1.6;">Your ultimate destination for high-quality, pre-owned electronic devices. Secure, reliable, and transparent.</p>
         </div>
         <div>
           <h4 class="footer-title">Quick Links</h4>
           <ul class="footer-links">
             <li><a href="index.html">Browse Listings</a></li>
-            <li><a href="profile.html">Become a Seller</a></li>
-            <li><a href="signup.html">Become a Buyer</a></li>
+            <li><a href="index.html#escrow">How Escrow Works</a></li>
+            <li><a href="escrow-policy.html">Escrow &amp; Policy</a></li>
           </ul>
         </div>
         <div>
-          <h4 class="footer-title">Support</h4>
+          <h4 class="footer-title">Legal &amp; Trust</h4>
           <ul class="footer-links">
             <li><a href="index.html#safety">Safety Tips</a></li>
-            <li><a href="index.html#support">Help Center</a></li>
-            <li><a href="index.html#support">Report Issue</a></li>
+            <li><a href="escrow-policy.html#privacy">Privacy Policy</a></li>
+            <li><a href="escrow-policy.html#dispute">Dispute Resolution</a></li>
           </ul>
         </div>
         <div>
-          <h4 class="footer-title">Newsletter</h4>
-          <p style="color: #94a3b8; font-size: 0.9rem; margin-bottom: 1rem;">Get the latest tech deals in your inbox.
-          </p>
-          <div style="display: flex; gap: 0.5rem;">
-            <input type="text" placeholder="Email" class="form-input"
-              style="background: #1e293b; border-color: #334155; color: white;">
-            <button class="btn-primary" style="padding: 0 1rem;">Join</button>
-          </div>
+          <h4 class="footer-title">Need Assistance?</h4>
+          <ul class="footer-links">
+            <li>
+              <a href="https://wa.me/8801723740704" target="_blank" style="display: flex; align-items: center; gap: 0.5rem; color: #25d366;">
+                <span style="font-size: 1.2rem;">💬</span> WhatsApp Support
+              </a>
+            </li>
+            <li style="margin-top: 0.5rem;">
+              <a href="https://mail.google.com/mail/?view=cm&to=aonontojahan@gmail.com&su=ReSale%20Support" target="_blank" rel="noopener" style="display: flex; align-items: center; gap: 0.5rem; color: #ea4335;">
+                <span style="font-size: 1.2rem;">📧</span> Gmail Support
+              </a>
+            </li>
+            <li style="margin-top: 1rem; border-top: 1px solid #334155; padding-top: 1rem;">
+              <a href="escrow-policy.html#dispute" style="color: var(--accent-cyan); font-weight: 600;">Report an Issue</a>
+            </li>
+          </ul>
         </div>
       </div>
       <div class="footer-bottom">
