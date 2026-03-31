@@ -311,15 +311,11 @@ function updateNav() {
         } else if (role === 'seller') {
             navHtml += `
                 <a href="profile.html" class="${currentPath.includes('profile') ? 'active' : ''}">My Listings</a>
-                <a href="chat.html" class="${currentPath.includes('chat') ? 'active' : ''}">Messages</a>
-                <a href="wallet.html" class="${currentPath.includes('wallet') ? 'active' : ''}">Wallet</a>
             `;
         } else {
             // Buyer
             navHtml += `
                 <a href="index.html" class="${currentPath.includes('index') || currentPath === '/' ? 'active' : ''}">Browse</a>
-                <a href="chat.html" class="${currentPath.includes('chat') ? 'active' : ''}">Messages</a>
-                <a href="wallet.html" class="${currentPath.includes('wallet') ? 'active' : ''}">Wallet</a>
             `;
         }
 
@@ -462,6 +458,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (userInitialsEl) userInitialsEl.innerText = user.initials;
         if (userRoleBadgeEl) {
             userRoleBadgeEl.innerHTML = `<span class="badge-role badge-${role}">${role}</span>`;
+        }
+
+        // Hide wallet/messages for admin
+        const walletMenu = document.querySelector('.profile-menu-item[href="wallet.html"]');
+        const chatMenu   = document.querySelector('.profile-menu-item[href="chat.html"]');
+        if (role === 'admin') {
+            if (walletMenu) walletMenu.style.display = 'none';
+            if (chatMenu) chatMenu.style.display = 'none';
+        } else {
+            if (walletMenu) walletMenu.style.display = 'flex';
+            if (chatMenu) chatMenu.style.display = 'flex';
         }
 
         // Show the correct view
@@ -626,15 +633,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!text) return;
             addMessage(text, 'user');
             chatInput.value = '';
-            setTimeout(() => {
-                const replies = [
-                    'That sounds good! When can we meet?',
-                    'Is the price negotiable?',
-                    'I can meet you this afternoon.',
-                    'Great! I\'ll be there.'
-                ];
-                addMessage(replies[Math.floor(Math.random() * replies.length)], 'seller');
-            }, 1000);
         });
     }
 
@@ -674,6 +672,74 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         });
+    }
+
+    // ──────────────────────────────────────────────────────────
+    //  WALLET & CHAT DYMANIC CONTENT
+    // ──────────────────────────────────────────────────────────
+    if (window.location.pathname.includes('wallet.html') && user) {
+        const walletGrid = document.querySelector('.wallet-grid');
+        const transactionsList = document.querySelector('.recent-transactions');
+        
+        let availableBalance = 0;
+        let escrowBalance = 0;
+        
+        if (walletGrid && transactionsList) {
+            if (user.role === 'buyer') {
+                walletGrid.innerHTML = `
+                  <div class="wallet-card available">
+                    <h3>Deposit Balance</h3>
+                    <p class="balance">৳${availableBalance.toLocaleString()}</p>
+                    <div style="margin-top: 2rem;">
+                      <button class="btn-primary" style="width: 100%; border-radius: 8px;">Add Funds</button>
+                    </div>
+                  </div>
+                  <div class="wallet-card escrow">
+                    <h3>In Escrow</h3>
+                    <p class="balance">৳${escrowBalance.toLocaleString()}</p>
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 1rem;">Funds locked for pending purchases until you confirm receipt.</p>
+                  </div>
+                `;
+                transactionsList.innerHTML = `
+                  <div class="transactions-header">Recent Transactions</div>
+                  <div class="listings-empty" style="padding: 2rem; border: none; background: transparent;">
+                    <div class="empty-icon">💸</div>
+                    <h3>No Transactions Yet</h3>
+                    <p>Your transaction history will appear here.</p>
+                  </div>
+                `;
+            } else if (user.role === 'seller') {
+                walletGrid.innerHTML = `
+                  <div class="wallet-card available">
+                    <h3>Available Balance</h3>
+                    <p class="balance">৳${availableBalance.toLocaleString()}</p>
+                    <div style="margin-top: 2rem;">
+                      <button class="btn-primary" style="width: 100%; border-radius: 8px;">Withdraw Funds</button>
+                    </div>
+                  </div>
+                  <div class="wallet-card escrow">
+                    <h3>Escrow Balance</h3>
+                    <p class="balance">৳${escrowBalance.toLocaleString()}</p>
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 1rem;">These funds are held securely until the buyer confirms receipt of the item.</p>
+                  </div>
+                `;
+                transactionsList.innerHTML = `
+                  <div class="transactions-header">Recent Transactions</div>
+                  <div class="listings-empty" style="padding: 2rem; border: none; background: transparent;">
+                    <div class="empty-icon">💸</div>
+                    <h3>No Transactions Yet</h3>
+                    <p>Your transaction history will appear here.</p>
+                  </div>
+                `;
+            }
+        }
+    }
+
+    if (window.location.pathname.includes('chat.html') && user) {
+        const chatBox = document.getElementById('chatBox');
+        if (chatBox) {
+            chatBox.innerHTML = '';
+        }
     }
 });
 

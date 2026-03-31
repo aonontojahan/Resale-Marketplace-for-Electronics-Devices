@@ -52,6 +52,13 @@ button {
   padding: 0 20px;
 }
 
+body.app-view .hero,
+body.app-view .about-section,
+body.app-view .escrow-overview-section,
+body.app-view .safety-tips-section {
+  display: none !important;
+}
+
 header {
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(20px);
