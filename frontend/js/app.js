@@ -76,7 +76,7 @@ const STATUS_CONFIG = {
  * Renders a listing card for the public/buyer view.
  */
 function renderListingCard(listing) {
-    const imgSrc = listing.imageUrl || CATEGORY_ICONS[listing.category] || '';
+    const imgSrc = (listing.imageUrls && listing.imageUrls.length > 0) ? listing.imageUrls[0] : (listing.imageUrl || CATEGORY_ICONS[listing.category] || '');
     const imgHtml = imgSrc
         ? `<img src="${imgSrc}" alt="${listing.title}" class="card-img" onerror="this.style.display='none'">`
         : `<div class="card-img-placeholder">${CATEGORY_EMOJIS[listing.category] || '📦'}</div>`;
@@ -95,7 +95,10 @@ function renderListingCard(listing) {
                 </p>
                 <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.8rem; line-height:1.5;">${listing.description.substring(0, 90)}${listing.description.length > 90 ? '…' : ''}</p>
                 <p style="font-size:0.78rem; color:var(--text-muted);">By: <strong style="color:var(--text-secondary);">${listing.sellerName}</strong></p>
-                <button class="btn-view" onclick="handleBuyClick('${listing.id}')" id="buyBtn-${listing.id}">🛒 Buy with Escrow</button>
+                <div style="display:flex; gap:0.5rem; margin-top:1rem;">
+                    <button class="btn-outline" style="flex:1; padding:0.6rem; font-size:0.85rem;" onclick="handleMessageClick('${listing.id}')" id="msgBtn-${listing.id}">💬 Message</button>
+                    <button class="btn-primary" style="flex:1; padding:0.6rem; font-size:0.85rem;" onclick="handleBuyClick('${listing.id}')" id="buyBtn-${listing.id}">🛒 Buy</button>
+                </div>
             </div>
         </div>`;
 }
@@ -104,7 +107,7 @@ function renderListingCard(listing) {
  * Renders a listing card in the seller's dashboard (with status + edit/delete).
  */
 function renderSellerCard(listing) {
-    const imgSrc = listing.imageUrl || CATEGORY_ICONS[listing.category] || '';
+    const imgSrc = (listing.imageUrls && listing.imageUrls.length > 0) ? listing.imageUrls[0] : (listing.imageUrl || CATEGORY_ICONS[listing.category] || '');
     const imgHtml = imgSrc
         ? `<img src="${imgSrc}" alt="${listing.title}" class="card-img" style="aspect-ratio:16/9;" onerror="this.style.display='none'">`
         : `<div class="card-img-placeholder">${CATEGORY_EMOJIS[listing.category] || '📦'}</div>`;
@@ -130,7 +133,7 @@ function renderSellerCard(listing) {
  * Renders an admin review card with Approve/Reject actions.
  */
 function renderAdminCard(listing) {
-    const imgSrc = listing.imageUrl || CATEGORY_ICONS[listing.category] || '';
+    const imgSrc = (listing.imageUrls && listing.imageUrls.length > 0) ? listing.imageUrls[0] : (listing.imageUrl || CATEGORY_ICONS[listing.category] || '');
     const imgHtml = imgSrc
         ? `<img src="${imgSrc}" alt="${listing.title}" class="card-img" style="aspect-ratio:16/9;" onerror="this.parentElement.querySelector('.card-img-placeholder') && (this.style.display='none')">`
         : `<div class="card-img-placeholder">${CATEGORY_EMOJIS[listing.category] || '📦'}</div>`;
@@ -286,6 +289,20 @@ function handleBuyClick(id) {
         return;
     }
     window.location.href = `wallet.html?action=buy&listing=${id}`;
+}
+
+function handleMessageClick(id) {
+    const user = getUser();
+    if (!user) {
+        alert('Please log in to message sellers.');
+        window.location.href = 'login.html';
+        return;
+    }
+    if (user.role === 'seller') {
+        alert('Sellers cannot negotiate with other sellers. Switch to a Buyer account.');
+        return;
+    }
+    window.location.href = `chat.html?listing=${id}`;
 }
 
 // ─── Navigation ───────────────────────────────────────────────
@@ -547,6 +564,7 @@ document.addEventListener('DOMContentLoaded', () => {
     //  LISTING MODAL — Create New Listing
     // ──────────────────────────────────────────────────────────
     const listingModal = document.getElementById('listingModal');
+    let pendingImageUrls = [];
     if (listingModal) {
         // Close buttons
         const closeBtns = [
@@ -561,6 +579,37 @@ document.addEventListener('DOMContentLoaded', () => {
         listingModal.addEventListener('click', (e) => {
             if (e.target === listingModal) closeModal('listingModal');
         });
+
+        // File upload handling
+        const imagesInput = document.getElementById('listingImages');
+        const previewContainer = document.getElementById('imagePreviewContainer');
+        if (imagesInput && previewContainer) {
+            imagesInput.addEventListener('change', (e) => {
+                const files = Array.from(e.target.files).slice(0, 5); // Max 5 limit
+                pendingImageUrls = [];
+                previewContainer.innerHTML = '';
+                
+                files.forEach(file => {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        const base64 = ev.target.result;
+                        pendingImageUrls.push(base64);
+                        
+                        const imgWrapper = document.createElement('div');
+                        imgWrapper.style.cssText = 'width: 60px; height: 60px; position: relative; border-radius: 4px; overflow: hidden; border: 1px solid var(--border);';
+                        
+                        const img = document.createElement('img');
+                        img.src = base64;
+                        img.className = 'card-img';
+                        img.style.cssText = 'width: 100%; height: 100%; object-fit: cover;';
+                        
+                        imgWrapper.appendChild(img);
+                        previewContainer.appendChild(imgWrapper);
+                    };
+                    reader.readAsDataURL(file);
+                });
+            });
+        }
 
         // Form submit
         const form = document.getElementById('createListingForm');
@@ -577,7 +626,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     price:       document.getElementById('listingPrice').value,
                     condition:   document.getElementById('listingCondition').value,
                     description: document.getElementById('listingDesc').value.trim(),
-                    imageUrl:    document.getElementById('listingImage').value.trim(),
+                    imageUrl:    pendingImageUrls.length > 0 ? pendingImageUrls[0] : '',
+                    imageUrls:   [...pendingImageUrls],
                     status:      'pending',
                     sellerId:    user.id,
                     sellerEmail: user.email,
@@ -587,6 +637,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 addListing(listing);
                 form.reset();
+                if (previewContainer) previewContainer.innerHTML = '';
+                pendingImageUrls = [];
                 closeModal('listingModal');
 
                 // Show success notification
@@ -762,6 +814,38 @@ document.addEventListener('DOMContentLoaded', () => {
         const chatBox = document.getElementById('chatBox');
         if (chatBox) {
             chatBox.innerHTML = '';
+        }
+
+        // Handle Active Listing Banner
+        const urlParams = new URLSearchParams(window.location.search);
+        const listingId = urlParams.get('listing');
+        const bannerContainer = document.getElementById('chatListingBanner');
+        
+        if (listingId && bannerContainer) {
+            const listings = getListings();
+            const activeListing = listings.find(l => l.id === listingId);
+            
+            if (activeListing) {
+                const imgSrc = (activeListing.imageUrls && activeListing.imageUrls.length > 0) ? activeListing.imageUrls[0] : (activeListing.imageUrl || CATEGORY_ICONS[activeListing.category] || '');
+                const imgHtml = imgSrc ? `<img src="${imgSrc}" style="width: 48px; height: 48px; object-fit: cover; border-radius: 8px;">` : `<div style="width: 48px; height: 48px; background: #e2e8f0; border-radius: 8px; display:flex; align-items:center; justify-content:center;">📦</div>`;
+                
+                bannerContainer.innerHTML = `
+                    <div style="display:flex; align-items:center; gap: 1rem;">
+                        ${imgHtml}
+                        <div>
+                            <div style="font-weight: 600; font-size: 0.95rem;">${activeListing.title}</div>
+                            <div style="color: var(--primary); font-weight: 700;">৳${Number(activeListing.price).toLocaleString('en-IN')}</div>
+                        </div>
+                    </div>
+                    <button class="btn-primary" style="padding: 0.5rem 1rem; font-size: 0.85rem;" onclick="handleBuyClick('${activeListing.id}')">🛒 Buy with Escrow</button>
+                `;
+                bannerContainer.style.display = 'flex';
+                
+                // Add a welcome message to chat as visual starting point (mock)
+                setTimeout(() => {
+                    addMessage(`Hi, I'm interested in your ${activeListing.title}. Is it still available?`, 'user');
+                }, 400);
+            }
         }
     }
 });
