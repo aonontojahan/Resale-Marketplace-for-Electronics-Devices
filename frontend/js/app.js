@@ -851,6 +851,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     const imgSrc = (activeListing.imageUrls && activeListing.imageUrls.length > 0) ? activeListing.imageUrls[0] : (activeListing.imageUrl || CATEGORY_ICONS[activeListing.category] || '');
                     const imgHtml = imgSrc ? `<img src="${imgSrc}" style="width: 48px; height: 48px; object-fit: cover; border-radius: 8px;">` : `<div style="width: 48px; height: 48px; background: #e2e8f0; border-radius: 8px; display:flex; align-items:center; justify-content:center;">📦</div>`;
                     
+                    const buyBtnHtml = user.role === 'buyer' 
+                        ? `<button class="btn-primary" style="padding: 0.5rem 1rem; font-size: 0.85rem;" onclick="handleBuyClick('${activeListing.id}')">🛒 Buy with Escrow</button>` 
+                        : '';
+
                     bannerContainer.innerHTML = `
                         <div style="display:flex; align-items:center; gap: 1rem;">
                             ${imgHtml}
@@ -859,7 +863,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <div style="color: var(--primary); font-weight: 700;">৳${Number(activeListing.price).toLocaleString('en-IN')}</div>
                             </div>
                         </div>
-                        <button class="btn-primary" style="padding: 0.5rem 1rem; font-size: 0.85rem;" onclick="handleBuyClick('${activeListing.id}')">🛒 Buy with Escrow</button>
+                        ${buyBtnHtml}
                     `;
                     bannerContainer.style.display = 'flex';
                 }
