@@ -14,7 +14,8 @@
   --shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
   --shadow-lg: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
   --radius: 16px;
-  --container-max: 1200px;
+  --container-max: 1560px;
+  --container-narrow: 1100px;
 }
 
 * {
@@ -49,7 +50,11 @@ button {
 .container {
   max-width: var(--container-max);
   margin: 0 auto;
-  padding: 0 20px;
+  padding: 0 40px; /* Increased padding modern feel */
+}
+
+@media (max-width: 768px) {
+  .container { padding: 0 20px; }
 }
 
 body.app-view .hero,
@@ -98,7 +103,7 @@ header .container {
 
 .search-container {
   flex: 1;
-  max-width: 600px;
+  max-width: 800px; /* Wider search bar */
   position: relative;
 }
 
@@ -341,9 +346,9 @@ nav a:hover, nav a.active {
 /* CHAT PAGE */
 .chat-container {
   display: grid;
-  grid-template-columns: 300px 1fr;
-  height: calc(100vh - 80px);
-  margin-top: 0;
+  grid-template-columns: 350px 1fr; /* Wider sidebar */
+  height: calc(100vh - 100px); /* Fill more vertical window */
+  margin-top: 1rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -369,6 +374,35 @@ nav a:hover, nav a.active {
 .chat-list-item.active {
   background: #eff6ff;
   border-left: 4px solid var(--primary);
+}
+
+.chat-delete-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 24px;
+  height: 24px;
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  font-weight: 700;
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.2s;
+  border: none;
+}
+
+.chat-list-item:hover .chat-delete-btn {
+  opacity: 1;
+}
+
+.chat-delete-btn:hover {
+  background: #ef4444;
+  color: white;
 }
 
 .chat-main {
@@ -583,8 +617,8 @@ nav a:hover, nav a.active {
 /* PROFILE PAGE */
 .profile-layout {
   display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: 2rem;
+  grid-template-columns: 320px 1fr; /* Wider profile sidebar */
+  gap: 2.5rem;
   margin-top: 2rem;
 }
 

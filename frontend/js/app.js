@@ -15,46 +15,7 @@ function logoutUser() {
     window.location.href = 'index.html';
 }
 
-// ─── Listings Storage (simulated DB) ─────────────────────────
-
-function getListings() {
-    const data = localStorage.getItem('resale_listings');
-    return data ? JSON.parse(data) : [];
-}
-
-function saveListings(listings) {
-    localStorage.setItem('resale_listings', JSON.stringify(listings));
-}
-
-function addListing(listing) {
-    const listings = getListings();
-    listings.push(listing);
-    saveListings(listings);
-}
-
-function updateListingStatus(id, status) {
-    const listings = getListings();
-    const idx = listings.findIndex(l => l.id === id);
-    if (idx !== -1) {
-        listings[idx].status = status;
-        saveListings(listings);
-    }
-}
-
-function deleteListing(id) {
-    const listings = getListings().filter(l => l.id !== id);
-    saveListings(listings);
-}
-
 // ─── Category Icon Map ────────────────────────────────────────
-
-const CATEGORY_ICONS = {
-    phone: 'assets/iphone.png',
-    laptop: 'assets/macbook.png',
-    camera: 'assets/sony.png',
-    tablet: 'assets/ipad.png',
-    other: null
-};
 
 const CATEGORY_EMOJIS = {
     phone: '📱',
@@ -76,7 +37,7 @@ const STATUS_CONFIG = {
  * Renders a listing card for the public/buyer view.
  */
 function renderListingCard(listing) {
-    const imgSrc = (listing.imageUrls && listing.imageUrls.length > 0) ? listing.imageUrls[0] : (listing.imageUrl || CATEGORY_ICONS[listing.category] || '');
+    const imgSrc = listing.image_url ? `http://localhost:8000${listing.image_url}` : (listing.imageUrl || '');
     const imgHtml = imgSrc
         ? `<img src="${imgSrc}" alt="${listing.title}" class="card-img" onerror="this.style.display='none'">`
         : `<div class="card-img-placeholder">${CATEGORY_EMOJIS[listing.category] || '📦'}</div>`;
@@ -96,7 +57,7 @@ function renderListingCard(listing) {
                 <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.8rem; line-height:1.5;">${listing.description.substring(0, 90)}${listing.description.length > 90 ? '…' : ''}</p>
                 <p style="font-size:0.78rem; color:var(--text-muted);">By: <strong style="color:var(--text-secondary);">${listing.sellerName}</strong></p>
                 <button class="btn-view" style="margin-top: 1rem; margin-bottom: 0.5rem; border-radius: 8px;" onclick="handleBuyClick('${listing.id}')" id="buyBtn-${listing.id}">🛒 Buy with Escrow</button>
-                <button class="btn-outline" style="width: 100%; padding: 0.75rem; border-radius: 8px; text-align: center; font-weight: 600;" onclick="handleMessageClick('${listing.id}', '${listing.sellerId}')" id="msgBtn-${listing.id}">💬 Message Seller</button>
+                <button class="btn-outline" style="width: 100%; padding: 0.75rem; border-radius: 8px; text-align: center; font-weight: 600;" onclick="handleMessageClick('${listing.id}', '${listing.seller_id}')" id="msgBtn-${listing.id}">💬 Message Seller</button>
             </div>
         </div>`;
 }
@@ -105,7 +66,7 @@ function renderListingCard(listing) {
  * Renders a listing card in the seller's dashboard (with status + edit/delete).
  */
 function renderSellerCard(listing) {
-    const imgSrc = (listing.imageUrls && listing.imageUrls.length > 0) ? listing.imageUrls[0] : (listing.imageUrl || CATEGORY_ICONS[listing.category] || '');
+    const imgSrc = listing.image_url ? `http://localhost:8000${listing.image_url}` : (listing.imageUrl || '');
     const imgHtml = imgSrc
         ? `<img src="${imgSrc}" alt="${listing.title}" class="card-img" style="aspect-ratio:16/9;" onerror="this.style.display='none'">`
         : `<div class="card-img-placeholder">${CATEGORY_EMOJIS[listing.category] || '📦'}</div>`;
@@ -131,7 +92,7 @@ function renderSellerCard(listing) {
  * Renders an admin review card with Approve/Reject actions.
  */
 function renderAdminCard(listing) {
-    const imgSrc = (listing.imageUrls && listing.imageUrls.length > 0) ? listing.imageUrls[0] : (listing.imageUrl || CATEGORY_ICONS[listing.category] || '');
+    const imgSrc = listing.image_url ? `http://localhost:8000${listing.image_url}` : (listing.imageUrl || '');
     const imgHtml = imgSrc
         ? `<img src="${imgSrc}" alt="${listing.title}" class="card-img" style="aspect-ratio:16/9;" onerror="this.parentElement.querySelector('.card-img-placeholder') && (this.style.display='none')">`
         : `<div class="card-img-placeholder">${CATEGORY_EMOJIS[listing.category] || '📦'}</div>`;
@@ -179,12 +140,13 @@ function renderAdminCard(listing) {
 /**
  * Renders public listings on index.html
  */
-function renderPublicListings(category = 'all') {
+async function renderPublicListings(category = 'all') {
     const grid = document.getElementById('listingsGrid');
     const emptyEl = document.getElementById('listingsEmpty');
     if (!grid) return;
 
-    let listings = getListings().filter(l => l.status === 'approved');
+    let allListings = await window.api.getListings();
+    let listings = allListings.filter(l => l.status === 'approved');
     if (category !== 'all') listings = listings.filter(l => l.category === category);
 
     if (listings.length === 0) {
@@ -194,18 +156,34 @@ function renderPublicListings(category = 'all') {
         if (emptyEl) emptyEl.style.display = 'none';
         grid.innerHTML = listings.map(renderListingCard).join('');
     }
+
+    // Dynamic Filter Visibility
+    const filterContainer = document.getElementById('listingsFilter');
+    if (filterContainer) {
+        const categoriesWithProducts = new Set(allListings.filter(l => l.status === 'approved').map(l => l.category));
+        const filterBtns = filterContainer.querySelectorAll('.filter-btn');
+        filterBtns.forEach(btn => {
+            const cat = btn.dataset.category;
+            if (cat === 'all' || categoriesWithProducts.has(cat)) {
+                btn.style.display = 'inline-flex';
+            } else {
+                btn.style.display = 'none';
+            }
+        });
+    }
 }
 
 /**
  * Renders seller's own listings on profile.html
  */
-function renderSellerListings(statusFilter = 'all') {
+async function renderSellerListings(statusFilter = 'all') {
     const grid = document.getElementById('sellerListingsGrid');
     const emptyEl = document.getElementById('sellerEmpty');
     if (!grid) return;
 
     const user = getUser();
-    let listings = getListings().filter(l => l.sellerId === user.id || l.sellerEmail === user.email);
+    let allListings = await window.api.getListings();
+    let listings = allListings.filter(l => l.seller_id === user.id || l.sellerEmail === user.email);
     if (statusFilter !== 'all') listings = listings.filter(l => l.status === statusFilter);
 
     if (listings.length === 0) {
@@ -220,12 +198,13 @@ function renderSellerListings(statusFilter = 'all') {
 /**
  * Renders buyer browse view on profile.html
  */
-function renderBuyerListings(category = 'all') {
+async function renderBuyerListings(category = 'all') {
     const grid = document.getElementById('buyerListingsGrid');
     const emptyEl = document.getElementById('buyerEmpty');
     if (!grid) return;
 
-    let listings = getListings().filter(l => l.status === 'approved');
+    let allListings = await window.api.getListings();
+    let listings = allListings.filter(l => l.status === 'approved');
     if (category !== 'all') listings = listings.filter(l => l.category === category);
 
     if (listings.length === 0) {
@@ -235,17 +214,33 @@ function renderBuyerListings(category = 'all') {
         if (emptyEl) emptyEl.style.display = 'none';
         grid.innerHTML = listings.map(renderListingCard).join('');
     }
+
+    // Dynamic Filter Visibility
+    const filterContainer = document.getElementById('buyerFilter');
+    if (filterContainer) {
+        const categoriesWithProducts = new Set(allListings.filter(l => l.status === 'approved').map(l => l.category));
+        const filterBtns = filterContainer.querySelectorAll('.filter-btn');
+        filterBtns.forEach(btn => {
+            const cat = btn.dataset.category;
+            if (cat === 'all' || categoriesWithProducts.has(cat)) {
+                btn.style.display = 'inline-flex';
+            } else {
+                btn.style.display = 'none';
+            }
+        });
+    }
 }
 
 /**
  * Renders admin listing panel on profile.html
  */
-function renderAdminListings(statusFilter = 'all') {
+async function renderAdminListings(statusFilter = 'all') {
     const container = document.getElementById('adminListingsContainer');
     const emptyEl = document.getElementById('adminEmpty');
     if (!container) return;
 
-    let listings = getListings();
+    let listings = await window.api.getListings();
+    if(!listings) listings = [];
     if (statusFilter !== 'all') listings = listings.filter(l => l.status === statusFilter);
     listings = listings.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
@@ -260,16 +255,16 @@ function renderAdminListings(statusFilter = 'all') {
 
 // ─── Action Handlers ──────────────────────────────────────────
 
-function adminAction(id, newStatus) {
-    updateListingStatus(id, newStatus);
+async function adminAction(id, newStatus) {
+    await window.api.updateListingStatus(id, newStatus);
     const activeTab = document.querySelector('#adminStatusTabs .status-tab.active');
     const filter = activeTab ? activeTab.dataset.status : 'all';
     renderAdminListings(filter);
 }
 
-function deleteMyListing(id) {
+async function deleteMyListing(id) {
     if (!confirm('Are you sure you want to delete this listing?')) return;
-    deleteListing(id);
+    await window.api.deleteListing(id);
     const activeTab = document.querySelector('#sellerStatusTabs .status-tab.active');
     const filter = activeTab ? activeTab.dataset.status : 'all';
     renderSellerListings(filter);
@@ -290,6 +285,7 @@ function handleBuyClick(id) {
 }
 
 function handleMessageClick(id, sellerId) {
+    console.log("handleMessageClick:", {id, sellerId});
     const user = getUser();
     if (!user) {
         alert('Please log in to message sellers.');
@@ -299,6 +295,11 @@ function handleMessageClick(id, sellerId) {
     if (user.role === 'seller') {
         alert('Sellers cannot negotiate with other sellers. Switch to a Buyer account.');
         return;
+    }
+    
+    if (!sellerId || sellerId === 'undefined') {
+         alert("Error: Listing has no seller information. Please contact support.");
+         return;
     }
     
     // Create or retrieve existing chat session via API
@@ -617,47 +618,47 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // Form submit
+
         const form = document.getElementById('createListingForm');
         if (form) {
-            form.addEventListener('submit', (e) => {
+            form.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const user = getUser();
                 if (!user) return;
+                
+                const formData = new FormData();
+                formData.append('title', document.getElementById('listingTitle').value.trim());
+                formData.append('category', document.getElementById('listingCategory').value);
+                formData.append('price', document.getElementById('listingPrice').value);
+                formData.append('condition', document.getElementById('listingCondition').value);
+                formData.append('description', document.getElementById('listingDesc').value.trim());
+                formData.append('token', user.token);
+                
+                const fileInput = document.getElementById('listingImages');
+                if (fileInput && fileInput.files.length > 0) {
+                    formData.append('image', fileInput.files[0]);
+                }
 
-                const listing = {
-                    id: `listing_${Date.now()}_${Math.random().toString(36).substr(2,6)}`,
-                    title:       document.getElementById('listingTitle').value.trim(),
-                    category:    document.getElementById('listingCategory').value,
-                    price:       document.getElementById('listingPrice').value,
-                    condition:   document.getElementById('listingCondition').value,
-                    description: document.getElementById('listingDesc').value.trim(),
-                    imageUrl:    pendingImageUrls.length > 0 ? pendingImageUrls[0] : '',
-                    imageUrls:   [...pendingImageUrls],
-                    status:      'pending',
-                    sellerId:    user.id,
-                    sellerEmail: user.email,
-                    sellerName:  user.full_name,
-                    createdAt:   new Date().toISOString()
-                };
+                try {
+                    await window.api.createListing(formData);
+                    form.reset();
+                    if (previewContainer) previewContainer.innerHTML = '';
+                    pendingImageUrls = [];
+                    closeModal('listingModal');
 
-                addListing(listing);
-                form.reset();
-                if (previewContainer) previewContainer.innerHTML = '';
-                pendingImageUrls = [];
-                closeModal('listingModal');
+                    showToast('🎉 Listing submitted! Awaiting admin approval.');
+                    await renderSellerListings('all');
 
-                // Show success notification
-                showToast('🎉 Listing submitted! Awaiting admin approval.');
-                renderSellerListings('all');
-
-                // Reset seller tabs to 'all'
-                const tabs = document.querySelectorAll('#sellerStatusTabs .status-tab');
-                tabs.forEach(t => t.classList.remove('active'));
-                const allTab = document.getElementById('sellerTabAll');
-                if (allTab) allTab.classList.add('active');
+                    const tabs = document.querySelectorAll('#sellerStatusTabs .status-tab');
+                    tabs.forEach(t => t.classList.remove('active'));
+                    const allTab = document.getElementById('sellerTabAll');
+                    if (allTab) allTab.classList.add('active');
+                } catch(err) {
+                    alert('Error creating listing: ' + err.message);
+                }
             });
         }
+
     }
 
     // ──────────────────────────────────────────────────────────
@@ -712,7 +713,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Filter live listings
                 const grid = document.getElementById('listingsGrid');
                 if (grid) {
-                    const listings = getListings().filter(l =>
+                    window.api.getListings().then(allListings => {
+                    const listings = allListings.filter(l =>
                         l.status === 'approved' &&
                         (l.title.toLowerCase().includes(query) || l.description.toLowerCase().includes(query))
                     );
@@ -725,6 +727,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (emptyEl) emptyEl.style.display = 'none';
                         grid.innerHTML = listings.map(renderListingCard).join('');
                     }
+                });
                 }
             }
         });
@@ -814,11 +817,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     const item = document.createElement('div');
                     item.className = `chat-list-item ${activeClass}`;
+                    item.style.position = 'relative'; // For positioning the delete button
                     item.innerHTML = `
-                      <div style="font-weight: 600;">${otherParty}</div>
-                      <div style="font-size: 0.85rem; color: var(--text-muted);">Listing: ${chat.listing_id.split('_')[1] || 'Item'}</div>
+                      <div class="chat-info" style="padding-right: 25px;">
+                        <div style="font-weight: 600;">${otherParty}</div>
+                        <div style="font-size: 0.85rem; color: var(--text-muted);">${chat.listing_title ? 'Item: ' + chat.listing_title : ''}</div>
+                      </div>
+                      <button class="chat-delete-btn" onclick="handleChatDelete(${chat.id}, event)" title="Delete Conversation">&times;</button>
                     `;
-                    item.onclick = () => window.location.href = `chat.html?session=${chat.id}`;
+                    item.onclick = (e) => {
+                        if (!e.target.classList.contains('chat-delete-btn')) {
+                            window.location.href = `chat.html?session=${chat.id}`;
+                        }
+                    };
                     sidebar.appendChild(item);
                 });
             }
@@ -844,25 +855,25 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const bannerContainer = document.getElementById('chatListingBanner');
-            if (bannerContainer) {
-                const allListings = getListings();
-                const activeListing = allListings.find(l => l.id === chat.listing_id);
-                if (activeListing) {
-                    const imgSrc = (activeListing.imageUrls && activeListing.imageUrls.length > 0) ? activeListing.imageUrls[0] : (activeListing.imageUrl || CATEGORY_ICONS[activeListing.category] || '');
-                    const imgHtml = imgSrc ? `<img src="${imgSrc}" style="width: 48px; height: 48px; object-fit: cover; border-radius: 8px;">` : `<div style="width: 48px; height: 48px; background: #e2e8f0; border-radius: 8px; display:flex; align-items:center; justify-content:center;">📦</div>`;
-                    
-                    bannerContainer.innerHTML = `
-                        <div style="display:flex; align-items:center; gap: 1rem;">
-                            ${imgHtml}
-                            <div>
-                                <div style="font-weight: 600; font-size: 0.95rem;">${activeListing.title}</div>
-                                <div style="color: var(--primary); font-weight: 700;">৳${Number(activeListing.price).toLocaleString('en-IN')}</div>
-                            </div>
+            if (bannerContainer && chat.listing_title) {
+                const imgSrc = chat.listing_image_url ? `http://localhost:8000${chat.listing_image_url}` : '';
+                const imgHtml = imgSrc ? `<img src="${imgSrc}" style="width: 48px; height: 48px; object-fit: cover; border-radius: 8px;">` : `<div style="width: 48px; height: 48px; background: #e2e8f0; border-radius: 8px; display:flex; align-items:center; justify-content:center;">📦</div>`;
+                
+                const buyBtnHtml = user.role === 'buyer' 
+                    ? `<button class="btn-primary" style="padding: 0.5rem 1rem; font-size: 0.85rem;" onclick="handleBuyClick('${chat.listing_id}')">🛒 Buy with Escrow</button>` 
+                    : '';
+
+                bannerContainer.innerHTML = `
+                    <div style="display:flex; align-items:center; gap: 1rem;">
+                        ${imgHtml}
+                        <div>
+                            <div style="font-weight: 600; font-size: 0.95rem;">${chat.listing_title}</div>
+                            <div style="color: var(--primary); font-weight: 700;">৳${Number(chat.listing_price).toLocaleString('en-IN')}</div>
                         </div>
-                        <button class="btn-primary" style="padding: 0.5rem 1rem; font-size: 0.85rem;" onclick="handleBuyClick('${activeListing.id}')">🛒 Buy with Escrow</button>
-                    `;
-                    bannerContainer.style.display = 'flex';
-                }
+                    </div>
+                    ${buyBtnHtml}
+                `;
+                bannerContainer.style.display = 'flex';
             }
 
             if (chatBox) chatBox.innerHTML = '';
@@ -994,8 +1005,28 @@ function animateCount(elementId, target, suffix = '') {
     }, stepTime);
 }
 
+async function handleChatDelete(sessionId, event) {
+    if (event) event.stopPropagation();
+    if (!confirm('Are you sure you want to delete this conversation? This cannot be undone.')) return;
+    
+    try {
+        await window.api.deleteChat(sessionId);
+        // If we are currently viewing this chat, clear the URL and reload
+        const params = new URLSearchParams(window.location.search);
+        const activeSessionId = params.get('session');
+        if (activeSessionId === sessionId.toString()) {
+            window.location.href = 'chat.html';
+        } else {
+            window.location.reload(); 
+        }
+    } catch (err) {
+        alert("Failed to delete chat: " + err.message);
+    }
+}
+
 // Expose globals needed by inline onclick attributes
-window.adminAction    = adminAction;
-window.deleteMyListing = deleteMyListing;
-window.handleBuyClick = handleBuyClick;
-window.logoutUser     = logoutUser;
+window.adminAction      = adminAction;
+window.deleteMyListing  = deleteMyListing;
+window.handleBuyClick   = handleBuyClick;
+window.logoutUser       = logoutUser;
+window.handleChatDelete = handleChatDelete;
