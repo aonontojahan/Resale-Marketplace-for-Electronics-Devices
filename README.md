@@ -32,4 +32,4 @@ uvicorn backend.main:app --reload
 Built by Aononto Jahan. 
 
 ## 📄 License
-This project is licensed under the MIT License - see the [LICENSE](file:///e:/PROJECTS/Resale-Marketplace-for-Electronics-Devices/LICENSE) file for details.
+This project is licensed under a **Proprietary License** - Unauthorized copying, redistribution, or commercial use is strictly prohibited. See the [LICENSE](file:///e:/PROJECTS/Resale-Marketplace-for-Electronics-Devices/LICENSE) file for details.
