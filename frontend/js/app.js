@@ -48,14 +48,6 @@ function deleteListing(id) {
 
 // ─── Category Icon Map ────────────────────────────────────────
 
-const CATEGORY_ICONS = {
-    phone: 'assets/iphone.png',
-    laptop: 'assets/macbook.png',
-    camera: 'assets/sony.png',
-    tablet: 'assets/ipad.png',
-    other: null
-};
-
 const CATEGORY_EMOJIS = {
     phone: '📱',
     laptop: '💻',
