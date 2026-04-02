@@ -15,46 +15,7 @@ function logoutUser() {
     window.location.href = 'index.html';
 }
 
-// ─── Listings Storage (simulated DB) ─────────────────────────
-
-function getListings() {
-    const data = localStorage.getItem('resale_listings');
-    return data ? JSON.parse(data) : [];
-}
-
-function saveListings(listings) {
-    localStorage.setItem('resale_listings', JSON.stringify(listings));
-}
-
-function addListing(listing) {
-    const listings = getListings();
-    listings.push(listing);
-    saveListings(listings);
-}
-
-function updateListingStatus(id, status) {
-    const listings = getListings();
-    const idx = listings.findIndex(l => l.id === id);
-    if (idx !== -1) {
-        listings[idx].status = status;
-        saveListings(listings);
-    }
-}
-
-function deleteListing(id) {
-    const listings = getListings().filter(l => l.id !== id);
-    saveListings(listings);
-}
-
 // ─── Category Icon Map ────────────────────────────────────────
-
-const CATEGORY_ICONS = {
-    phone: 'assets/iphone.png',
-    laptop: 'assets/macbook.png',
-    camera: 'assets/sony.png',
-    tablet: 'assets/ipad.png',
-    other: null
-};
 
 const CATEGORY_EMOJIS = {
     phone: '📱',
@@ -76,7 +37,7 @@ const STATUS_CONFIG = {
  * Renders a listing card for the public/buyer view.
  */
 function renderListingCard(listing) {
-    const imgSrc = listing.imageUrl || CATEGORY_ICONS[listing.category] || '';
+    const imgSrc = listing.image_url ? `http://localhost:8000${listing.image_url}` : (listing.imageUrl || '');
     const imgHtml = imgSrc
         ? `<img src="${imgSrc}" alt="${listing.title}" class="card-img" onerror="this.style.display='none'">`
         : `<div class="card-img-placeholder">${CATEGORY_EMOJIS[listing.category] || '📦'}</div>`;
@@ -95,7 +56,8 @@ function renderListingCard(listing) {
                 </p>
                 <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.8rem; line-height:1.5;">${listing.description.substring(0, 90)}${listing.description.length > 90 ? '…' : ''}</p>
                 <p style="font-size:0.78rem; color:var(--text-muted);">By: <strong style="color:var(--text-secondary);">${listing.sellerName}</strong></p>
-                <button class="btn-view" onclick="handleBuyClick('${listing.id}')" id="buyBtn-${listing.id}">🛒 Buy with Escrow</button>
+                <button class="btn-view" style="margin-top: 1rem; margin-bottom: 0.5rem; border-radius: 8px;" onclick="handleBuyClick('${listing.id}')" id="buyBtn-${listing.id}">🛒 Buy with Escrow</button>
+                <button class="btn-outline" style="width: 100%; padding: 0.75rem; border-radius: 8px; text-align: center; font-weight: 600;" onclick="handleMessageClick('${listing.id}', '${listing.seller_id}')" id="msgBtn-${listing.id}">💬 Message Seller</button>
             </div>
         </div>`;
 }
@@ -104,7 +66,7 @@ function renderListingCard(listing) {
  * Renders a listing card in the seller's dashboard (with status + edit/delete).
  */
 function renderSellerCard(listing) {
-    const imgSrc = listing.imageUrl || CATEGORY_ICONS[listing.category] || '';
+    const imgSrc = listing.image_url ? `http://localhost:8000${listing.image_url}` : (listing.imageUrl || '');
     const imgHtml = imgSrc
         ? `<img src="${imgSrc}" alt="${listing.title}" class="card-img" style="aspect-ratio:16/9;" onerror="this.style.display='none'">`
         : `<div class="card-img-placeholder">${CATEGORY_EMOJIS[listing.category] || '📦'}</div>`;
@@ -130,7 +92,7 @@ function renderSellerCard(listing) {
  * Renders an admin review card with Approve/Reject actions.
  */
 function renderAdminCard(listing) {
-    const imgSrc = listing.imageUrl || CATEGORY_ICONS[listing.category] || '';
+    const imgSrc = listing.image_url ? `http://localhost:8000${listing.image_url}` : (listing.imageUrl || '');
     const imgHtml = imgSrc
         ? `<img src="${imgSrc}" alt="${listing.title}" class="card-img" style="aspect-ratio:16/9;" onerror="this.parentElement.querySelector('.card-img-placeholder') && (this.style.display='none')">`
         : `<div class="card-img-placeholder">${CATEGORY_EMOJIS[listing.category] || '📦'}</div>`;
@@ -178,12 +140,13 @@ function renderAdminCard(listing) {
 /**
  * Renders public listings on index.html
  */
-function renderPublicListings(category = 'all') {
+async function renderPublicListings(category = 'all') {
     const grid = document.getElementById('listingsGrid');
     const emptyEl = document.getElementById('listingsEmpty');
     if (!grid) return;
 
-    let listings = getListings().filter(l => l.status === 'approved');
+    let allListings = await window.api.getListings();
+    let listings = allListings.filter(l => l.status === 'approved');
     if (category !== 'all') listings = listings.filter(l => l.category === category);
 
     if (listings.length === 0) {
@@ -193,18 +156,34 @@ function renderPublicListings(category = 'all') {
         if (emptyEl) emptyEl.style.display = 'none';
         grid.innerHTML = listings.map(renderListingCard).join('');
     }
+
+    // Dynamic Filter Visibility
+    const filterContainer = document.getElementById('listingsFilter');
+    if (filterContainer) {
+        const categoriesWithProducts = new Set(allListings.filter(l => l.status === 'approved').map(l => l.category));
+        const filterBtns = filterContainer.querySelectorAll('.filter-btn');
+        filterBtns.forEach(btn => {
+            const cat = btn.dataset.category;
+            if (cat === 'all' || categoriesWithProducts.has(cat)) {
+                btn.style.display = 'inline-flex';
+            } else {
+                btn.style.display = 'none';
+            }
+        });
+    }
 }
 
 /**
  * Renders seller's own listings on profile.html
  */
-function renderSellerListings(statusFilter = 'all') {
+async function renderSellerListings(statusFilter = 'all') {
     const grid = document.getElementById('sellerListingsGrid');
     const emptyEl = document.getElementById('sellerEmpty');
     if (!grid) return;
 
     const user = getUser();
-    let listings = getListings().filter(l => l.sellerId === user.id || l.sellerEmail === user.email);
+    let allListings = await window.api.getListings();
+    let listings = allListings.filter(l => l.seller_id === user.id || l.sellerEmail === user.email);
     if (statusFilter !== 'all') listings = listings.filter(l => l.status === statusFilter);
 
     if (listings.length === 0) {
@@ -219,12 +198,13 @@ function renderSellerListings(statusFilter = 'all') {
 /**
  * Renders buyer browse view on profile.html
  */
-function renderBuyerListings(category = 'all') {
+async function renderBuyerListings(category = 'all') {
     const grid = document.getElementById('buyerListingsGrid');
     const emptyEl = document.getElementById('buyerEmpty');
     if (!grid) return;
 
-    let listings = getListings().filter(l => l.status === 'approved');
+    let allListings = await window.api.getListings();
+    let listings = allListings.filter(l => l.status === 'approved');
     if (category !== 'all') listings = listings.filter(l => l.category === category);
 
     if (listings.length === 0) {
@@ -234,17 +214,33 @@ function renderBuyerListings(category = 'all') {
         if (emptyEl) emptyEl.style.display = 'none';
         grid.innerHTML = listings.map(renderListingCard).join('');
     }
+
+    // Dynamic Filter Visibility
+    const filterContainer = document.getElementById('buyerFilter');
+    if (filterContainer) {
+        const categoriesWithProducts = new Set(allListings.filter(l => l.status === 'approved').map(l => l.category));
+        const filterBtns = filterContainer.querySelectorAll('.filter-btn');
+        filterBtns.forEach(btn => {
+            const cat = btn.dataset.category;
+            if (cat === 'all' || categoriesWithProducts.has(cat)) {
+                btn.style.display = 'inline-flex';
+            } else {
+                btn.style.display = 'none';
+            }
+        });
+    }
 }
 
 /**
  * Renders admin listing panel on profile.html
  */
-function renderAdminListings(statusFilter = 'all') {
+async function renderAdminListings(statusFilter = 'all') {
     const container = document.getElementById('adminListingsContainer');
     const emptyEl = document.getElementById('adminEmpty');
     if (!container) return;
 
-    let listings = getListings();
+    let listings = await window.api.getListings();
+    if(!listings) listings = [];
     if (statusFilter !== 'all') listings = listings.filter(l => l.status === statusFilter);
     listings = listings.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
@@ -259,16 +255,16 @@ function renderAdminListings(statusFilter = 'all') {
 
 // ─── Action Handlers ──────────────────────────────────────────
 
-function adminAction(id, newStatus) {
-    updateListingStatus(id, newStatus);
+async function adminAction(id, newStatus) {
+    await window.api.updateListingStatus(id, newStatus);
     const activeTab = document.querySelector('#adminStatusTabs .status-tab.active');
     const filter = activeTab ? activeTab.dataset.status : 'all';
     renderAdminListings(filter);
 }
 
-function deleteMyListing(id) {
+async function deleteMyListing(id) {
     if (!confirm('Are you sure you want to delete this listing?')) return;
-    deleteListing(id);
+    await window.api.deleteListing(id);
     const activeTab = document.querySelector('#sellerStatusTabs .status-tab.active');
     const filter = activeTab ? activeTab.dataset.status : 'all';
     renderSellerListings(filter);
@@ -286,6 +282,34 @@ function handleBuyClick(id) {
         return;
     }
     window.location.href = `wallet.html?action=buy&listing=${id}`;
+}
+
+function handleMessageClick(id, sellerId) {
+    console.log("handleMessageClick:", {id, sellerId});
+    const user = getUser();
+    if (!user) {
+        alert('Please log in to message sellers.');
+        window.location.href = 'login.html';
+        return;
+    }
+    if (user.role === 'seller') {
+        alert('Sellers cannot negotiate with other sellers. Switch to a Buyer account.');
+        return;
+    }
+    
+    if (!sellerId || sellerId === 'undefined') {
+         alert("Error: Listing has no seller information. Please contact support.");
+         return;
+    }
+    
+    // Create or retrieve existing chat session via API
+    window.api.createChat(id, user.id, sellerId)
+        .then(session => {
+            window.location.href = `chat.html?session=${session.id}`;
+        })
+        .catch(err => {
+            alert("Could not initialize chat session: " + err.message);
+        });
 }
 
 // ─── Navigation ───────────────────────────────────────────────
@@ -311,15 +335,11 @@ function updateNav() {
         } else if (role === 'seller') {
             navHtml += `
                 <a href="profile.html" class="${currentPath.includes('profile') ? 'active' : ''}">My Listings</a>
-                <a href="chat.html" class="${currentPath.includes('chat') ? 'active' : ''}">Messages</a>
-                <a href="wallet.html" class="${currentPath.includes('wallet') ? 'active' : ''}">Wallet</a>
             `;
         } else {
             // Buyer
             navHtml += `
                 <a href="index.html" class="${currentPath.includes('index') || currentPath === '/' ? 'active' : ''}">Browse</a>
-                <a href="chat.html" class="${currentPath.includes('chat') ? 'active' : ''}">Messages</a>
-                <a href="wallet.html" class="${currentPath.includes('wallet') ? 'active' : ''}">Wallet</a>
             `;
         }
 
@@ -332,6 +352,29 @@ function updateNav() {
             </a>
         `;
         nav.innerHTML = navHtml;
+
+        // Dynamic Footer and Empty State Updates
+        const emptyBtn = document.getElementById('emptySignupBtn');
+        if (emptyBtn) {
+            if (role === 'seller') {
+                emptyBtn.href = 'profile.html';
+                emptyBtn.innerText = 'Go to Dashboard to List →';
+            } else {
+                emptyBtn.style.display = 'none';
+            }
+        }
+        
+        // Hide marketing footer links for logged-in users
+        const footerLinks = document.querySelectorAll('.footer-links li a');
+        footerLinks.forEach(link => {
+            const href = link.getAttribute('href');
+            if (href === 'signup.html' || href === '#safety' || href === 'index.html#safety' || href === 'escrow-policy.html' || href === 'escrow-policy.html#dispute' || href === 'escrow-policy.html#terms' || href === 'escrow-policy.html#privacy') {
+                // Keep the legal links that might still be applicable, but definitely hide signup and safety (if safety is hidden on app view)
+                if (href === 'signup.html' || href === '#safety') {
+                    link.parentElement.style.display = 'none';
+                }
+            }
+        });
     } else {
         nav.innerHTML = `
             <a href="index.html#about">About Us</a>
@@ -464,6 +507,17 @@ document.addEventListener('DOMContentLoaded', () => {
             userRoleBadgeEl.innerHTML = `<span class="badge-role badge-${role}">${role}</span>`;
         }
 
+        // Hide wallet/messages for admin
+        const walletMenu = document.querySelector('.profile-menu-item[href="wallet.html"]');
+        const chatMenu   = document.querySelector('.profile-menu-item[href="chat.html"]');
+        if (role === 'admin') {
+            if (walletMenu) walletMenu.style.display = 'none';
+            if (chatMenu) chatMenu.style.display = 'none';
+        } else {
+            if (walletMenu) walletMenu.style.display = 'flex';
+            if (chatMenu) chatMenu.style.display = 'flex';
+        }
+
         // Show the correct view
         if (role === 'seller' && sellerView) {
             sellerView.style.display = 'block';
@@ -517,6 +571,7 @@ document.addEventListener('DOMContentLoaded', () => {
     //  LISTING MODAL — Create New Listing
     // ──────────────────────────────────────────────────────────
     const listingModal = document.getElementById('listingModal');
+    let pendingImageUrls = [];
     if (listingModal) {
         // Close buttons
         const closeBtns = [
@@ -532,44 +587,78 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.target === listingModal) closeModal('listingModal');
         });
 
-        // Form submit
+        // File upload handling
+        const imagesInput = document.getElementById('listingImages');
+        const previewContainer = document.getElementById('imagePreviewContainer');
+        if (imagesInput && previewContainer) {
+            imagesInput.addEventListener('change', (e) => {
+                const files = Array.from(e.target.files).slice(0, 5); // Max 5 limit
+                pendingImageUrls = [];
+                previewContainer.innerHTML = '';
+                
+                files.forEach(file => {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                        const base64 = ev.target.result;
+                        pendingImageUrls.push(base64);
+                        
+                        const imgWrapper = document.createElement('div');
+                        imgWrapper.style.cssText = 'width: 60px; height: 60px; position: relative; border-radius: 4px; overflow: hidden; border: 1px solid var(--border);';
+                        
+                        const img = document.createElement('img');
+                        img.src = base64;
+                        img.className = 'card-img';
+                        img.style.cssText = 'width: 100%; height: 100%; object-fit: cover;';
+                        
+                        imgWrapper.appendChild(img);
+                        previewContainer.appendChild(imgWrapper);
+                    };
+                    reader.readAsDataURL(file);
+                });
+            });
+        }
+
+
         const form = document.getElementById('createListingForm');
         if (form) {
-            form.addEventListener('submit', (e) => {
+            form.addEventListener('submit', async (e) => {
                 e.preventDefault();
                 const user = getUser();
                 if (!user) return;
+                
+                const formData = new FormData();
+                formData.append('title', document.getElementById('listingTitle').value.trim());
+                formData.append('category', document.getElementById('listingCategory').value);
+                formData.append('price', document.getElementById('listingPrice').value);
+                formData.append('condition', document.getElementById('listingCondition').value);
+                formData.append('description', document.getElementById('listingDesc').value.trim());
+                formData.append('token', user.token);
+                
+                const fileInput = document.getElementById('listingImages');
+                if (fileInput && fileInput.files.length > 0) {
+                    formData.append('image', fileInput.files[0]);
+                }
 
-                const listing = {
-                    id: `listing_${Date.now()}_${Math.random().toString(36).substr(2,6)}`,
-                    title:       document.getElementById('listingTitle').value.trim(),
-                    category:    document.getElementById('listingCategory').value,
-                    price:       document.getElementById('listingPrice').value,
-                    condition:   document.getElementById('listingCondition').value,
-                    description: document.getElementById('listingDesc').value.trim(),
-                    imageUrl:    document.getElementById('listingImage').value.trim(),
-                    status:      'pending',
-                    sellerId:    user.id,
-                    sellerEmail: user.email,
-                    sellerName:  user.full_name,
-                    createdAt:   new Date().toISOString()
-                };
+                try {
+                    await window.api.createListing(formData);
+                    form.reset();
+                    if (previewContainer) previewContainer.innerHTML = '';
+                    pendingImageUrls = [];
+                    closeModal('listingModal');
 
-                addListing(listing);
-                form.reset();
-                closeModal('listingModal');
+                    showToast('🎉 Listing submitted! Awaiting admin approval.');
+                    await renderSellerListings('all');
 
-                // Show success notification
-                showToast('🎉 Listing submitted! Awaiting admin approval.');
-                renderSellerListings('all');
-
-                // Reset seller tabs to 'all'
-                const tabs = document.querySelectorAll('#sellerStatusTabs .status-tab');
-                tabs.forEach(t => t.classList.remove('active'));
-                const allTab = document.getElementById('sellerTabAll');
-                if (allTab) allTab.classList.add('active');
+                    const tabs = document.querySelectorAll('#sellerStatusTabs .status-tab');
+                    tabs.forEach(t => t.classList.remove('active'));
+                    const allTab = document.getElementById('sellerTabAll');
+                    if (allTab) allTab.classList.add('active');
+                } catch(err) {
+                    alert('Error creating listing: ' + err.message);
+                }
             });
         }
+
     }
 
     // ──────────────────────────────────────────────────────────
@@ -613,40 +702,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ──────────────────────────────────────────────────────────
-    //  CHAT
-    // ──────────────────────────────────────────────────────────
-    const chatForm  = document.getElementById('chatForm');
-    const chatInput = document.getElementById('chatInput');
-    const chatBox   = document.getElementById('chatBox');
-
-    if (chatForm && chatInput && chatBox) {
-        chatForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const text = chatInput.value.trim();
-            if (!text) return;
-            addMessage(text, 'user');
-            chatInput.value = '';
-            setTimeout(() => {
-                const replies = [
-                    'That sounds good! When can we meet?',
-                    'Is the price negotiable?',
-                    'I can meet you this afternoon.',
-                    'Great! I\'ll be there.'
-                ];
-                addMessage(replies[Math.floor(Math.random() * replies.length)], 'seller');
-            }, 1000);
-        });
-    }
-
-    function addMessage(text, type) {
-        const div = document.createElement('div');
-        div.classList.add('message', type);
-        div.innerText = text;
-        chatBox.appendChild(div);
-        chatBox.scrollTop = chatBox.scrollHeight;
-    }
-
-    // ──────────────────────────────────────────────────────────
     //  SEARCH BAR
     // ──────────────────────────────────────────────────────────
     const searchBar = document.getElementById('mainSearchBar') || document.querySelector('.search-bar');
@@ -658,7 +713,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Filter live listings
                 const grid = document.getElementById('listingsGrid');
                 if (grid) {
-                    const listings = getListings().filter(l =>
+                    window.api.getListings().then(allListings => {
+                    const listings = allListings.filter(l =>
                         l.status === 'approved' &&
                         (l.title.toLowerCase().includes(query) || l.description.toLowerCase().includes(query))
                     );
@@ -671,9 +727,196 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (emptyEl) emptyEl.style.display = 'none';
                         grid.innerHTML = listings.map(renderListingCard).join('');
                     }
+                });
                 }
             }
         });
+    }
+
+    // ──────────────────────────────────────────────────────────
+    //  WALLET & CHAT DYMANIC CONTENT
+    // ──────────────────────────────────────────────────────────
+    if (window.location.pathname.includes('wallet.html') && user) {
+        const walletGrid = document.querySelector('.wallet-grid');
+        const transactionsList = document.querySelector('.recent-transactions');
+        
+        let availableBalance = 0;
+        let escrowBalance = 0;
+        
+        if (walletGrid && transactionsList) {
+            if (user.role === 'buyer') {
+                walletGrid.innerHTML = `
+                  <div class="wallet-card available">
+                    <h3>Deposit Balance</h3>
+                    <p class="balance">৳${availableBalance.toLocaleString()}</p>
+                    <div style="margin-top: 2rem;">
+                      <button class="btn-primary" style="width: 100%; border-radius: 8px;">Add Funds</button>
+                    </div>
+                  </div>
+                  <div class="wallet-card escrow">
+                    <h3>In Escrow</h3>
+                    <p class="balance">৳${escrowBalance.toLocaleString()}</p>
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 1rem;">Funds locked for pending purchases until you confirm receipt.</p>
+                  </div>
+                `;
+                transactionsList.innerHTML = `
+                  <div class="transactions-header">Recent Transactions</div>
+                  <div class="listings-empty" style="padding: 2rem; border: none; background: transparent;">
+                    <div class="empty-icon">💸</div>
+                    <h3>No Transactions Yet</h3>
+                    <p>Your transaction history will appear here.</p>
+                  </div>
+                `;
+            } else if (user.role === 'seller') {
+                walletGrid.innerHTML = `
+                  <div class="wallet-card available">
+                    <h3>Available Balance</h3>
+                    <p class="balance">৳${availableBalance.toLocaleString()}</p>
+                    <div style="margin-top: 2rem;">
+                      <button class="btn-primary" style="width: 100%; border-radius: 8px;">Withdraw Funds</button>
+                    </div>
+                  </div>
+                  <div class="wallet-card escrow">
+                    <h3>Escrow Balance</h3>
+                    <p class="balance">৳${escrowBalance.toLocaleString()}</p>
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 1rem;">These funds are held securely until the buyer confirms receipt of the item.</p>
+                  </div>
+                `;
+                transactionsList.innerHTML = `
+                  <div class="transactions-header">Recent Transactions</div>
+                  <div class="listings-empty" style="padding: 2rem; border: none; background: transparent;">
+                    <div class="empty-icon">💸</div>
+                    <h3>No Transactions Yet</h3>
+                    <p>Your transaction history will appear here.</p>
+                  </div>
+                `;
+            }
+        }
+    }
+
+    if (window.location.pathname.includes('chat.html') && user) {
+        const chatBox = document.getElementById('chatBox');
+        const sidebar = document.querySelector('.chat-sidebar');
+        const chatHeader = document.querySelector('.chat-header');
+        const chatForm = document.getElementById('chatForm');
+        let currentSocket = null;
+        let activeSessionId = new URLSearchParams(window.location.search).get('session');
+        
+        // Load User Chats
+        window.api.getUserChats(user.id).then(chats => {
+            if (sidebar) sidebar.innerHTML = '';
+            if (chats.length === 0) {
+                if (sidebar) sidebar.innerHTML = '<div style="padding:1rem;color:var(--text-muted);">No active chats</div>';
+                if (!activeSessionId) return;
+            }
+            
+            if (sidebar) {
+                chats.forEach(chat => {
+                    const otherParty = user.role === 'buyer' ? chat.seller.full_name : chat.buyer.full_name;
+                    const activeClass = chat.id.toString() === activeSessionId ? 'active' : '';
+                    
+                    const item = document.createElement('div');
+                    item.className = `chat-list-item ${activeClass}`;
+                    item.style.position = 'relative'; // For positioning the delete button
+                    item.innerHTML = `
+                      <div class="chat-info" style="padding-right: 25px;">
+                        <div style="font-weight: 600;">${otherParty}</div>
+                        <div style="font-size: 0.85rem; color: var(--text-muted);">${chat.listing_title ? 'Item: ' + chat.listing_title : ''}</div>
+                      </div>
+                      <button class="chat-delete-btn" onclick="handleChatDelete(${chat.id}, event)" title="Delete Conversation">&times;</button>
+                    `;
+                    item.onclick = (e) => {
+                        if (!e.target.classList.contains('chat-delete-btn')) {
+                            window.location.href = `chat.html?session=${chat.id}`;
+                        }
+                    };
+                    sidebar.appendChild(item);
+                });
+            }
+            
+            if (activeSessionId) {
+                const currentChat = chats.find(c => c.id.toString() === activeSessionId);
+                if (currentChat) initActiveChat(currentChat);
+            }
+        }).catch(err => console.error(err));
+
+        function initActiveChat(chat) {
+            const otherParty = user.role === 'buyer' ? chat.seller : chat.buyer;
+            if (chatHeader) {
+                chatHeader.innerHTML = `
+                  <div style="width: 40px; height: 40px; background: #e2e8f0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--primary);">
+                    ${otherParty.full_name.split(' ').map(n=>n[0]).join('').toUpperCase()}
+                  </div>
+                  <div>
+                    <p style="font-weight: 600;">${otherParty.full_name}</p>
+                    <p style="font-size: 0.75rem; color: #10b981;">● Online</p>
+                  </div>
+                `;
+            }
+
+            const bannerContainer = document.getElementById('chatListingBanner');
+            if (bannerContainer && chat.listing_title) {
+                const imgSrc = chat.listing_image_url ? `http://localhost:8000${chat.listing_image_url}` : '';
+                const imgHtml = imgSrc ? `<img src="${imgSrc}" style="width: 48px; height: 48px; object-fit: cover; border-radius: 8px;">` : `<div style="width: 48px; height: 48px; background: #e2e8f0; border-radius: 8px; display:flex; align-items:center; justify-content:center;">📦</div>`;
+                
+                const buyBtnHtml = user.role === 'buyer' 
+                    ? `<button class="btn-primary" style="padding: 0.5rem 1rem; font-size: 0.85rem;" onclick="handleBuyClick('${chat.listing_id}')">🛒 Buy with Escrow</button>` 
+                    : '';
+
+                bannerContainer.innerHTML = `
+                    <div style="display:flex; align-items:center; gap: 1rem;">
+                        ${imgHtml}
+                        <div>
+                            <div style="font-weight: 600; font-size: 0.95rem;">${chat.listing_title}</div>
+                            <div style="color: var(--primary); font-weight: 700;">৳${Number(chat.listing_price).toLocaleString('en-IN')}</div>
+                        </div>
+                    </div>
+                    ${buyBtnHtml}
+                `;
+                bannerContainer.style.display = 'flex';
+            }
+
+            if (chatBox) chatBox.innerHTML = '';
+            window.api.getChatMessages(chat.id).then(messages => {
+                messages.forEach(msg => appendMessage(msg));
+                if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
+            });
+
+            // WebSocket connection directly to FastAPI
+            const wsUrl = `ws://localhost:8000/ws/chat/${chat.id}?token=${user.token}`;
+            currentSocket = new WebSocket(wsUrl);
+
+            currentSocket.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                appendMessage(msg);
+                if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
+            };
+            
+            if (chatForm) {
+                const newForm = chatForm.cloneNode(true);
+                chatForm.parentNode.replaceChild(newForm, chatForm);
+                const newChatInput = newForm.querySelector('#chatInput');
+                
+                newForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const text = newChatInput.value.trim();
+                    if (!text || !currentSocket) return;
+                    currentSocket.send(text);
+                    newChatInput.value = '';
+                });
+            }
+        }
+
+        function appendMessage(msg) {
+            if (!chatBox) return;
+            const div = document.createElement('div');
+            const isMe = msg.sender_id === user.id;
+            // The existing CSS has .user (gray bubble right side) and .seller (blue bubble left side). 
+            // We repurpose: .user = sent by me, .seller = sent by them.
+            div.className = `message ${isMe ? 'user' : 'seller'}`;
+            div.innerText = msg.text;
+            chatBox.appendChild(div);
+        }
     }
 });
 
@@ -762,8 +1005,28 @@ function animateCount(elementId, target, suffix = '') {
     }, stepTime);
 }
 
+async function handleChatDelete(sessionId, event) {
+    if (event) event.stopPropagation();
+    if (!confirm('Are you sure you want to delete this conversation? This cannot be undone.')) return;
+    
+    try {
+        await window.api.deleteChat(sessionId);
+        // If we are currently viewing this chat, clear the URL and reload
+        const params = new URLSearchParams(window.location.search);
+        const activeSessionId = params.get('session');
+        if (activeSessionId === sessionId.toString()) {
+            window.location.href = 'chat.html';
+        } else {
+            window.location.reload(); 
+        }
+    } catch (err) {
+        alert("Failed to delete chat: " + err.message);
+    }
+}
+
 // Expose globals needed by inline onclick attributes
-window.adminAction    = adminAction;
-window.deleteMyListing = deleteMyListing;
-window.handleBuyClick = handleBuyClick;
-window.logoutUser     = logoutUser;
+window.adminAction      = adminAction;
+window.deleteMyListing  = deleteMyListing;
+window.handleBuyClick   = handleBuyClick;
+window.logoutUser       = logoutUser;
+window.handleChatDelete = handleChatDelete;

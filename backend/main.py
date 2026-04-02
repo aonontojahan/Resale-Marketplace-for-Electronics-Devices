@@ -1,7 +1,12 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+import os
+import shutil
+import uuid
+from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, Form, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from datetime import timedelta
+from typing import List, Dict
 
 from . import models, schemas, auth, database
 from .database import engine, get_db
@@ -11,6 +16,10 @@ models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="ReSale Marketplace API")
 
+# Ensure uploads directory exists
+os.makedirs("backend/uploads", exist_ok=True)
+app.mount("/uploads", StaticFiles(directory="backend/uploads"), name="uploads")
+
 # Configure CORS for frontend access
 app.add_middleware(
     CORSMiddleware,
@@ -19,6 +28,29 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: Dict[int, List[WebSocket]] = {}
+
+    async def connect(self, websocket: WebSocket, user_id: int):
+        await websocket.accept()
+        if user_id not in self.active_connections:
+            self.active_connections[user_id] = []
+        self.active_connections[user_id].append(websocket)
+
+    def disconnect(self, websocket: WebSocket, user_id: int):
+        if user_id in self.active_connections:
+            self.active_connections[user_id].remove(websocket)
+            if not self.active_connections[user_id]:
+                del self.active_connections[user_id]
+
+    async def send_personal_message(self, message: dict, user_id: int):
+        if user_id in self.active_connections:
+            for connection in self.active_connections[user_id]:
+                await connection.send_json(message)
+
+manager = ConnectionManager()
 
 @app.get("/")
 def read_root():
@@ -88,6 +120,96 @@ def get_current_user(token: str, db: Session = Depends(get_db)):
     
     return user
 
+@app.post("/listings", response_model=schemas.ListingResponse, status_code=status.HTTP_201_CREATED)
+def create_listing(
+    title: str = Form(...),
+    category: str = Form(...),
+    price: str = Form(...),
+    condition: str = Form(...),
+    description: str = Form(...),
+    image: UploadFile = File(None),
+    token: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    """Create a new listing with an optional image upload."""
+    payload = auth.decode_access_token(token)
+    if not payload:
+        raise HTTPException(status_code=401, detail="Invalid token")
+        
+    email = payload.get("sub")
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    image_url = ""
+    if image and image.filename:
+        file_extension = image.filename.split(".")[-1]
+        file_name = f"{uuid.uuid4().hex}.{file_extension}"
+        file_path = f"backend/uploads/{file_name}"
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(image.file, buffer)
+        image_url = f"/uploads/{file_name}"
+
+    listing_id = f"listing_{uuid.uuid4().hex[:10]}"
+    
+    new_listing = models.Listing(
+        id=listing_id,
+        title=title,
+        category=category,
+        price=price,
+        condition=condition,
+        description=description,
+        image_url=image_url,
+        seller_id=user.id
+    )
+    db.add(new_listing)
+    db.commit()
+    db.refresh(new_listing)
+    
+    response_data = schemas.ListingResponse.model_validate(new_listing)
+    response_data.sellerName = user.full_name
+    response_data.sellerEmail = user.email
+    return response_data
+
+@app.get("/listings", response_model=List[schemas.ListingResponse])
+def get_listings(db: Session = Depends(get_db)):
+    """Fetch all listings."""
+    listings = db.query(models.Listing).all()
+    results = []
+    for l in listings:
+        l_response = schemas.ListingResponse.model_validate(l)
+        l_response.sellerName = l.seller.full_name
+        l_response.sellerEmail = l.seller.email
+        results.append(l_response)
+    return results
+
+@app.patch("/listings/{listing_id}/status", response_model=schemas.ListingResponse)
+def update_listing_status(listing_id: str, status_update: schemas.ListingStatusUpdate, db: Session = Depends(get_db)):
+    """Update listing status."""
+    listing = db.query(models.Listing).filter(models.Listing.id == listing_id).first()
+    if not listing:
+        raise HTTPException(status_code=404, detail="Listing not found")
+        
+    listing.status = status_update.status
+    db.commit()
+    db.refresh(listing)
+    
+    response_data = schemas.ListingResponse.model_validate(listing)
+    response_data.sellerName = listing.seller.full_name
+    response_data.sellerEmail = listing.seller.email
+    return response_data
+
+@app.delete("/listings/{listing_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_listing(listing_id: str, db: Session = Depends(get_db)):
+    """Delete a listing."""
+    listing = db.query(models.Listing).filter(models.Listing.id == listing_id).first()
+    if not listing:
+        raise HTTPException(status_code=404, detail="Listing not found")
+        
+    db.delete(listing)
+    db.commit()
+    return
+
 @app.get("/stats")
 def get_platform_stats(db: Session = Depends(get_db)):
     """
@@ -108,3 +230,126 @@ def get_platform_stats(db: Session = Depends(get_db)):
         "satisfaction_pct": satisfaction,
         "avg_sale_hours":   24,
     }
+
+@app.post("/chats", response_model=schemas.ChatSessionResponse)
+def create_chat(chat_in: schemas.ChatSessionCreate, db: Session = Depends(get_db)):
+    """Create a new chat session between buyer and seller for a listing."""
+    existing_chat = db.query(models.ChatSession).filter(
+        models.ChatSession.listing_id == chat_in.listing_id,
+        models.ChatSession.buyer_id == chat_in.buyer_id,
+        models.ChatSession.seller_id == chat_in.seller_id
+    ).first()
+    
+    if existing_chat:
+        resp = schemas.ChatSessionResponse.model_validate(existing_chat)
+        if existing_chat.listing:
+            resp.listing_title = existing_chat.listing.title
+            resp.listing_price = existing_chat.listing.price
+            resp.listing_image_url = existing_chat.listing.image_url
+        return resp
+        
+    new_chat = models.ChatSession(
+        listing_id=chat_in.listing_id,
+        buyer_id=chat_in.buyer_id,
+        seller_id=chat_in.seller_id
+    )
+    db.add(new_chat)
+    db.commit()
+    db.refresh(new_chat)
+    
+    resp = schemas.ChatSessionResponse.model_validate(new_chat)
+    if new_chat.listing:
+        resp.listing_title = new_chat.listing.title
+        resp.listing_price = new_chat.listing.price
+        resp.listing_image_url = new_chat.listing.image_url
+    return resp
+
+@app.get("/chats", response_model=List[schemas.ChatSessionResponse])
+def get_user_chats(user_id: int, db: Session = Depends(get_db)):
+    """Fetch all chat sessions for a specific user."""
+    chats = db.query(models.ChatSession).filter(
+        (models.ChatSession.buyer_id == user_id) | (models.ChatSession.seller_id == user_id)
+    ).all()
+    
+    results = []
+    for chat in chats:
+        resp = schemas.ChatSessionResponse.model_validate(chat)
+        if chat.listing:
+            resp.listing_title = chat.listing.title
+            resp.listing_price = chat.listing.price
+            resp.listing_image_url = chat.listing.image_url
+        results.append(resp)
+    return results
+
+@app.delete("/chats/{session_id}")
+def delete_chat(session_id: int, db: Session = Depends(get_db)):
+    """Delete a chat session and all its messages."""
+    chat = db.query(models.ChatSession).filter(models.ChatSession.id == session_id).first()
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat session not found")
+    
+    db.delete(chat)
+    db.commit()
+    return {"status": "success", "message": "Chat session deleted"}
+
+@app.get("/chats/{session_id}/messages", response_model=List[schemas.MessageResponse])
+def get_chat_messages(session_id: int, db: Session = Depends(get_db)):
+    """Fetch message history for a chat session."""
+    messages = db.query(models.ChatMessage).filter(
+        models.ChatMessage.session_id == session_id
+    ).order_by(models.ChatMessage.created_at).all()
+    return messages
+
+@app.websocket("/ws/chat/{session_id}")
+async def websocket_chat(websocket: WebSocket, session_id: int, token: str, db: Session = Depends(get_db)):
+    """WebSocket endpoint for real-time messaging."""
+    payload = auth.decode_access_token(token)
+    if not payload:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+        
+    email = payload.get("sub")
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if not user:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    chat_session = db.query(models.ChatSession).filter(models.ChatSession.id == session_id).first()
+    if not chat_session:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    if user.id not in [chat_session.buyer_id, chat_session.seller_id]:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    await manager.connect(websocket, user.id)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            
+            # Save message to DB
+            new_msg = models.ChatMessage(
+                session_id=session_id,
+                sender_id=user.id,
+                text=data
+            )
+            db.add(new_msg)
+            db.commit()
+            db.refresh(new_msg)
+            
+            # Broadcast to participants
+            msg_dict = {
+                "id": new_msg.id,
+                "session_id": new_msg.session_id,
+                "sender_id": new_msg.sender_id,
+                "text": new_msg.text,
+                "created_at": new_msg.created_at.isoformat()
+            }
+            
+            await manager.send_personal_message(msg_dict, chat_session.buyer_id)
+            if chat_session.buyer_id != chat_session.seller_id:
+                await manager.send_personal_message(msg_dict, chat_session.seller_id)
+                
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, user.id)
