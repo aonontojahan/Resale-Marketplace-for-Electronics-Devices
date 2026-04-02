@@ -81,6 +81,43 @@ const api = {
      */
     async getChatMessages(sessionId) {
         return this.request(`/chats/${sessionId}/messages`, "GET");
+    },
+    
+    /**
+     * Listings API
+     */
+    async getListings() {
+        return this.request("/listings", "GET");
+    },
+    
+    async createListing(formData) {
+        // We use fetch manually here because we are sending FormData instead of JSON
+        try {
+            const response = await fetch(`${API_BASE_URL}/listings`, {
+                method: "POST",
+                body: formData
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.detail || "Something went wrong");
+            }
+            return data;
+        } catch (error) {
+            console.error("API Error:", error);
+            throw error;
+        }
+    },
+    
+    async updateListingStatus(listingId, status) {
+        return this.request(`/listings/${listingId}/status`, "PATCH", { status });
+    },
+    
+    async deleteListing(listingId) {
+        return this.request(`/listings/${listingId}`, "DELETE");
+    },
+    
+    async deleteChat(sessionId) {
+        return this.request(`/chats/${sessionId}`, "DELETE");
     }
 };
 

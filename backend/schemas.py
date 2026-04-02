@@ -1,7 +1,7 @@
 from pydantic import BaseModel, EmailStr, Field
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
-from .models import UserRole
+from .models import UserRole, ListingStatus
 
 class UserBase(BaseModel):
     email: EmailStr
@@ -60,7 +60,33 @@ class ChatSessionResponse(ChatSessionBase):
     updated_at: Optional[datetime] = None
     buyer: UserResponse
     seller: UserResponse
-    messages: list[MessageResponse] = []
+    listing_title: Optional[str] = None
+    listing_price: Optional[str] = None
+    listing_image_url: Optional[str] = None
+    messages: List[MessageResponse] = []
 
     class Config:
         from_attributes = True
+
+# --- Listing Schemas ---
+
+class ListingResponse(BaseModel):
+    id: str
+    title: str
+    category: str
+    price: str
+    condition: str
+    description: str
+    image_url: Optional[str] = None
+    status: ListingStatus
+    seller_id: int
+    sellerName: Optional[str] = None # Added for frontend convenience
+    sellerEmail: Optional[str] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class ListingStatusUpdate(BaseModel):
+    status: ListingStatus
