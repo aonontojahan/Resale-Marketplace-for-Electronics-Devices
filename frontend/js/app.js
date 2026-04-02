@@ -43,6 +43,13 @@ function renderListingCard(listing) {
         : `<div class="card-img-placeholder">${CATEGORY_EMOJIS[listing.category] || '📦'}</div>`;
 
     const priceFormatted = Number(listing.price).toLocaleString('en-IN');
+    const needsReadMore = listing.description.length > 90;
+    const descHtml = needsReadMore 
+        ? `<div class="description-container" id="desc-container-${listing.id}">
+             <p class="description-text truncated" id="desc-text-${listing.id}">${listing.description}</p>
+             <button class="read-more-btn" onclick="toggleDescription('${listing.id}', event)" id="read-more-${listing.id}">Read More</button>
+           </div>`
+        : `<p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.8rem; line-height:1.5;">${listing.description}</p>`;
 
     return `
         <div class="card" data-category="${listing.category}" data-id="${listing.id}">
@@ -50,14 +57,15 @@ function renderListingCard(listing) {
             <div class="card-content">
                 <h3 class="card-title">${listing.title}</h3>
                 <p class="card-price">৳${priceFormatted}</p>
-                <p class="card-meta">
+                <div class="card-meta">
                     <span class="badge badge-condition">${listing.condition}</span>
                     <span class="badge badge-rating" style="background:rgba(59,130,246,0.15); color:#60a5fa; border-color:#60a5fa;">${CATEGORY_EMOJIS[listing.category] || '📦'} ${listing.category}</span>
-                </p>
-                <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.8rem; line-height:1.5;">${listing.description.substring(0, 90)}${listing.description.length > 90 ? '…' : ''}</p>
-                <p style="font-size:0.78rem; color:var(--text-muted);">By: <strong style="color:var(--text-secondary);">${listing.sellerName}</strong></p>
-                <button class="btn-view" style="margin-top: 1rem; margin-bottom: 0.5rem; border-radius: 8px;" onclick="handleBuyClick('${listing.id}')" id="buyBtn-${listing.id}">🛒 Buy with Escrow</button>
-                <button class="btn-outline" style="width: 100%; padding: 0.75rem; border-radius: 8px; text-align: center; font-weight: 600;" onclick="handleMessageClick('${listing.id}', '${listing.seller_id}')" id="msgBtn-${listing.id}">💬 Message Seller</button>
+                </div>
+                <div style="margin-top: 1rem;">
+                    ${descHtml}
+                </div>
+                <button class="btn-view" style="margin-top: auto; border-radius: 8px;" onclick="handleBuyClick('${listing.id}')" id="buyBtn-${listing.id}">🛒 Buy with Escrow</button>
+                <button class="btn-outline" style="width: 100%; padding: 0.75rem; border-radius: 8px; text-align: center; font-weight: 600; margin-top: 0.5rem;" onclick="handleMessageClick('${listing.id}', '${listing.seller_id}')" id="msgBtn-${listing.id}">💬 Message Seller</button>
             </div>
         </div>`;
 }
@@ -74,6 +82,14 @@ function renderSellerCard(listing) {
     const priceFormatted = Number(listing.price).toLocaleString('en-IN');
     const status = STATUS_CONFIG[listing.status] || STATUS_CONFIG['pending'];
 
+    const needsReadMore = listing.description.length > 60;
+    const descHtml = needsReadMore 
+        ? `<div class="description-container" id="desc-container-${listing.id}">
+             <p class="description-text truncated" id="desc-text-${listing.id}" style="font-size: 0.8rem;">${listing.description}</p>
+             <button class="read-more-btn" onclick="toggleDescription('${listing.id}', event)" id="read-more-${listing.id}">Read More</button>
+           </div>`
+        : `<p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.5rem; line-height:1.4;">${listing.description}</p>`;
+
     return `
         <div class="card" data-category="${listing.category}" data-id="${listing.id}" data-status="${listing.status}">
             ${imgHtml}
@@ -81,7 +97,10 @@ function renderSellerCard(listing) {
                 <span class="listing-status-badge ${status.cls}">${status.label}</span>
                 <h4 class="card-title" style="font-size:0.95rem; margin-top:0.5rem;">${listing.title}</h4>
                 <p class="card-price" style="font-size:1rem;">৳${priceFormatted}</p>
-                <div style="margin-top:1rem; display:flex; gap:0.5rem;">
+                <div style="margin-top: 0.5rem;">
+                    ${descHtml}
+                </div>
+                <div style="margin-top:auto; display:flex; gap:0.5rem;">
                     <button class="btn-outline" style="flex:1; padding:0.4rem; font-size:0.8rem;" onclick="deleteMyListing('${listing.id}')">🗑 Delete</button>
                 </div>
             </div>
@@ -1061,8 +1080,6 @@ function updateFooter() {
             if (list) {
                 list.innerHTML = `
                     <li><a href="profile.html">My Dashboard</a></li>
-                    <li><a href="wallet.html">Escrow Wallet</a></li>
-                    <li><a href="chat.html">Messages</a></li>
                 `;
             }
         }
@@ -1107,9 +1124,32 @@ function updateFooter() {
     }
 }
 
+/**
+ * Toggles the description expansion.
+ */
+function toggleDescription(id, event) {
+    if (event) event.stopPropagation();
+    const text = document.getElementById(`desc-text-${id}`);
+    const btn = document.getElementById(`read-more-${id}`);
+
+    if (text && btn) {
+        const isTruncated = text.classList.contains('truncated');
+        if (isTruncated) {
+            text.classList.remove('truncated');
+            text.classList.add('expanded');
+            btn.innerText = 'Read Less';
+        } else {
+            text.classList.remove('expanded');
+            text.classList.add('truncated');
+            btn.innerText = 'Read More';
+        }
+    }
+}
+
 // Expose globals needed by inline onclick attributes
 window.adminAction      = adminAction;
 window.deleteMyListing  = deleteMyListing;
 window.handleBuyClick   = handleBuyClick;
 window.logoutUser       = logoutUser;
 window.handleChatDelete = handleChatDelete;
+window.toggleDescription = toggleDescription;
