@@ -364,17 +364,8 @@ function updateNav() {
             }
         }
         
-        // Hide marketing footer links for logged-in users
-        const footerLinks = document.querySelectorAll('.footer-links li a');
-        footerLinks.forEach(link => {
-            const href = link.getAttribute('href');
-            if (href === 'signup.html' || href === '#safety' || href === 'index.html#safety' || href === 'escrow-policy.html' || href === 'escrow-policy.html#dispute' || href === 'escrow-policy.html#terms' || href === 'escrow-policy.html#privacy') {
-                // Keep the legal links that might still be applicable, but definitely hide signup and safety (if safety is hidden on app view)
-                if (href === 'signup.html' || href === '#safety') {
-                    link.parentElement.style.display = 'none';
-                }
-            }
-        });
+        // Update Footer dynamically
+        updateFooter();
     } else {
         nav.innerHTML = `
             <a href="index.html#about">About Us</a>
@@ -440,6 +431,7 @@ function closeModal(id) {
 
 document.addEventListener('DOMContentLoaded', () => {
     updateNav();
+    updateFooter();
 
     const user = getUser();
 
@@ -1021,6 +1013,97 @@ async function handleChatDelete(sessionId, event) {
         }
     } catch (err) {
         alert("Failed to delete chat: " + err.message);
+    }
+}
+
+/**
+ * Dynamically updates the footer based on user session.
+ * Removes irrelevant marketing and guest links, adds dashboard links.
+ */
+function updateFooter() {
+    const footer = document.querySelector('.site-footer');
+    if (!footer) return;
+
+    const user = getUser();
+    const currentPath = window.location.pathname;
+    const isIndex = currentPath.includes('index.html') || currentPath.endsWith('/');
+
+    if (!user) {
+        // For guests, ensure anchor links work from any page
+        const footerLinks = footer.querySelectorAll('.footer-links a');
+        footerLinks.forEach(link => {
+            const href = link.getAttribute('href');
+            if (href && href.startsWith('#') && !isIndex) {
+                link.setAttribute('href', 'index.html' + href);
+            }
+        });
+        return;
+    }
+
+    const role = user.role || 'buyer';
+
+    // 1. Simplify Tagline
+    const tagline = footer.querySelector('p');
+    if (tagline && (tagline.innerText.includes('ultimate destination') || tagline.innerText.includes('trusted destination'))) {
+        tagline.innerText = 'Your secure marketplace for pre-owned electronics. Reliable, transparent, and protected by Escrow.';
+    }
+
+    // 2. Update Footer Columns
+    const footerGrid = footer.querySelector('.footer-grid');
+    if (footerGrid) {
+        const columns = Array.from(footerGrid.children);
+        
+        // Column 2: Dashboard Links
+        if (columns[1]) {
+            const title = columns[1].querySelector('.footer-title');
+            const list = columns[1].querySelector('.footer-links');
+            if (title) title.innerText = 'Quick Access';
+            if (list) {
+                list.innerHTML = `
+                    <li><a href="profile.html">My Dashboard</a></li>
+                    <li><a href="wallet.html">Escrow Wallet</a></li>
+                    <li><a href="chat.html">Messages</a></li>
+                `;
+            }
+        }
+
+        // Column 3: Resources
+        if (columns[2]) {
+            const title = columns[2].querySelector('.footer-title');
+            const list = columns[2].querySelector('.footer-links');
+            if (title) title.innerText = 'Resources';
+            if (list) {
+                list.innerHTML = `
+                    <li><a href="index.html#listings">Browse Listings</a></li>
+                `;
+            }
+        }
+
+        // Column 4: Newsletter/Support Cleanup
+        if (columns[3]) {
+            const title = columns[3].querySelector('.footer-title') || columns[3].querySelector('h4');
+            if (title && (title.innerText.toLowerCase().includes('newsletter') || title.innerText.toLowerCase().includes('asistance') || title.innerText.toLowerCase().includes('assistance'))) {
+                title.innerText = 'Need Assistance?';
+                columns[3].innerHTML = `
+                    <h4 class="footer-title">Need Assistance?</h4>
+                    <ul class="footer-links">
+                        <li>
+                            <a href="https://wa.me/8801723740704" target="_blank" style="display: flex; align-items: center; gap: 0.5rem; color: #25d366;">
+                                <span style="font-size: 1.2rem;">💬</span> WhatsApp Support
+                            </a>
+                        </li>
+                        <li style="margin-top: 0.5rem;">
+                            <a href="https://mail.google.com/mail/?view=cm&to=aonontojahan@gmail.com&su=ReSale%20Support" target="_blank" style="display: flex; align-items: center; gap: 0.5rem; color: #ea4335;">
+                                <span style="font-size: 1.2rem;">📧</span> Gmail Support
+                            </a>
+                        </li>
+                        <li style="margin-top: 1rem; border-top: 1px solid #334155; padding-top: 1rem;">
+                            <a href="https://mail.google.com/mail/?view=cm&to=aonontojahan@gmail.com&su=ReSale%20Issue%20Report" target="_blank" style="color: var(--accent-cyan); font-weight: 600;">Report an Issue</a>
+                        </li>
+                    </ul>
+                `;
+            }
+        }
     }
 }
 
