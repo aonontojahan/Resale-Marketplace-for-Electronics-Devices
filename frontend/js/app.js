@@ -167,6 +167,7 @@ async function renderPublicListings(category = 'all') {
     let allListings = await window.api.getListings();
     let listings = allListings.filter(l => l.status === 'approved');
     if (category !== 'all') listings = listings.filter(l => l.category === category);
+    listings = listings.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
     if (listings.length === 0) {
         grid.innerHTML = '';
@@ -204,6 +205,7 @@ async function renderSellerListings(statusFilter = 'all') {
     let allListings = await window.api.getListings();
     let listings = allListings.filter(l => l.seller_id === user.id || l.sellerEmail === user.email);
     if (statusFilter !== 'all') listings = listings.filter(l => l.status === statusFilter);
+    listings = listings.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
     if (listings.length === 0) {
         grid.innerHTML = '';
@@ -225,6 +227,7 @@ async function renderBuyerListings(category = 'all') {
     let allListings = await window.api.getListings();
     let listings = allListings.filter(l => l.status === 'approved');
     if (category !== 'all') listings = listings.filter(l => l.category === category);
+    listings = listings.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
     if (listings.length === 0) {
         grid.innerHTML = '';
@@ -261,7 +264,7 @@ async function renderAdminListings(statusFilter = 'all') {
     let listings = await window.api.getListings();
     if(!listings) listings = [];
     if (statusFilter !== 'all') listings = listings.filter(l => l.status === statusFilter);
-    listings = listings.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    listings = listings.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
     if (listings.length === 0) {
         container.innerHTML = '';
@@ -725,10 +728,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 const grid = document.getElementById('listingsGrid');
                 if (grid) {
                     window.api.getListings().then(allListings => {
-                    const listings = allListings.filter(l =>
-                        l.status === 'approved' &&
-                        (l.title.toLowerCase().includes(query) || l.description.toLowerCase().includes(query))
-                    );
+                    const listings = allListings
+                        .filter(l =>
+                            l.status === 'approved' &&
+                            (l.title.toLowerCase().includes(query) || l.description.toLowerCase().includes(query))
+                        )
+                        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
                     if (listings.length === 0) {
                         grid.innerHTML = '';
                         const emptyEl = document.getElementById('listingsEmpty');
