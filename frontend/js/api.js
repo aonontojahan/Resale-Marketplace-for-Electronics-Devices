@@ -59,6 +59,24 @@ const api = {
     },
 
     /**
+     * Get all users (for admin)
+     */
+    async getUsers(role = null) {
+        let endpoint = "/users";
+        if (role) {
+            endpoint += `?role=${role}`;
+        }
+        return this.request(endpoint, "GET");
+    },
+
+    /**
+     * Admin: Perform disciplinary action
+     */
+    async adminUserAction(userId, action) {
+        return this.request(`/admin/users/${userId}/action`, "POST", { action });
+    },
+
+    /**
      * Chat: Create or fetch existing session
      */
     async createChat(listingId, buyerId, sellerId) {

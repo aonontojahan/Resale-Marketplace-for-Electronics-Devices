@@ -253,25 +253,83 @@ async function renderBuyerListings(category = 'all') {
     }
 }
 
+window.currentAdminInlineStatus = 'pending';
+
 /**
- * Renders admin listing panel on profile.html
+ * Renders admin listing panel directly below the grid
  */
 async function renderAdminListings(statusFilter = 'all') {
+    if (statusFilter !== window.currentAdminInlineStatus) {
+        window.currentAdminInlineStatus = statusFilter;
+    }
+    
     const container = document.getElementById('adminListingsContainer');
     const emptyEl = document.getElementById('adminEmpty');
+    const catFilterEl = document.getElementById('adminCategoryFilter');
+    
     if (!container) return;
+
+    // Show category filter only when viewing approved products
+    if (catFilterEl && statusFilter === 'approved') {
+        catFilterEl.style.display = 'flex';
+    } else if (catFilterEl) {
+        catFilterEl.style.display = 'none';
+        catFilterEl.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        const allBtn = catFilterEl.querySelector('.filter-btn[data-category="all"]');
+        if (allBtn) allBtn.classList.add('active');
+    }
+
+    // Get active category filter
+    const activeCat = catFilterEl ? catFilterEl.querySelector('.filter-btn.active') : null;
+    const categoryFilter = (statusFilter === 'approved' && activeCat) ? activeCat.dataset.category : 'all';
+
+    container.innerHTML = '<p style="text-align:center; color:var(--text-muted); padding:2rem;">Loading...</p>';
+    if (emptyEl) emptyEl.style.display = 'none';
 
     let listings = await window.api.getListings();
     if(!listings) listings = [];
     if (statusFilter !== 'all') listings = listings.filter(l => l.status === statusFilter);
+    if (categoryFilter !== 'all') listings = listings.filter(l => l.category === categoryFilter);
+
     listings = listings.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
     if (listings.length === 0) {
         container.innerHTML = '';
-        if (emptyEl) emptyEl.style.display = 'flex';
+        if (emptyEl) {
+            emptyEl.style.display = 'flex';
+            const emptyTitle = document.getElementById('adminEmptyTitle');
+            const emptyDesc = document.getElementById('adminEmptyDesc');
+            if (emptyTitle) emptyTitle.innerText = 'No Products Found';
+            if (emptyDesc) emptyDesc.innerText = 'Select a category from the statistics cards above to view products.';
+        }
     } else {
         if (emptyEl) emptyEl.style.display = 'none';
         container.innerHTML = `<div class="admin-listings-list">${listings.map(renderAdminCard).join('')}</div>`;
+    }
+}
+
+/**
+ * Loads and renders statistics for the admin dashboard.
+ */
+async function loadAdminStats() {
+    try {
+        const stats = await window.api.request('/stats');
+        
+        const usersEl = document.getElementById('adminStatUsers');
+        const buyersEl = document.getElementById('adminStatBuyers');
+        const sellersEl = document.getElementById('adminStatSellers');
+        const approvedEl = document.getElementById('adminStatApproved');
+        const pendingEl = document.getElementById('adminStatPending');
+        const rejectedEl = document.getElementById('adminStatRejected');
+
+        if (usersEl) usersEl.innerText = stats.total_users || 0;
+        if (buyersEl) buyersEl.innerText = stats.total_buyers || 0;
+        if (sellersEl) sellersEl.innerText = stats.total_sellers || 0;
+        if (approvedEl) approvedEl.innerText = stats.approved_listings || 0;
+        if (pendingEl) pendingEl.innerText = stats.pending_listings || 0;
+        if (rejectedEl) rejectedEl.innerText = stats.rejected_listings || 0;
+    } catch (error) {
+        console.error("Failed to load admin stats:", error);
     }
 }
 
@@ -279,9 +337,10 @@ async function renderAdminListings(statusFilter = 'all') {
 
 async function adminAction(id, newStatus) {
     await window.api.updateListingStatus(id, newStatus);
-    const activeTab = document.querySelector('#adminStatusTabs .status-tab.active');
-    const filter = activeTab ? activeTab.dataset.status : 'all';
-    renderAdminListings(filter);
+    if (window.currentAdminInlineStatus) {
+        renderAdminListings(window.currentAdminInlineStatus);
+    }
+    loadAdminStats();
 }
 
 async function deleteMyListing(id) {
@@ -332,6 +391,119 @@ function handleMessageClick(id, sellerId) {
         .catch(err => {
             alert("Could not initialize chat session: " + err.message);
         });
+}
+
+// ─── Admin Users Inline Listing ──────────────────────────────────
+
+async function renderAdminUsers(role) {
+    if (role !== window.currentAdminInlineStatus) {
+        window.currentAdminInlineStatus = role;
+    }
+    
+    // Safeguard to prevent rendering full user list for 'Total Users'
+    if (role === 'users') {
+        const container = document.getElementById('adminListingsContainer');
+        if (container) container.innerHTML = '';
+        return;
+    }
+    
+    const container = document.getElementById('adminListingsContainer');
+    const emptyEl = document.getElementById('adminEmpty');
+    const catFilterEl = document.getElementById('adminCategoryFilter');
+    
+    if (!container) return;
+
+    if (catFilterEl) catFilterEl.style.display = 'none';
+    
+    container.innerHTML = '<p style="text-align:center; color:var(--text-muted); padding:2rem;">Loading...</p>';
+    if (emptyEl) emptyEl.style.display = 'none';
+    
+    try {
+        const fetchRole = role === 'buyers' ? 'buyer' : role === 'sellers' ? 'seller' : null;
+        const users = await window.api.getUsers(fetchRole);
+        
+        if (users.length === 0) {
+            container.innerHTML = '';
+            if (emptyEl) {
+                emptyEl.style.display = 'flex';
+                const emptyTitle = document.getElementById('adminEmptyTitle');
+                const emptyDesc = document.getElementById('adminEmptyDesc');
+                if (emptyTitle) emptyTitle.innerText = 'No Users Found';
+                if (emptyDesc) emptyDesc.innerText = 'There are no users to display for this category.';
+            }
+            return;
+        }
+        
+        container.innerHTML = `<div style="display: flex; flex-direction: column; gap: 1rem; max-width: 800px; margin: 0 auto; width: 100%;">` + users.sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).map(u => {
+            const isBanned = u.account_status === 'banned';
+            const isSuspended = u.suspended_until && new Date(u.suspended_until) > new Date();
+            const isListingBanned = u.listing_banned_until && new Date(u.listing_banned_until) > new Date();
+            
+            let statusBadge = '';
+            if (isBanned) statusBadge = `<span style="font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 20px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); color: #ef4444; font-weight: 600; text-transform:uppercase;">Permanently Banned</span>`;
+            else if (isSuspended) statusBadge = `<span style="font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 20px; background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.2); color: #f59e0b; font-weight: 600; text-transform:uppercase;">Suspended</span>`;
+            else if (isListingBanned) statusBadge = `<span style="font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 20px; background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.2); color: #f59e0b; font-weight: 600; text-transform:uppercase;">Listing Ban</span>`;
+
+            return `
+            <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; display: flex; align-items: flex-start; gap: 1.5rem; transition: transform 0.2s ease; opacity: ${isBanned ? '0.6' : '1'};" onmouseover="this.style.transform='translateY(-2px)';" onmouseout="this.style.transform='translateY(0)';">
+                <div style="width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, ${isBanned ? '#ef4444, #7f1d1d' : 'var(--accent-cyan), var(--accent-blue)'}); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.5rem; flex-shrink: 0; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
+                    ${u.full_name.split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase()}
+                </div>
+                <div style="flex: 1;">
+                    <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom: 0.25rem;">
+                        <h4 style="margin: 0; font-size: 1.15rem; color: var(--text-primary); ${isBanned ? 'text-decoration: line-through; opacity: 0.7;' : ''}">${u.full_name}</h4>
+                        <span style="font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 20px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--text-muted); text-transform:uppercase; font-weight: 600;">${u.role}</span>
+                        ${statusBadge}
+                    </div>
+                    <p style="margin: 0; font-size: 0.95rem; color: var(--text-muted); margin-bottom: 0.75rem;">📧 <a href="mailto:${u.email}" style="color:${isBanned ? 'var(--text-muted)' : 'var(--accent-cyan)'}; text-decoration:none;">${u.email}</a></p>
+                    
+                    ${u.role !== 'buyer' ? `
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <select id="action-select-${u.id}" class="form-input" style="padding: 0.4rem 0.75rem; font-size: 0.85rem; width: auto; background: var(--bg-body); border-color: var(--border);">
+                            <option value="">-- Select Action --</option>
+                            <option value="ban_listings_7_days">🚫 Ban from listing (7 days)</option>
+                            <option value="suspend_15_days">⏳ Suspend Account (15 days)</option>
+                            <option value="permanent_ban">❌ Permanent Ban</option>
+                            <option value="remove_restrictions">✅ Remove Restrictions</option>
+                        </select>
+                        <button class="btn-primary" style="padding: 0.4rem 1rem; font-size: 0.85rem;" onclick="takeAdminUserAction(${u.id})">Apply</button>
+                    </div>
+                    ` : ''}
+                </div>
+                <div style="text-align: right; background: rgba(255,255,255,0.02); padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); align-self: center;">
+                    <p style="margin: 0; font-size: 0.8rem; color: var(--text-muted); text-transform:uppercase; letter-spacing:0.05em;">Joined</p>
+                    <p style="margin: 0; font-size: 1rem; font-weight: 600; color: var(--text-secondary);">${new Date(u.created_at).toLocaleDateString('en-GB')}</p>
+                </div>
+            </div>
+            `;
+        }).join('') + `</div>`;
+    } catch(err) {
+        container.innerHTML = `<p style="text-align:center; color:red; padding:2rem;">Error loading users: ${err.message}</p>`;
+    }
+}
+
+async function takeAdminUserAction(userId) {
+    const select = document.getElementById(`action-select-${userId}`);
+    if (!select || !select.value) {
+        alert("Please select an action first.");
+        return;
+    }
+    
+    const action = select.value;
+    if (action === 'permanent_ban' && !confirm("Are you sure you want to permanently ban this user? Their account will be closed and all their products will be permanently deleted.")) {
+        return;
+    }
+    
+    try {
+        await window.api.adminUserAction(userId, action);
+        alert("Action applied successfully!");
+        if (window.currentAdminInlineStatus) {
+            renderAdminUsers(window.currentAdminInlineStatus);
+        }
+        loadAdminStats();
+    } catch (err) {
+        alert("Failed to apply action: " + err.message);
+    }
 }
 
 // ─── Navigation ───────────────────────────────────────────────
@@ -567,15 +739,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } else if (role === 'admin' && adminView) {
             adminView.style.display = 'block';
-            renderAdminListings('all');
+            renderAdminListings('pending');
+            loadAdminStats();
 
-            // Admin status tabs
-            const tabs = document.querySelectorAll('#adminStatusTabs .status-tab');
-            tabs.forEach(tab => {
-                tab.addEventListener('click', () => {
-                    tabs.forEach(t => t.classList.remove('active'));
-                    tab.classList.add('active');
-                    renderAdminListings(tab.dataset.status);
+            // Admin category filter
+            const adminCatBtns = document.querySelectorAll('#adminCategoryFilter .filter-btn');
+            adminCatBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    adminCatBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    if (window.currentAdminInlineStatus) {
+                        renderAdminListings(window.currentAdminInlineStatus);
+                    }
                 });
             });
         }
@@ -600,6 +775,22 @@ document.addEventListener('DOMContentLoaded', () => {
         listingModal.addEventListener('click', (e) => {
             if (e.target === listingModal) closeModal('listingModal');
         });
+        
+        // User List Modal Handle
+        const userListCloseBtns = [
+            document.getElementById('closeUserListModal'),
+            document.getElementById('closeUserListBtn')
+        ];
+        userListCloseBtns.forEach(btn => {
+            if (btn) btn.addEventListener('click', () => closeModal('userListModal'));
+        });
+
+        const userListModal = document.getElementById('userListModal');
+        if (userListModal) {
+            userListModal.addEventListener('click', (e) => {
+                if (e.target === userListModal) closeModal('userListModal');
+            });
+        }
 
         // File upload handling
         const imagesInput = document.getElementById('listingImages');
@@ -1152,6 +1343,9 @@ function toggleDescription(id, event) {
 }
 
 // Expose globals needed by inline onclick attributes
+window.renderAdminUsers = renderAdminUsers;
+window.takeAdminUserAction = takeAdminUserAction;
+window.renderAdminListings = renderAdminListings;
 window.adminAction      = adminAction;
 window.deleteMyListing  = deleteMyListing;
 window.handleBuyClick   = handleBuyClick;

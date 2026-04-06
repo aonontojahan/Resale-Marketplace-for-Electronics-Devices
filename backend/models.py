@@ -27,6 +27,11 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
+    # Disciplinary Actions
+    account_status = Column(String, default="active", nullable=False)
+    suspended_until = Column(DateTime(timezone=True), nullable=True)
+    listing_banned_until = Column(DateTime(timezone=True), nullable=True)
+
     def __repr__(self):
         return f"<User(email='{self.email}', role='{self.role}')>"
 
