@@ -56,24 +56,35 @@ manager = ConnectionManager()
 def read_root():
     return {"message": "Welcome to ReSale Marketplace API"}
 
-@app.post("/auth/signup", response_model=schemas.UserResponse, status_code=status.HTTP_201_CREATED)
-def signup(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
-    """Create a new user in the database."""
+@app.post("/auth/signup", response_model=schemas.UserResponse)
+def signup(user: schemas.UserCreate, db: Session = Depends(get_db)):
+    """Create a new user with minimal fields."""
     # Check if user already exists
-    db_user = db.query(models.User).filter(models.User.email == user_in.email).first()
+    db_user = db.query(models.User).filter(models.User.email == user.email).first()
     if db_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
-        )
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Check NID uniqueness across all users
+    if user.nid_number:
+        existing_nid = db.query(models.User).filter(models.User.nid_number == user.nid_number).first()
+        if existing_nid:
+            raise HTTPException(status_code=400, detail="This NID is already registered with another account")
+
+    # Status: Sellers are pending_verification, others are active
+    account_status = "pending_verification" if user.role == "seller" else "active"
     
     # Hash password and create user
-    hashed_password = auth.get_password_hash(user_in.password)
+    hashed_password = auth.get_password_hash(user.password)
     new_user = models.User(
-        email=user_in.email,
-        full_name=user_in.full_name,
+        email=user.email,
+        full_name=user.full_name,
         hashed_password=hashed_password,
-        role=user_in.role
+        role=user.role,
+        phone_number=user.phone_number,
+        dob=user.dob,
+        nid_number=user.nid_number,
+        account_status=account_status,
+        # Other fields like address, shop_name, etc. remain empty as they're not provided in signup anymore.
     )
     
     db.add(new_user)
@@ -167,8 +178,9 @@ def create_listing(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
         
-    if user.account_status == "banned" or (user.suspended_until and user.suspended_until > datetime.now(timezone.utc)):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Your account is suspended or banned.")
+    if user.account_status == "banned" or user.account_status == "pending_verification" or (user.suspended_until and user.suspended_until > datetime.now(timezone.utc)):
+        detail_msg = "Your account is pending verification by admin." if user.account_status == "pending_verification" else "Your account is suspended or banned."
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail_msg)
         
     if user.listing_banned_until and user.listing_banned_until > datetime.now(timezone.utc):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"You are banned from creating listings until {user.listing_banned_until.strftime('%Y-%m-%d %H:%M:%S')}.")
@@ -259,10 +271,11 @@ def admin_user_action(user_id: int, action_req: schemas.UserActionRequest, db: S
         user.account_status = "banned"
         # Delete their listings
         db.query(models.Listing).filter(models.Listing.seller_id == user_id).delete()
-    elif action_req.action == "remove_restrictions":
-        user.account_status = "active"
-        user.suspended_until = None
-        user.listing_banned_until = None
+    elif action_req.action == "approve_seller":
+        if user.role == "seller":
+            user.account_status = "active"
+        else:
+            raise HTTPException(status_code=400, detail="Only seller accounts can be approved.")
     else:
         raise HTTPException(status_code=400, detail="Invalid action")
         
@@ -287,6 +300,8 @@ def get_platform_stats(db: Session = Depends(get_db)):
     pending_listings = db.query(models.Listing).filter(models.Listing.status == models.ListingStatus.PENDING).count()
     approved_listings = db.query(models.Listing).filter(models.Listing.status == models.ListingStatus.APPROVED).count()
     rejected_listings = db.query(models.Listing).filter(models.Listing.status == models.ListingStatus.REJECTED).count()
+    
+    pending_sellers = db.query(models.User).filter(models.User.role == models.UserRole.SELLER, models.User.account_status == "pending_verification").count()
 
     return {
         "total_users":      total_users,
@@ -298,6 +313,7 @@ def get_platform_stats(db: Session = Depends(get_db)):
         "pending_listings": pending_listings,
         "approved_listings": approved_listings,
         "rejected_listings": rejected_listings,
+        "pending_sellers":   pending_sellers,
     }
 
 @app.post("/chats", response_model=schemas.ChatSessionResponse)

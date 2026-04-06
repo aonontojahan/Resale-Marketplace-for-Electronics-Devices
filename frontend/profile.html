@@ -105,11 +105,11 @@
           <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem;" id="adminStatsGrid">
             <!-- User Stats Row -->
             <div class="admin-stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-                <div class="stat-card" style="padding: 1.5rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; display: flex; align-items: center; gap: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); transition: transform 0.2s ease;">
-                  <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(99,102,241,0.1); color: #6366f1; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; flex-shrink: 0;">🌐</div>
+                <div class="stat-card" style="padding: 1.5rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; display: flex; align-items: center; gap: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); transition: transform 0.2s ease; cursor: pointer;" onclick="renderAdminUsers('pending_sellers')">
+                  <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(239,68,68,0.1); color: #ef4444; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; flex-shrink: 0;">⏳</div>
                   <div>
-                    <p style="color: var(--text-muted); font-size: 0.85rem; font-weight: 600; margin: 0 0 0.25rem;">Total Users</p>
-                    <h3 id="adminStatUsers" style="font-size: 1.5rem; font-weight: 700; margin: 0;">-</h3>
+                    <p style="color: var(--text-muted); font-size: 0.85rem; font-weight: 600; margin: 0 0 0.25rem;">Pending Sellers</p>
+                    <h3 id="adminStatPendingSellers" style="font-size: 1.5rem; font-weight: 700; margin: 0;">-</h3>
                   </div>
                 </div>
                 <div class="stat-card" style="padding: 1.5rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; display: flex; align-items: center; gap: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); transition: transform 0.2s ease; cursor: pointer;" onclick="renderAdminUsers('buyers')">

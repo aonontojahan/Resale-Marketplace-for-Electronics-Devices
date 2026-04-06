@@ -28,7 +28,8 @@ const CATEGORY_EMOJIS = {
 const STATUS_CONFIG = {
     pending:  { label: '⏳ Pending Review', cls: 'badge-pending' },
     approved: { label: '✅ Approved',        cls: 'badge-approved' },
-    rejected: { label: '❌ Rejected',        cls: 'badge-rejected' }
+    rejected: { label: '❌ Rejected',        cls: 'badge-rejected' },
+    sold:     { label: '🤝 Sold',            cls: 'badge-sold' }
 };
 
 // ─── Card Renderers ───────────────────────────────────────────
@@ -51,12 +52,20 @@ function renderListingCard(listing) {
            </div>`
         : `<p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.8rem; line-height:1.5;">${listing.description}</p>`;
 
+    const isSold = listing.status === 'sold';
+    const availabilityBadge = isSold 
+        ? `<div class="status-badge status-sold">Sold</div>`
+        : `<div class="status-badge status-available">Available</div>`;
+
     return `
         <div class="card" data-category="${listing.category}" data-id="${listing.id}">
             ${imgHtml}
             <div class="card-content">
                 <h3 class="card-title">${listing.title}</h3>
-                <p class="card-price">৳${priceFormatted}</p>
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <p class="card-price" style="margin-bottom: 0;">৳${priceFormatted}</p>
+                    ${availabilityBadge}
+                </div>
                 <div class="card-meta">
                     <span class="badge badge-condition">${listing.condition}</span>
                     <span class="badge badge-rating" style="background:rgba(59,130,246,0.15); color:#60a5fa; border-color:#60a5fa;">${CATEGORY_EMOJIS[listing.category] || '📦'} ${listing.category}</span>
@@ -64,7 +73,10 @@ function renderListingCard(listing) {
                 <div style="margin-top: 1rem;">
                     ${descHtml}
                 </div>
-                <button class="btn-view" style="margin-top: auto; border-radius: 8px;" onclick="handleBuyClick('${listing.id}')" id="buyBtn-${listing.id}">🛒 Buy with Escrow</button>
+                ${isSold 
+                    ? `<button class="btn-view" style="margin-top: auto; border-radius: 8px; background: #475569; cursor: not-allowed;" disabled>🛒 Already Sold</button>`
+                    : `<button class="btn-view" style="margin-top: auto; border-radius: 8px;" onclick="handleBuyClick('${listing.id}')" id="buyBtn-${listing.id}">🛒 Buy with Escrow</button>`
+                }
                 <button class="btn-outline" style="width: 100%; padding: 0.75rem; border-radius: 8px; text-align: center; font-weight: 600; margin-top: 0.5rem;" onclick="handleMessageClick('${listing.id}', '${listing.seller_id}')" id="msgBtn-${listing.id}">💬 Message Seller</button>
             </div>
         </div>`;
@@ -315,14 +327,14 @@ async function loadAdminStats() {
     try {
         const stats = await window.api.request('/stats');
         
-        const usersEl = document.getElementById('adminStatUsers');
+        const usersEl = document.getElementById('adminStatPendingSellers');
         const buyersEl = document.getElementById('adminStatBuyers');
         const sellersEl = document.getElementById('adminStatSellers');
         const approvedEl = document.getElementById('adminStatApproved');
         const pendingEl = document.getElementById('adminStatPending');
         const rejectedEl = document.getElementById('adminStatRejected');
 
-        if (usersEl) usersEl.innerText = stats.total_users || 0;
+        if (usersEl) usersEl.innerText = stats.pending_sellers || 0;
         if (buyersEl) buyersEl.innerText = stats.total_buyers || 0;
         if (sellersEl) sellersEl.innerText = stats.total_sellers || 0;
         if (approvedEl) approvedEl.innerText = stats.approved_listings || 0;
@@ -419,9 +431,13 @@ async function renderAdminUsers(role) {
     if (emptyEl) emptyEl.style.display = 'none';
     
     try {
-        const fetchRole = role === 'buyers' ? 'buyer' : role === 'sellers' ? 'seller' : null;
-        const users = await window.api.getUsers(fetchRole);
+        const fetchRole = role === 'buyers' ? 'buyer' : role === 'sellers' ? 'seller' : role === 'pending_sellers' ? 'seller' : null;
+        let users = await window.api.getUsers(fetchRole);
         
+        if (role === 'pending_sellers') {
+            users = users.filter(u => u.account_status === 'pending_verification');
+        }
+
         if (users.length === 0) {
             container.innerHTML = '';
             if (emptyEl) {
@@ -435,45 +451,61 @@ async function renderAdminUsers(role) {
         }
         
         container.innerHTML = `<div style="display: flex; flex-direction: column; gap: 1rem; max-width: 800px; margin: 0 auto; width: 100%;">` + users.sort((a,b) => new Date(b.created_at) - new Date(a.created_at)).map(u => {
+            const isPending = u.account_status === 'pending_verification';
             const isBanned = u.account_status === 'banned';
-            const isSuspended = u.suspended_until && new Date(u.suspended_until) > new Date();
-            const isListingBanned = u.listing_banned_until && new Date(u.listing_banned_until) > new Date();
             
             let statusBadge = '';
-            if (isBanned) statusBadge = `<span style="font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 20px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); color: #ef4444; font-weight: 600; text-transform:uppercase;">Permanently Banned</span>`;
-            else if (isSuspended) statusBadge = `<span style="font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 20px; background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.2); color: #f59e0b; font-weight: 600; text-transform:uppercase;">Suspended</span>`;
-            else if (isListingBanned) statusBadge = `<span style="font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 20px; background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.2); color: #f59e0b; font-weight: 600; text-transform:uppercase;">Listing Ban</span>`;
+            if (isPending) statusBadge = `<span style="font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 20px; background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.2); color: #3b82f6; font-weight: 600;">NEW SELLER (PENDING)</span>`;
+            else if (isBanned) statusBadge = `<span style="font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 20px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); color: #ef4444; font-weight: 600;">BANNED</span>`;
+
+            // Verification Section for Admins
+            let verificationSection = '';
+            if (isPending && u.role === 'seller') {
+                verificationSection = `
+                <div style="margin-top: 1rem; padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                    <div style="margin-top: 0.75rem; font-size: 0.85rem; color: var(--text-muted); background: rgba(0,0,0,0.2); padding: 0.75rem; border-radius: 6px;">
+                        <p style="margin:0;"><strong>🆔 NID Number:</strong> ${u.nid_number || 'Not Provided'}</p>
+                    </div>
+                    <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
+                        <button class="btn-primary" style="background:linear-gradient(135deg,#10b981,#059669); flex:1;" onclick="applyVerification('${u.id}', 'approve_seller')">✅ Approve Account</button>
+                        <button class="btn-outline" style="border-color:#ef4444; color:#ef4444; flex:1;" onclick="applyVerification('${u.id}', 'permanent_ban')">❌ Reject & Ban</button>
+                    </div>
+                </div>`;
+            }
 
             return `
-            <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; display: flex; align-items: flex-start; gap: 1.5rem; transition: transform 0.2s ease; opacity: ${isBanned ? '0.6' : '1'};" onmouseover="this.style.transform='translateY(-2px)';" onmouseout="this.style.transform='translateY(0)';">
-                <div style="width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, ${isBanned ? '#ef4444, #7f1d1d' : 'var(--accent-cyan), var(--accent-blue)'}); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.5rem; flex-shrink: 0; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
-                    ${u.full_name.split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase()}
-                </div>
-                <div style="flex: 1;">
-                    <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom: 0.25rem;">
-                        <h4 style="margin: 0; font-size: 1.15rem; color: var(--text-primary); ${isBanned ? 'text-decoration: line-through; opacity: 0.7;' : ''}">${u.full_name}</h4>
-                        <span style="font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 20px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--text-muted); text-transform:uppercase; font-weight: 600;">${u.role}</span>
-                        ${statusBadge}
+            <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; transition: transform 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)';" onmouseout="this.style.transform='translateY(0)';">
+                <div style="display: flex; align-items: flex-start; gap: 1.5rem;">
+                    <div style="width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue)); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.5rem; flex-shrink: 0; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
+                        ${u.full_name.split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase()}
                     </div>
-                    <p style="margin: 0; font-size: 0.95rem; color: var(--text-muted); margin-bottom: 0.75rem;">📧 <a href="mailto:${u.email}" style="color:${isBanned ? 'var(--text-muted)' : 'var(--accent-cyan)'}; text-decoration:none;">${u.email}</a></p>
-                    
-                    ${u.role !== 'buyer' ? `
-                    <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <select id="action-select-${u.id}" class="form-input" style="padding: 0.4rem 0.75rem; font-size: 0.85rem; width: auto; background: var(--bg-body); border-color: var(--border);">
-                            <option value="">-- Select Action --</option>
-                            <option value="ban_listings_7_days">🚫 Ban from listing (7 days)</option>
-                            <option value="suspend_15_days">⏳ Suspend Account (15 days)</option>
-                            <option value="permanent_ban">❌ Permanent Ban</option>
-                            <option value="remove_restrictions">✅ Remove Restrictions</option>
-                        </select>
-                        <button class="btn-primary" style="padding: 0.4rem 1rem; font-size: 0.85rem;" onclick="takeAdminUserAction(${u.id})">Apply</button>
+                    <div style="flex: 1;">
+                        <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom: 0.25rem;">
+                            <h4 style="margin: 0; font-size: 1.15rem; color: var(--text-primary);">${u.full_name}</h4>
+                            <span style="font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 20px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--text-muted); text-transform:uppercase; font-weight: 600;">${u.role}</span>
+                            ${statusBadge}
+                        </div>
+                        <p style="margin: 0; font-size: 0.95rem; color: var(--text-muted); margin-bottom: 0.5rem;">📧 <a href="mailto:${u.email}" style="color: var(--accent-cyan); text-decoration:none;">${u.email}</a> &nbsp;|&nbsp; 📱 ${u.phone_number || 'No Phone'}</p>
+                        
+                        ${!isPending && u.role !== 'buyer' ? `
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <select id="action-select-${u.id}" class="form-input" style="padding: 0.4rem 0.75rem; font-size: 0.85rem; width: auto; background: var(--bg-body); border-color: var(--border);">
+                                <option value="">-- Select Action --</option>
+                                <option value="ban_listings_7_days">🚫 Ban from listing (7 days)</option>
+                                <option value="suspend_15_days">⏳ Suspend Account (15 days)</option>
+                                <option value="permanent_ban">❌ Permanent Ban</option>
+                                <option value="remove_restrictions">✅ Remove Restrictions</option>
+                            </select>
+                            <button class="btn-primary" style="padding: 0.4rem 1rem; font-size: 0.85rem;" onclick="takeAdminUserAction(${u.id})">Apply</button>
+                        </div>
+                        ` : ''}
                     </div>
-                    ` : ''}
+                    <div style="text-align: right; background: rgba(255,255,255,0.02); padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); align-self: flex-start;">
+                        <p style="margin: 0; font-size: 0.8rem; color: var(--text-muted); text-transform:uppercase; letter-spacing:0.05em;">Joined</p>
+                        <p style="margin: 0; font-size: 1rem; font-weight: 600; color: var(--text-secondary);">${new Date(u.created_at).toLocaleDateString('en-GB')}</p>
+                    </div>
                 </div>
-                <div style="text-align: right; background: rgba(255,255,255,0.02); padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); align-self: center;">
-                    <p style="margin: 0; font-size: 0.8rem; color: var(--text-muted); text-transform:uppercase; letter-spacing:0.05em;">Joined</p>
-                    <p style="margin: 0; font-size: 1rem; font-weight: 600; color: var(--text-secondary);">${new Date(u.created_at).toLocaleDateString('en-GB')}</p>
-                </div>
+                ${verificationSection}
             </div>
             `;
         }).join('') + `</div>`;
@@ -481,6 +513,19 @@ async function renderAdminUsers(role) {
         container.innerHTML = `<p style="text-align:center; color:red; padding:2rem;">Error loading users: ${err.message}</p>`;
     }
 }
+
+async function applyVerification(userId, action) {
+    try {
+        await window.api.adminUserAction(userId, action);
+        showToast(action === 'approve_seller' ? '✅ Seller approved!' : '❌ Seller rejected.');
+        renderAdminUsers('pending_sellers');
+        loadAdminStats();
+    } catch(err) {
+        alert("Failed: " + err.message);
+    }
+}
+
+window.applyVerification = applyVerification;
 
 async function takeAdminUserAction(userId) {
     const select = document.getElementById(`action-select-${userId}`);
@@ -594,12 +639,29 @@ async function loginUser(email, password, role) {
     }
 }
 
-async function signupUser(name, email, password, role) {
+async function signupUser(name, phone, email, password, role) {
+    const signupData = {
+        full_name: name,
+        phone_number: phone,
+        email: email,
+        password: password,
+        role: role,
+        dob: document.getElementById('dob').value || null,
+        nid_number: role === 'seller' ? document.getElementById('nidNumber').value : null
+    };
+
     try {
-        await window.api.signup({ full_name: name, email, password, role });
-        await loginUser(email, password, role);
+        await window.api.signup(signupData);
+        if (role === 'seller') {
+            alert('🎉 Sign-up successful! Your account is now pending admin approval. You can login once verified.');
+            window.location.href = 'login.html';
+        } else {
+            await loginUser(email, password, role);
+        }
     } catch (error) {
-        alert('Signup failed: ' + error.message);
+        console.error("Signup Error:", error);
+        const errorMsg = error.detail ? (Array.isArray(error.detail) ? error.detail.map(d => d.msg).join(', ') : error.detail) : error.message;
+        alert('Signup failed: ' + errorMsg);
     }
 }
 
@@ -869,16 +931,24 @@ document.addEventListener('DOMContentLoaded', () => {
     // ──────────────────────────────────────────────────────────
     //  LOGIN & SIGNUP FORMS
     // ──────────────────────────────────────────────────────────
+    // ── Role Selector Toggle (Signup/Login) ──────────────────────────
     const roleSelector = document.getElementById('roleSelector');
     if (roleSelector) {
         const tabs = roleSelector.querySelectorAll('.role-tab');
         const roleInput = document.getElementById('selectedRole');
+        const nidGroup  = document.getElementById('nidGroup');
+
         tabs.forEach(tab => {
             tab.addEventListener('click', () => {
-                const role = tab.getAttribute('data-role');
-                if (roleInput) roleInput.value = role;
                 tabs.forEach(t => t.classList.remove('active'));
                 tab.classList.add('active');
+                const role = tab.dataset.role;
+                if (roleInput) roleInput.value = role;
+
+                // Show/Hide NID field only for sellers (Signup only)
+                if (nidGroup) {
+                    nidGroup.style.display = (role === 'seller') ? 'block' : 'none';
+                }
             });
         });
     }
@@ -899,10 +969,11 @@ document.addEventListener('DOMContentLoaded', () => {
         signupForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const name  = document.getElementById('name').value;
+            const phone = document.getElementById('phone').value;
             const email = document.getElementById('email').value;
             const pass  = document.getElementById('password').value;
             const role  = document.getElementById('selectedRole').value;
-            signupUser(name, email, pass, role);
+            signupUser(name, phone, email, pass, role);
         });
     }
 
