@@ -5,7 +5,7 @@ from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocke
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
-from datetime import timedelta
+from datetime import timedelta, datetime, timezone
 from typing import List, Dict
 
 from . import models, schemas, auth, database
@@ -92,6 +92,18 @@ def login(user_in: schemas.UserLogin, db: Session = Depends(get_db)):
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+        
+    if user.account_status == "banned":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account has been permanently banned."
+        )
+        
+    if user.suspended_until and user.suspended_until > datetime.now(timezone.utc):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Your account is suspended until {user.suspended_until.strftime('%Y-%m-%d %H:%M:%S')}."
+        )
     
     # Create access token
     access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -117,8 +129,22 @@ def get_current_user(token: str, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.email == email).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+        
+    if user.account_status == "banned":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Your account has been permanently banned.")
+        
+    if user.suspended_until and user.suspended_until > datetime.now(timezone.utc):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Your account is suspended.")
     
     return user
+
+@app.get("/users", response_model=List[schemas.UserResponse])
+def get_users(role: str = None, db: Session = Depends(get_db)):
+    """Fetch all users, optionally filtered by role."""
+    query = db.query(models.User)
+    if role:
+        query = query.filter(models.User.role == role)
+    return query.all()
 
 @app.post("/listings", response_model=schemas.ListingResponse, status_code=status.HTTP_201_CREATED)
 def create_listing(
@@ -140,6 +166,12 @@ def create_listing(
     user = db.query(models.User).filter(models.User.email == email).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+        
+    if user.account_status == "banned" or (user.suspended_until and user.suspended_until > datetime.now(timezone.utc)):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Your account is suspended or banned.")
+        
+    if user.listing_banned_until and user.listing_banned_until > datetime.now(timezone.utc):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"You are banned from creating listings until {user.listing_banned_until.strftime('%Y-%m-%d %H:%M:%S')}.")
 
     image_url = ""
     if image and image.filename:
@@ -210,6 +242,34 @@ def delete_listing(listing_id: str, db: Session = Depends(get_db)):
     db.commit()
     return
 
+@app.post("/admin/users/{user_id}/action", response_model=schemas.UserResponse)
+def admin_user_action(user_id: int, action_req: schemas.UserActionRequest, db: Session = Depends(get_db)):
+    """Apply disciplinary actions to a user."""
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    now = datetime.now(timezone.utc)
+    
+    if action_req.action == "ban_listings_7_days":
+        user.listing_banned_until = now + timedelta(days=7)
+    elif action_req.action == "suspend_15_days":
+        user.suspended_until = now + timedelta(days=15)
+    elif action_req.action == "permanent_ban":
+        user.account_status = "banned"
+        # Delete their listings
+        db.query(models.Listing).filter(models.Listing.seller_id == user_id).delete()
+    elif action_req.action == "remove_restrictions":
+        user.account_status = "active"
+        user.suspended_until = None
+        user.listing_banned_until = None
+    else:
+        raise HTTPException(status_code=400, detail="Invalid action")
+        
+    db.commit()
+    db.refresh(user)
+    return user
+
 @app.get("/stats")
 def get_platform_stats(db: Session = Depends(get_db)):
     """
@@ -223,12 +283,21 @@ def get_platform_stats(db: Session = Depends(get_db)):
     # Satisfaction improves slightly as the community grows (capped at 99%)
     satisfaction = 99 if total_users == 0 else min(99, 94 + round(total_users / 10))
 
+    total_listings   = db.query(models.Listing).count()
+    pending_listings = db.query(models.Listing).filter(models.Listing.status == models.ListingStatus.PENDING).count()
+    approved_listings = db.query(models.Listing).filter(models.Listing.status == models.ListingStatus.APPROVED).count()
+    rejected_listings = db.query(models.Listing).filter(models.Listing.status == models.ListingStatus.REJECTED).count()
+
     return {
         "total_users":      total_users,
         "total_buyers":     total_buyers,
         "total_sellers":    total_sellers,
         "satisfaction_pct": satisfaction,
         "avg_sale_hours":   24,
+        "total_listings":   total_listings,
+        "pending_listings": pending_listings,
+        "approved_listings": approved_listings,
+        "rejected_listings": rejected_listings,
     }
 
 @app.post("/chats", response_model=schemas.ChatSessionResponse)

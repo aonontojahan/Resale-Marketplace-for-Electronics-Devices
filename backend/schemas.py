@@ -19,9 +19,15 @@ class UserResponse(UserBase):
     id: int
     created_at: datetime
     updated_at: Optional[datetime] = None
+    account_status: str
+    suspended_until: Optional[datetime] = None
+    listing_banned_until: Optional[datetime] = None
 
     class Config:
         from_attributes = True
+
+class UserActionRequest(BaseModel):
+    action: str
 
 class Token(BaseModel):
     access_token: str
