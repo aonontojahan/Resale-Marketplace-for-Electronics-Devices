@@ -25,7 +25,8 @@ class User(Base):
     
     # Common Fields
     phone_number = Column(String, nullable=True)
-    address = Column(String, nullable=True)
+    # Common Fields
+    phone_number = Column(String, nullable=True)
     dob = Column(DateTime(timezone=True), nullable=True)
     
     # Seller-Specific Verification Fields
@@ -33,13 +34,6 @@ class User(Base):
     nid_front_path = Column(String, nullable=True)
     nid_back_path = Column(String, nullable=True)
     selfie_path = Column(String, nullable=True)
-    wallet_info = Column(String, nullable=True)
-    shop_name = Column(String, nullable=True)
-    pickup_address = Column(String, nullable=True)
-    terms_agreed = Column(Integer, default=0) # 0 for No, 1 for Yes
-    
-    # Buyer-Specific Fields
-    delivery_location = Column(String, nullable=True)
     
     # Store user creation and update time
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -77,6 +71,7 @@ class ChatMessage(Base):
     session_id = Column(Integer, ForeignKey("chat_sessions.id"), nullable=False)
     sender_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     text = Column(String, nullable=False)
+    is_read = Column(Integer, default=0, nullable=False) # 0 for false, 1 for true (using Integer for SQLite compatibility with some old drivers, or Boolean)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

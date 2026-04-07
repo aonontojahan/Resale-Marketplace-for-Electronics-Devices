@@ -35,6 +35,24 @@ const STATUS_CONFIG = {
 // ─── Card Renderers ───────────────────────────────────────────
 
 /**
+ * Formats a database timestamp into a readable date and time.
+ */
+function formatListingDate(dateString) {
+    if (!dateString) return 'Unknown Date';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Invalid Date';
+    
+    return date.toLocaleString('en-GB', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+    });
+}
+
+/**
  * Renders a listing card for the public/buyer view.
  */
 function renderListingCard(listing) {
@@ -69,6 +87,9 @@ function renderListingCard(listing) {
                 <div class="card-meta">
                     <span class="badge badge-condition">${listing.condition}</span>
                     <span class="badge badge-rating" style="background:rgba(59,130,246,0.15); color:#60a5fa; border-color:#60a5fa;">${CATEGORY_EMOJIS[listing.category] || '📦'} ${listing.category}</span>
+                </div>
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; display: flex; align-items: center; gap: 0.4rem;">
+                    📅 Listed: ${formatListingDate(listing.created_at)}
                 </div>
                 <div style="margin-top: 1rem;">
                     ${descHtml}
@@ -108,7 +129,10 @@ function renderSellerCard(listing) {
             <div class="card-content">
                 <span class="listing-status-badge ${status.cls}">${status.label}</span>
                 <h4 class="card-title" style="font-size:0.95rem; margin-top:0.5rem;">${listing.title}</h4>
-                <p class="card-price" style="font-size:1rem;">৳${priceFormatted}</p>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <p class="card-price" style="font-size:1rem; margin-bottom: 0;">৳${priceFormatted}</p>
+                    <small style="font-size: 0.7rem; color: var(--text-muted); text-align: right;">🕒 ${formatListingDate(listing.created_at)}</small>
+                </div>
                 <div style="margin-top: 0.5rem;">
                     ${descHtml}
                 </div>
@@ -125,17 +149,17 @@ function renderSellerCard(listing) {
 function renderAdminCard(listing) {
     const imgSrc = listing.image_url ? `http://localhost:8000${listing.image_url}` : (listing.imageUrl || '');
     const imgHtml = imgSrc
-        ? `<img src="${imgSrc}" alt="${listing.title}" class="card-img" style="aspect-ratio:16/9;" onerror="this.parentElement.querySelector('.card-img-placeholder') && (this.style.display='none')">`
-        : `<div class="card-img-placeholder">${CATEGORY_EMOJIS[listing.category] || '📦'}</div>`;
+        ? `<img src="${imgSrc}" alt="${listing.title}" class="admin-card-img-el" onerror="this.parentElement.querySelector('.card-img-placeholder') && (this.style.display='none')">`
+        : `<div class="admin-card-img-placeholder">${CATEGORY_EMOJIS[listing.category] || '📦'}</div>`;
 
     const priceFormatted = Number(listing.price).toLocaleString('en-IN');
     const status = STATUS_CONFIG[listing.status] || STATUS_CONFIG['pending'];
 
     const actionBtns = listing.status === 'pending' ? `
-        <button class="btn-primary" style="flex:1; padding:0.45rem; font-size:0.82rem; background:linear-gradient(135deg,#10b981,#059669);" onclick="adminAction('${listing.id}','approved')" id="approve-${listing.id}">✅ Approve</button>
-        <button class="btn-outline" style="flex:1; padding:0.45rem; font-size:0.82rem; color:#ef4444; border-color:#ef4444;" onclick="adminAction('${listing.id}','rejected')" id="reject-${listing.id}">❌ Reject</button>
+        <button class="btn-primary admin-btn-approve" onclick="adminAction('${listing.id}','approved')" id="approve-${listing.id}">✅ Approve</button>
+        <button class="btn-outline admin-btn-reject" onclick="adminAction('${listing.id}','rejected')" id="reject-${listing.id}">❌ Reject</button>
     ` : `
-        <button class="btn-outline" style="flex:1; padding:0.45rem; font-size:0.82rem; color:#94a3b8;" onclick="adminAction('${listing.id}','pending')" id="reset-${listing.id}">↩ Reset to Pending</button>
+        <button class="btn-outline admin-btn-reset" onclick="adminAction('${listing.id}','pending')" id="reset-${listing.id}">↩ Reset to Pending</button>
     `;
 
     return `
@@ -143,22 +167,25 @@ function renderAdminCard(listing) {
             <div class="admin-card-img">
                 ${imgHtml}
             </div>
-            <div class="admin-card-body">
-                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem;">
-                    <div>
+            <div class="admin-card-content">
+                <div class="admin-card-header">
+                    <div class="admin-card-info">
                         <span class="listing-status-badge ${status.cls}">${status.label}</span>
-                        <h4 style="margin:0.4rem 0 0.2rem; font-size:1.05rem;">${listing.title}</h4>
-                        <p style="color:var(--accent-cyan); font-weight:700; font-size:1.1rem; margin:0;">৳${priceFormatted}</p>
+                        <h4 class="admin-card-title">${listing.title}</h4>
+                        <p class="admin-card-price">৳${priceFormatted}</p>
                     </div>
-                    <div style="text-align:right; flex-shrink:0;">
-                        <span class="badge badge-condition">${listing.condition}</span><br>
-                        <small style="color:var(--text-muted);">${CATEGORY_EMOJIS[listing.category] || '📦'} ${listing.category}</small>
+                    <div class="admin-card-badges">
+                        <span class="badge badge-condition">${listing.condition}</span>
+                        <div class="admin-card-category">${CATEGORY_EMOJIS[listing.category] || '📦'} ${listing.category}</div>
                     </div>
                 </div>
-                <p style="color:var(--text-muted); font-size:0.88rem; margin:0.75rem 0; line-height:1.55;">${listing.description}</p>
-                <div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem; flex-wrap:wrap;">
-                    <small style="color:var(--text-muted);">Seller: <strong style="color:var(--text-secondary);">${listing.sellerName}</strong> &nbsp;|&nbsp; ${new Date(listing.createdAt).toLocaleDateString('en-GB')}</small>
-                    <div style="display:flex; gap:0.5rem;">
+                <p class="admin-card-desc">${listing.description}</p>
+                <div class="admin-card-footer">
+                    <div class="admin-card-seller">
+                        👤 Seller: <strong>${listing.sellerName}</strong> 
+                        <span class="admin-card-date">🕒 ${formatListingDate(listing.created_at)}</span>
+                    </div>
+                    <div class="admin-card-actions">
                         ${actionBtns}
                     </div>
                 </div>
@@ -349,9 +376,17 @@ async function loadAdminStats() {
 
 async function adminAction(id, newStatus) {
     await window.api.updateListingStatus(id, newStatus);
-    if (window.currentAdminInlineStatus) {
+    
+    // Check if we are in a seller-specific view
+    if (window.currentAdminInlineStatus && window.currentAdminInlineStatus.startsWith('seller_products_')) {
+        const data = window.currentSellerViewData;
+        if (data) {
+            renderSellerProductsForAdmin(data.id, data.name, data.prevRole);
+        }
+    } else if (window.currentAdminInlineStatus) {
         renderAdminListings(window.currentAdminInlineStatus);
     }
+    
     loadAdminStats();
 }
 
@@ -481,7 +516,16 @@ async function renderAdminUsers(role) {
                     </div>
                     <div style="flex: 1;">
                         <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom: 0.25rem;">
-                            <h4 style="margin: 0; font-size: 1.15rem; color: var(--text-primary);">${u.full_name}</h4>
+                            ${u.role === 'seller' ? 
+                                `<h4 style="margin: 0; font-size: 1.15rem; color: var(--accent-cyan); cursor: pointer; text-decoration: none;" 
+                                    onclick="renderSellerProductsForAdmin(${u.id}, '${u.full_name.replace(/'/g, "\\'")}', '${role}')"
+                                    onmouseover="this.style.textDecoration='underline'" 
+                                    onmouseout="this.style.textDecoration='none'"
+                                    title="View this seller's products">
+                                    ${u.full_name}
+                                 </h4>` : 
+                                `<h4 style="margin: 0; font-size: 1.15rem; color: var(--text-primary);">${u.full_name}</h4>`
+                            }
                             <span style="font-size: 0.75rem; padding: 0.2rem 0.6rem; border-radius: 20px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: var(--text-muted); text-transform:uppercase; font-weight: 600;">${u.role}</span>
                             ${statusBadge}
                         </div>
@@ -513,6 +557,64 @@ async function renderAdminUsers(role) {
         container.innerHTML = `<p style="text-align:center; color:red; padding:2rem;">Error loading users: ${err.message}</p>`;
     }
 }
+
+/**
+ * Renders products for a specific seller (Admin View)
+ */
+async function renderSellerProductsForAdmin(sellerId, sellerName, previousRole = 'sellers') {
+    window.currentAdminInlineStatus = `seller_products_${sellerId}`;
+    window.currentSellerViewData = { id: sellerId, name: sellerName, prevRole: previousRole };
+
+    const container = document.getElementById('adminListingsContainer');
+    const emptyEl = document.getElementById('adminEmpty');
+    const catFilterEl = document.getElementById('adminCategoryFilter');
+    
+    if (!container) return;
+    if (catFilterEl) catFilterEl.style.display = 'none';
+
+    container.innerHTML = '<p style="text-align:center; color:var(--text-muted); padding:2rem;">Loading seller products...</p>';
+    if (emptyEl) emptyEl.style.display = 'none';
+
+    try {
+        let listings = await window.api.getListings();
+        listings = listings.filter(l => l.seller_id === sellerId);
+        listings = listings.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+        const backBtnHtml = `
+            <div style="margin-bottom: 2.5rem; display: flex; align-items: center; justify-content: space-between; background: var(--surface); padding: 1.75rem; border-radius: 20px; border: 1px solid var(--border); border-left: 6px solid var(--primary); box-shadow: var(--shadow-sm); transition: all 0.3s ease;">
+                <div style="display: flex; align-items: center; gap: 1.5rem;">
+                    <div style="width: 56px; height: 56px; background: rgba(99, 102, 241, 0.08); color: var(--primary); border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; border: 1px solid rgba(99, 102, 241, 0.15);">
+                        🏪
+                    </div>
+                    <div>
+                        <h3 style="margin: 0; font-size: 1.6rem; font-weight: 900; color: var(--secondary); letter-spacing: -0.03em;">Products by <span class="text-gradient">${sellerName}</span></h3>
+                        <p style="margin: 0.25rem 0 0; font-size: 0.95rem; color: var(--text-muted); font-weight: 500;">Managing and reviewing live listings for this verified seller</p>
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <span style="display: inline-block; padding: 0.6rem 1.4rem; border-radius: 99px; background: rgba(99, 102, 241, 0.08); color: var(--primary); font-weight: 800; font-size: 0.85rem; letter-spacing: 0.06em; border: 1px solid rgba(99, 102, 241, 0.15); box-shadow: 0 2px 4px rgba(99, 102, 241, 0.05);">${listings.length} TOTAL POSTS</span>
+                </div>
+            </div>
+        `;
+
+        if (listings.length === 0) {
+            container.innerHTML = backBtnHtml;
+            if (emptyEl) {
+                emptyEl.style.display = 'flex';
+                const emptyTitle = document.getElementById('adminEmptyTitle');
+                const emptyDesc = document.getElementById('adminEmptyDesc');
+                if (emptyTitle) emptyTitle.innerText = 'No Products Found';
+                if (emptyDesc) emptyDesc.innerText = `${sellerName} hasn't posted any products yet.`;
+            }
+        } else {
+            if (emptyEl) emptyEl.style.display = 'none';
+            container.innerHTML = backBtnHtml + `<div class="admin-listings-list">${listings.map(renderAdminCard).join('')}</div>`;
+        }
+    } catch(err) {
+        container.innerHTML = `<p style="text-align:center; color:red; padding:2rem;">Error: ${err.message}</p>`;
+    }
+}
+
 
 async function applyVerification(userId, action) {
     try {
@@ -582,6 +684,15 @@ function updateNav() {
             `;
         }
 
+        if (role !== 'admin') {
+            navHtml += `
+                <a href="chat.html" class="${currentPath.includes('chat.html') ? 'active' : ''}" style="position:relative;">
+                    Messages
+                    <span id="navUnreadBadge" class="nav-unread-badge" style="display:none;"></span>
+                </a>
+            `;
+        }
+
         navHtml += `
             <a href="profile.html" class="nav-user-container">
                 <div class="nav-user">
@@ -605,6 +716,11 @@ function updateNav() {
         
         // Update Footer dynamically
         updateFooter();
+        
+        // Initial unread count update
+        if (role !== 'admin') {
+            updateGlobalUnreadCount();
+        }
     } else {
         nav.innerHTML = `
             <a href="index.html#about">About Us</a>
@@ -1079,44 +1195,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const chatForm = document.getElementById('chatForm');
         let currentSocket = null;
         let activeSessionId = new URLSearchParams(window.location.search).get('session');
-        
-        // Load User Chats
-        window.api.getUserChats(user.id).then(chats => {
-            if (sidebar) sidebar.innerHTML = '';
-            if (chats.length === 0) {
-                if (sidebar) sidebar.innerHTML = '<div style="padding:1rem;color:var(--text-muted);">No active chats</div>';
-                if (!activeSessionId) return;
-            }
-            
-            if (sidebar) {
-                chats.forEach(chat => {
-                    const otherParty = user.role === 'buyer' ? chat.seller.full_name : chat.buyer.full_name;
-                    const activeClass = chat.id.toString() === activeSessionId ? 'active' : '';
-                    
-                    const item = document.createElement('div');
-                    item.className = `chat-list-item ${activeClass}`;
-                    item.style.position = 'relative'; // For positioning the delete button
-                    item.innerHTML = `
-                      <div class="chat-info" style="padding-right: 25px;">
-                        <div style="font-weight: 600;">${otherParty}</div>
-                        <div style="font-size: 0.85rem; color: var(--text-muted);">${chat.listing_title ? 'Item: ' + chat.listing_title : ''}</div>
-                      </div>
-                      <button class="chat-delete-btn" onclick="handleChatDelete(${chat.id}, event)" title="Delete Conversation">&times;</button>
-                    `;
-                    item.onclick = (e) => {
-                        if (!e.target.classList.contains('chat-delete-btn')) {
-                            window.location.href = `chat.html?session=${chat.id}`;
-                        }
-                    };
-                    sidebar.appendChild(item);
-                });
-            }
-            
-            if (activeSessionId) {
-                const currentChat = chats.find(c => c.id.toString() === activeSessionId);
-                if (currentChat) initActiveChat(currentChat);
-            }
-        }).catch(err => console.error(err));
+
+        function appendMessage(msg) {
+            if (!chatBox) return;
+            const div = document.createElement('div');
+            const isMe = msg.sender_id === user.id;
+            div.className = `message ${isMe ? 'user' : 'seller'}`;
+            div.innerText = msg.text;
+            chatBox.appendChild(div);
+        }
 
         function initActiveChat(chat) {
             const otherParty = user.role === 'buyer' ? chat.seller : chat.buyer;
@@ -1136,11 +1223,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (bannerContainer && chat.listing_title) {
                 const imgSrc = chat.listing_image_url ? `http://localhost:8000${chat.listing_image_url}` : '';
                 const imgHtml = imgSrc ? `<img src="${imgSrc}" style="width: 48px; height: 48px; object-fit: cover; border-radius: 8px;">` : `<div style="width: 48px; height: 48px; background: #e2e8f0; border-radius: 8px; display:flex; align-items:center; justify-content:center;">📦</div>`;
-                
-                const buyBtnHtml = user.role === 'buyer' 
-                    ? `<button class="btn-primary" style="padding: 0.5rem 1rem; font-size: 0.85rem;" onclick="handleBuyClick('${chat.listing_id}')">🛒 Buy with Escrow</button>` 
+                const buyBtnHtml = user.role === 'buyer'
+                    ? `<button class="btn-primary" style="padding: 0.5rem 1rem; font-size: 0.85rem;" onclick="handleBuyClick('${chat.listing_id}')">🛒 Buy with Escrow</button>`
                     : '';
-
                 bannerContainer.innerHTML = `
                     <div style="display:flex; align-items:center; gap: 1rem;">
                         ${imgHtml}
@@ -1160,41 +1245,168 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
             });
 
-            // WebSocket connection directly to FastAPI
+            if (currentSocket) { currentSocket.close(); currentSocket = null; }
             const wsUrl = `ws://localhost:8000/ws/chat/${chat.id}?token=${user.token}`;
             currentSocket = new WebSocket(wsUrl);
 
             currentSocket.onmessage = (event) => {
                 const msg = JSON.parse(event.data);
-                appendMessage(msg);
-                if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
+                if (msg.session_id.toString() === activeSessionId) {
+                    appendMessage(msg);
+                    if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
+                    window.api.markChatRead(msg.session_id, user.id).catch(err => console.error(err));
+                    // Re-sort sidebar so this chat floats to the top
+                    renderSidebarList();
+                } else {
+                    updateGlobalUnreadCount();
+                    refreshChatSidebar();
+                }
             };
-            
+
             if (chatForm) {
                 const newForm = chatForm.cloneNode(true);
                 chatForm.parentNode.replaceChild(newForm, chatForm);
                 const newChatInput = newForm.querySelector('#chatInput');
-                
                 newForm.addEventListener('submit', (e) => {
                     e.preventDefault();
                     const text = newChatInput.value.trim();
                     if (!text || !currentSocket) return;
                     currentSocket.send(text);
                     newChatInput.value = '';
+                    // Re-sort sidebar so sender's chat floats to top
+                    setTimeout(() => renderSidebarList(), 300);
                 });
             }
         }
 
-        function appendMessage(msg) {
-            if (!chatBox) return;
-            const div = document.createElement('div');
-            const isMe = msg.sender_id === user.id;
-            // The existing CSS has .user (gray bubble right side) and .seller (blue bubble left side). 
-            // We repurpose: .user = sent by me, .seller = sent by them.
-            div.className = `message ${isMe ? 'user' : 'seller'}`;
-            div.innerText = msg.text;
-            chatBox.appendChild(div);
+        async function refreshChatSidebar() {
+            if (!sidebar) return;
+            try {
+                const chats = await window.api.getUserChats(user.id);
+                sidebar.innerHTML = '';
+
+                if (chats.length === 0) {
+                    sidebar.innerHTML = '<div style="padding:1rem;color:var(--text-muted);">No active chats</div>';
+                    return;
+                }
+
+                chats.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+
+                chats.forEach(chat => {
+                    const isBuyer = user.role === 'buyer';
+                    const otherParty = isBuyer ? chat.seller : chat.buyer;
+                    const otherPartyName = otherParty.full_name;
+                    const otherPartyRole = isBuyer ? 'SELLER' : 'BUYER';
+
+                    const isActive = chat.id.toString() === activeSessionId;
+                    const activeClass = isActive ? 'active' : '';
+                    const unreadClass = (chat.unread_count > 0 && !isActive) ? 'unread' : '';
+                    const unreadBadge = (chat.unread_count > 0 && !isActive)
+                        ? `<span class="unread-badge-sidebar">${chat.unread_count}</span>`
+                        : '';
+
+                    const lastMsg = chat.messages && chat.messages.length > 0 ? chat.messages[chat.messages.length - 1] : null;
+                    const lastMsgSnippet = lastMsg ? (lastMsg.text.length > 25 ? lastMsg.text.substring(0, 22) + '...' : lastMsg.text) : 'No messages yet';
+                    const lastMsgTime = lastMsg ? new Date(lastMsg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+
+                    const item = document.createElement('div');
+                    item.className = `chat-list-item ${activeClass} ${unreadClass}`.trim();
+                    item.style.position = 'relative';
+                    item.innerHTML = `
+                      <div class="chat-info" style="flex:1; min-width:0;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div style="display:flex; align-items:center; gap:0.5rem; min-width:0;">
+                                <span style="font-weight:700; font-size:0.95rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:120px;">${otherPartyName}</span>
+                                ${unreadBadge}
+                            </div>
+                            <span style="font-size:0.65rem; background:rgba(99,102,241,0.1); color:var(--primary); padding:0.1rem 0.4rem; border-radius:4px; font-weight:800;">${otherPartyRole}</span>
+                        </div>
+                        <div style="font-size:0.75rem; color:var(--text-secondary); margin:0.15rem 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${chat.listing_title || 'Enquiry'}</div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.25rem;">
+                            <span class="last-msg-snippet" style="font-size:0.8rem; color:var(--text-muted); font-style:italic; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${lastMsgSnippet}</span>
+                            <span style="font-size:0.7rem; color:#94a3b8;">${lastMsgTime}</span>
+                        </div>
+                      </div>
+                      <button class="chat-delete-btn" onclick="handleChatDelete(${chat.id}, event)" title="Delete" style="opacity:0.3;">&times;</button>
+                    `;
+                    item.onclick = (e) => {
+                        if (!e.target.classList.contains('chat-delete-btn')) {
+                            window.location.href = `chat.html?session=${chat.id}`;
+                        }
+                    };
+                    sidebar.appendChild(item);
+                });
+
+                if (activeSessionId) {
+                    const currentChat = chats.find(c => c.id.toString() === activeSessionId);
+                    if (currentChat) {
+                        initActiveChat(currentChat);
+                        window.api.markChatRead(currentChat.id, user.id).catch(err => console.error(err));
+                    }
+                }
+                updateGlobalUnreadCount();
+            } catch (err) {
+                console.error('Failed to load chat sidebar:', err);
+                if (sidebar) sidebar.innerHTML = '<div style="padding:1rem;color:red;">Could not load chats.</div>';
+            }
         }
+
+        // Lightweight: Re-fetches and re-renders only the sidebar list, no chat re-init.
+        async function renderSidebarList() {
+            if (!sidebar) return;
+            try {
+                const chats = await window.api.getUserChats(user.id);
+                if (!chats || chats.length === 0) return;
+                sidebar.innerHTML = '';
+                chats.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+                chats.forEach(chat => {
+                    const isBuyer = user.role === 'buyer';
+                    const otherParty = isBuyer ? chat.seller : chat.buyer;
+                    const otherPartyName = otherParty.full_name;
+                    const otherPartyRole = isBuyer ? 'SELLER' : 'BUYER';
+                    const isActive = chat.id.toString() === activeSessionId;
+                    const activeClass = isActive ? 'active' : '';
+                    const unreadClass = (chat.unread_count > 0 && !isActive) ? 'unread' : '';
+                    const unreadBadge = (chat.unread_count > 0 && !isActive)
+                        ? `<span class="unread-badge-sidebar">${chat.unread_count}</span>` : '';
+                    const lastMsg = chat.messages && chat.messages.length > 0 ? chat.messages[chat.messages.length - 1] : null;
+                    const lastMsgSnippet = lastMsg ? (lastMsg.text.length > 25 ? lastMsg.text.substring(0, 22) + '...' : lastMsg.text) : 'No messages yet';
+                    const lastMsgTime = lastMsg ? new Date(lastMsg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                    const item = document.createElement('div');
+                    item.className = `chat-list-item ${activeClass} ${unreadClass}`.trim();
+                    item.style.position = 'relative';
+                    item.innerHTML = `
+                      <div class="chat-info" style="flex:1; min-width:0;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <div style="display:flex; align-items:center; gap:0.5rem; min-width:0;">
+                                <span style="font-weight:700; font-size:0.95rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:120px;">${otherPartyName}</span>
+                                ${unreadBadge}
+                            </div>
+                            <span style="font-size:0.65rem; background:rgba(99,102,241,0.1); color:var(--primary); padding:0.1rem 0.4rem; border-radius:4px; font-weight:800;">${otherPartyRole}</span>
+                        </div>
+                        <div style="font-size:0.75rem; color:var(--text-secondary); margin:0.15rem 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${chat.listing_title || 'Enquiry'}</div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.25rem;">
+                            <span class="last-msg-snippet" style="font-size:0.8rem; color:var(--text-muted); font-style:italic; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${lastMsgSnippet}</span>
+                            <span style="font-size:0.7rem; color:#94a3b8;">${lastMsgTime}</span>
+                        </div>
+                      </div>
+                      <button class="chat-delete-btn" onclick="handleChatDelete(${chat.id}, event)" title="Delete" style="opacity:0.3;">&times;</button>
+                    `;
+                    item.onclick = (e) => {
+                        if (!e.target.classList.contains('chat-delete-btn')) {
+                            window.location.href = `chat.html?session=${chat.id}`;
+                        }
+                    };
+                    sidebar.appendChild(item);
+                });
+                updateGlobalUnreadCount();
+            } catch (err) {
+                console.error('Failed to refresh sidebar order:', err);
+            }
+        }
+
+        // Initial load
+        refreshChatSidebar();
     }
 });
 
@@ -1415,6 +1627,7 @@ function toggleDescription(id, event) {
 
 // Expose globals needed by inline onclick attributes
 window.renderAdminUsers = renderAdminUsers;
+window.renderSellerProductsForAdmin = renderSellerProductsForAdmin;
 window.takeAdminUserAction = takeAdminUserAction;
 window.renderAdminListings = renderAdminListings;
 window.adminAction      = adminAction;
@@ -1423,3 +1636,31 @@ window.handleBuyClick   = handleBuyClick;
 window.logoutUser       = logoutUser;
 window.handleChatDelete = handleChatDelete;
 window.toggleDescription = toggleDescription;
+
+/**
+ * Updates the global unread message badge in the navbar.
+ */
+async function updateGlobalUnreadCount() {
+    const user = getUser();
+    if (!user || user.role === 'admin') return;
+    
+    try {
+        const chats = await window.api.getUserChats(user.id);
+        const totalUnread = chats.reduce((sum, chat) => sum + (chat.unread_count || 0), 0);
+        
+        const badge = document.getElementById('navUnreadBadge');
+        if (badge) {
+            if (totalUnread > 0) {
+                badge.innerText = totalUnread > 9 ? '9+' : totalUnread;
+                badge.style.display = 'flex';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+    } catch (err) {
+        console.error("Unread count update failed:", err);
+    }
+}
+window.updateGlobalUnreadCount = updateGlobalUnreadCount;
+
+

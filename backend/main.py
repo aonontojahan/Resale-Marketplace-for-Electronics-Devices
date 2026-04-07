@@ -5,6 +5,7 @@ from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocke
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from datetime import timedelta, datetime, timezone
 from typing import List, Dict
 
@@ -354,7 +355,7 @@ def get_user_chats(user_id: int, db: Session = Depends(get_db)):
     """Fetch all chat sessions for a specific user."""
     chats = db.query(models.ChatSession).filter(
         (models.ChatSession.buyer_id == user_id) | (models.ChatSession.seller_id == user_id)
-    ).all()
+    ).order_by(models.ChatSession.updated_at.desc()).all()
     
     results = []
     for chat in chats:
@@ -363,6 +364,15 @@ def get_user_chats(user_id: int, db: Session = Depends(get_db)):
             resp.listing_title = chat.listing.title
             resp.listing_price = chat.listing.price
             resp.listing_image_url = chat.listing.image_url
+        
+        # Calculate unread count for the requesting user
+        unread = db.query(models.ChatMessage).filter(
+            models.ChatMessage.session_id == chat.id,
+            models.ChatMessage.sender_id != user_id,
+            models.ChatMessage.is_read == 0
+        ).count()
+        resp.unread_count = unread
+
         results.append(resp)
     return results
 
@@ -376,6 +386,17 @@ def delete_chat(session_id: int, db: Session = Depends(get_db)):
     db.delete(chat)
     db.commit()
     return {"status": "success", "message": "Chat session deleted"}
+
+@app.post("/chats/{session_id}/read")
+def mark_chat_read(session_id: int, user_id: int, db: Session = Depends(get_db)):
+    """Mark all messages in a session as read for the recipient."""
+    db.query(models.ChatMessage).filter(
+        models.ChatMessage.session_id == session_id,
+        models.ChatMessage.sender_id != user_id,
+        models.ChatMessage.is_read == 0
+    ).update({models.ChatMessage.is_read: 1}, synchronize_session=False)
+    db.commit()
+    return {"status": "success"}
 
 @app.get("/chats/{session_id}/messages", response_model=List[schemas.MessageResponse])
 def get_chat_messages(session_id: int, db: Session = Depends(get_db)):
@@ -431,6 +452,11 @@ async def websocket_chat(websocket: WebSocket, session_id: int, token: str, db: 
                 "text": new_msg.text,
                 "created_at": new_msg.created_at.isoformat()
             }
+            
+            # Update session timestamp
+            chat_session.updated_at = func.now()
+            db.add(chat_session)
+            db.commit()
             
             await manager.send_personal_message(msg_dict, chat_session.buyer_id)
             if chat_session.buyer_id != chat_session.seller_id:

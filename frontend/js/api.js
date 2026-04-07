@@ -136,6 +136,10 @@ const api = {
     
     async deleteChat(sessionId) {
         return this.request(`/chats/${sessionId}`, "DELETE");
+    },
+    
+    async markChatRead(sessionId, userId) {
+        return this.request(`/chats/${sessionId}/read?user_id=${userId}`, "POST");
     }
 };
 
