@@ -2,9 +2,10 @@ import os
 import shutil
 import uuid
 from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, Form, File, UploadFile
+from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from datetime import timedelta, datetime, timezone
 from typing import List, Dict
@@ -16,6 +17,9 @@ from .database import engine, get_db
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="ReSale Marketplace API")
+
+# OAuth2 scheme — reads 'Authorization: Bearer <token>' header
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 # Ensure uploads directory exists
 os.makedirs("backend/uploads", exist_ok=True)
@@ -127,8 +131,8 @@ def login(user_in: schemas.UserLogin, db: Session = Depends(get_db)):
     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.get("/users/me", response_model=schemas.UserResponse)
-def get_current_user(token: str, db: Session = Depends(get_db)):
-    """Fetch current user profile from token."""
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    """Fetch current user profile from Authorization: Bearer token header."""
     payload = auth.decode_access_token(token)
     if not payload:
         raise HTTPException(
@@ -166,7 +170,7 @@ def create_listing(
     condition: str = Form(...),
     description: str = Form(...),
     image: UploadFile = File(None),
-    token: str = Form(...),
+    token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
     """Create a new listing with an optional image upload."""
@@ -216,17 +220,52 @@ def create_listing(
     response_data.sellerEmail = user.email
     return response_data
 
-@app.get("/listings", response_model=List[schemas.ListingResponse])
-def get_listings(db: Session = Depends(get_db)):
-    """Fetch all listings."""
-    listings = db.query(models.Listing).all()
+@app.get("/listings", response_model=schemas.PaginatedListingsResponse)
+def get_listings(
+    page: int = 1,
+    limit: int = 10,
+    status: str = None,
+    category: str = None,
+    seller_id: int = None,
+    search_query: str = None,
+    db: Session = Depends(get_db)
+):
+    """Fetch paginated listings."""
+    query = db.query(models.Listing).options(joinedload(models.Listing.seller))
+    
+    if status is not None and status != 'all':
+        query = query.filter(models.Listing.status == status)
+    if category is not None and category != 'all':
+        query = query.filter(models.Listing.category == category)
+    if seller_id is not None:
+        query = query.filter(models.Listing.seller_id == seller_id)
+    if search_query:
+        query = query.filter(models.Listing.title.ilike(f"%{search_query}%"))
+        
+    query = query.order_by(models.Listing.created_at.desc())
+    
+    total = query.count()
+    pages = (total + limit - 1) // limit if limit > 0 else 1
+    
+    offset = (page - 1) * limit
+    listings = query.offset(offset).limit(limit).all()
+    
     results = []
     for l in listings:
         l_response = schemas.ListingResponse.model_validate(l)
         l_response.sellerName = l.seller.full_name
         l_response.sellerEmail = l.seller.email
+        l_response.sellerRating = l.seller.average_rating
+        l_response.sellerTotalReviews = l.seller.total_reviews
         results.append(l_response)
-    return results
+        
+    return schemas.PaginatedListingsResponse(
+        items=results,
+        total=total,
+        page=page,
+        pages=pages,
+        has_more=page < pages
+    )
 
 @app.patch("/listings/{listing_id}/status", response_model=schemas.ListingResponse)
 def update_listing_status(listing_id: str, status_update: schemas.ListingStatusUpdate, db: Session = Depends(get_db)):
@@ -461,6 +500,31 @@ async def websocket_chat(websocket: WebSocket, session_id: int, token: str, db: 
             await manager.send_personal_message(msg_dict, chat_session.buyer_id)
             if chat_session.buyer_id != chat_session.seller_id:
                 await manager.send_personal_message(msg_dict, chat_session.seller_id)
-                
     except WebSocketDisconnect:
         manager.disconnect(websocket, user.id)
+
+# ─── REVIEWS ──────────────────────────────────────────────────
+
+@app.post("/reviews", response_model=schemas.ReviewResponse)
+def create_review(
+    review: schemas.ReviewCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Create a new review for a seller."""
+    listing = db.query(models.Listing).filter(models.Listing.id == review.listing_id).first()
+    if not listing:
+        raise HTTPException(status_code=404, detail="Listing not found")
+        
+    new_review = models.Review(
+        reviewer_id=current_user.id,
+        seller_id=listing.seller_id,
+        listing_id=review.listing_id,
+        rating=review.rating,
+        comment=review.comment
+    )
+    db.add(new_review)
+    db.commit()
+    db.refresh(new_review)
+    
+    return new_review

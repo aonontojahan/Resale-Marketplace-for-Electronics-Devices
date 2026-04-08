@@ -20,7 +20,7 @@
       <a href="index.html" class="logo">ReSale.</a>
 
       <div class="search-container">
-        <input type="text" id="mainSearchBar" placeholder="Search for iPhones, MacBooks, Sony Cameras..." class="search-bar">
+        <input type="text" id="mainSearchBar" placeholder="Search for iPhones, MacBooks, Sony Cameras..." id="globalSearchBar" class="search-bar">
       </div>
 
       <nav>
@@ -193,6 +193,9 @@
         <button class="filter-btn" data-category="other" id="filterOther">🔧 Other</button>
       </div>
     </div>
+
+    <!-- Seller Store Header (shown when ?seller= is in URL) -->
+    <div id="sellerStoreHeader" style="display:none;"></div>
 
     <div class="product-grid" id="listingsGrid">
       <!-- Dynamically populated by app.js -->

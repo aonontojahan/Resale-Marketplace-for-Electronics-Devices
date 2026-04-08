@@ -13,6 +13,7 @@ class ListingStatus(str, enum.Enum):
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
+    SOLD = "sold"
 
 class User(Base):
     __tablename__ = "users"
@@ -23,8 +24,6 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     role = Column(Enum(UserRole), default=UserRole.BUYER, nullable=False)
     
-    # Common Fields
-    phone_number = Column(String, nullable=True)
     # Common Fields
     phone_number = Column(String, nullable=True)
     dob = Column(DateTime(timezone=True), nullable=True)
@@ -44,6 +43,16 @@ class User(Base):
     account_status = Column(String, default="active", nullable=False)
     suspended_until = Column(DateTime(timezone=True), nullable=True)
     listing_banned_until = Column(DateTime(timezone=True), nullable=True)
+
+    @property
+    def average_rating(self):
+        if not self.reviews_received:
+            return 0.0
+        return sum(r.rating for r in self.reviews_received) / len(self.reviews_received)
+
+    @property
+    def total_reviews(self):
+        return len(self.reviews_received)
 
     def __repr__(self):
         return f"<User(email='{self.email}', role='{self.role}')>"
@@ -96,3 +105,18 @@ class Listing(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     seller = relationship("User", backref="listings")
+
+class Review(Base):
+    __tablename__ = "reviews"
+
+    id = Column(Integer, primary_key=True, index=True)
+    reviewer_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    seller_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    listing_id = Column(String, ForeignKey("listings.id"), nullable=False)
+    rating = Column(Integer, nullable=False)
+    comment = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    reviewer = relationship("User", foreign_keys=[reviewer_id])
+    seller = relationship("User", foreign_keys=[seller_id], backref="reviews_received")
+    listing = relationship("Listing")
