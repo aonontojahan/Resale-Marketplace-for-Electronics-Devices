@@ -108,3 +108,10 @@ class ListingResponse(BaseModel):
 
 class ListingStatusUpdate(BaseModel):
     status: ListingStatus
+
+class PaginatedListingsResponse(BaseModel):
+    items: List[ListingResponse]
+    total: int
+    page: int
+    pages: int
+    has_more: bool

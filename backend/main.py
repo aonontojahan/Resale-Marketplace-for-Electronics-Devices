@@ -220,17 +220,47 @@ def create_listing(
     response_data.sellerEmail = user.email
     return response_data
 
-@app.get("/listings", response_model=List[schemas.ListingResponse])
-def get_listings(db: Session = Depends(get_db)):
-    """Fetch all listings."""
-    listings = db.query(models.Listing).all()
+@app.get("/listings", response_model=schemas.PaginatedListingsResponse)
+def get_listings(
+    page: int = 1,
+    limit: int = 10,
+    status: str = None,
+    category: str = None,
+    seller_id: int = None,
+    db: Session = Depends(get_db)
+):
+    """Fetch paginated listings."""
+    query = db.query(models.Listing)
+    
+    if status is not None and status != 'all':
+        query = query.filter(models.Listing.status == status)
+    if category is not None and category != 'all':
+        query = query.filter(models.Listing.category == category)
+    if seller_id is not None:
+        query = query.filter(models.Listing.seller_id == seller_id)
+        
+    query = query.order_by(models.Listing.created_at.desc())
+    
+    total = query.count()
+    pages = (total + limit - 1) // limit if limit > 0 else 1
+    
+    offset = (page - 1) * limit
+    listings = query.offset(offset).limit(limit).all()
+    
     results = []
     for l in listings:
         l_response = schemas.ListingResponse.model_validate(l)
         l_response.sellerName = l.seller.full_name
         l_response.sellerEmail = l.seller.email
         results.append(l_response)
-    return results
+        
+    return schemas.PaginatedListingsResponse(
+        items=results,
+        total=total,
+        page=page,
+        pages=pages,
+        has_more=page < pages
+    )
 
 @app.patch("/listings/{listing_id}/status", response_model=schemas.ListingResponse)
 def update_listing_status(listing_id: str, status_update: schemas.ListingStatusUpdate, db: Session = Depends(get_db)):

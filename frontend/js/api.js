@@ -100,8 +100,21 @@ const api = {
     /**
      * Listings API
      */
-    async getListings() {
-        return this.request("/listings", "GET");
+    async getListings(options = {}) {
+        let endpoint = "/listings";
+        const queryParams = new URLSearchParams();
+        
+        if (options.page) queryParams.append('page', options.page);
+        if (options.limit) queryParams.append('limit', options.limit);
+        if (options.status && options.status !== 'all') queryParams.append('status', options.status);
+        if (options.category && options.category !== 'all') queryParams.append('category', options.category);
+        if (options.seller_id) queryParams.append('seller_id', options.seller_id);
+
+        const queryString = queryParams.toString();
+        if (queryString) {
+            endpoint += `?${queryString}`;
+        }
+        return this.request(endpoint, "GET");
     },
     
     async createListing(formData, token) {

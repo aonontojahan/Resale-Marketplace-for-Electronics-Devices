@@ -198,97 +198,169 @@ function renderAdminCard(listing) {
 /**
  * Renders public listings on index.html
  */
-async function renderPublicListings(category = 'all') {
+window.currentPublicPage = 1;
+async function renderPublicListings(category = 'all', page = 1) {
+    if (page === 1) window.currentPublicPage = 1;
     const grid = document.getElementById('listingsGrid');
     const emptyEl = document.getElementById('listingsEmpty');
     if (!grid) return;
 
-    let allListings = await window.api.getListings();
-    let listings = allListings.filter(l => l.status === 'approved');
-    if (category !== 'all') listings = listings.filter(l => l.category === category);
-    listings = listings.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-    if (listings.length === 0) {
-        grid.innerHTML = '';
-        if (emptyEl) emptyEl.style.display = 'flex';
-    } else {
-        if (emptyEl) emptyEl.style.display = 'none';
-        grid.innerHTML = listings.map(renderListingCard).join('');
+    if (page === 1) {
+        grid.innerHTML = '<p style="text-align:center; padding: 2rem;">Loading...</p>';
+        const existingBtn = document.getElementById('loadMorePublicBtn');
+        if (existingBtn) existingBtn.remove();
     }
 
-    // Dynamic Filter Visibility
-    const filterContainer = document.getElementById('listingsFilter');
-    if (filterContainer) {
-        const categoriesWithProducts = new Set(allListings.filter(l => l.status === 'approved').map(l => l.category));
-        const filterBtns = filterContainer.querySelectorAll('.filter-btn');
-        filterBtns.forEach(btn => {
-            const cat = btn.dataset.category;
-            if (cat === 'all' || categoriesWithProducts.has(cat)) {
-                btn.style.display = 'inline-flex';
-            } else {
-                btn.style.display = 'none';
-            }
+    try {
+        const response = await window.api.getListings({
+            status: 'approved',
+            category: category,
+            page: page,
+            limit: 10
         });
+
+        if (page === 1) grid.innerHTML = '';
+        let listings = response.items || [];
+
+        if (listings.length === 0 && page === 1) {
+            grid.innerHTML = '';
+            if (emptyEl) emptyEl.style.display = 'flex';
+        } else {
+            if (emptyEl) emptyEl.style.display = 'none';
+            grid.insertAdjacentHTML('beforeend', listings.map(renderListingCard).join(''));
+        }
+
+        let loadMoreBtn = document.getElementById('loadMorePublicBtn');
+        if (response.has_more) {
+            if (!loadMoreBtn) {
+                const btnHtml = `<div id="loadMorePublicBtn" style="text-align:center; width:100%; margin-top:2rem; grid-column: 1 / -1;"><button class="btn-outline" style="padding:0.75rem 2rem;" onclick="renderPublicListings('${category}', ${page + 1})">Load More</button></div>`;
+                grid.insertAdjacentHTML('beforeend', btnHtml);
+            } else {
+                grid.appendChild(loadMoreBtn); // Move to bottom
+                loadMoreBtn.querySelector('button').onclick = () => renderPublicListings(category, page + 1);
+            }
+        } else if (loadMoreBtn) {
+            loadMoreBtn.remove();
+        }
+
+        const filterContainer = document.getElementById('listingsFilter');
+        if (filterContainer) {
+            const filterBtns = filterContainer.querySelectorAll('.filter-btn');
+            filterBtns.forEach(btn => btn.style.display = 'inline-flex');
+        }
+    } catch(err) {
+        console.error("Error loading public listings:", err);
     }
 }
 
 /**
  * Renders seller's own listings on profile.html
  */
-async function renderSellerListings(statusFilter = 'all') {
+window.currentSellerPage = 1;
+async function renderSellerListings(statusFilter = 'all', page = 1) {
+    if (page === 1) window.currentSellerPage = 1;
     const grid = document.getElementById('sellerListingsGrid');
     const emptyEl = document.getElementById('sellerEmpty');
     if (!grid) return;
 
     const user = getUser();
-    let allListings = await window.api.getListings();
-    let listings = allListings.filter(l => l.seller_id === user.id || l.sellerEmail === user.email);
-    if (statusFilter !== 'all') listings = listings.filter(l => l.status === statusFilter);
-    listings = listings.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    if (page === 1) {
+        grid.innerHTML = '<p style="text-align:center; padding: 2rem;">Loading...</p>';
+        const existingBtn = document.getElementById('loadMoreSellerBtn');
+        if (existingBtn) existingBtn.remove();
+    }
 
-    if (listings.length === 0) {
-        grid.innerHTML = '';
-        if (emptyEl) emptyEl.style.display = 'flex';
-    } else {
-        if (emptyEl) emptyEl.style.display = 'none';
-        grid.innerHTML = listings.map(renderSellerCard).join('');
+    try {
+        const response = await window.api.getListings({
+            seller_id: user.id,
+            status: statusFilter,
+            page: page,
+            limit: 10
+        });
+
+        if (page === 1) grid.innerHTML = '';
+        let listings = response.items || [];
+
+        if (listings.length === 0 && page === 1) {
+            grid.innerHTML = '';
+            if (emptyEl) emptyEl.style.display = 'flex';
+        } else {
+            if (emptyEl) emptyEl.style.display = 'none';
+            grid.insertAdjacentHTML('beforeend', listings.map(renderSellerCard).join(''));
+        }
+
+        let loadMoreBtn = document.getElementById('loadMoreSellerBtn');
+        if (response.has_more) {
+            if (!loadMoreBtn) {
+                const btnHtml = `<div id="loadMoreSellerBtn" style="text-align:center; width:100%; margin-top:2rem; grid-column: 1 / -1;"><button class="btn-outline" style="padding:0.75rem 2rem;" onclick="renderSellerListings('${statusFilter}', ${page + 1})">Load More</button></div>`;
+                grid.insertAdjacentHTML('beforeend', btnHtml);
+            } else {
+                grid.appendChild(loadMoreBtn);
+                loadMoreBtn.querySelector('button').onclick = () => renderSellerListings(statusFilter, page + 1);
+            }
+        } else if (loadMoreBtn) {
+            loadMoreBtn.remove();
+        }
+    } catch(err) {
+        console.error("Error loading seller listings:", err);
     }
 }
 
 /**
  * Renders buyer browse view on profile.html
  */
-async function renderBuyerListings(category = 'all') {
+window.currentBuyerPage = 1;
+async function renderBuyerListings(category = 'all', page = 1) {
+    if (page === 1) window.currentBuyerPage = 1;
     const grid = document.getElementById('buyerListingsGrid');
     const emptyEl = document.getElementById('buyerEmpty');
     if (!grid) return;
 
-    let allListings = await window.api.getListings();
-    let listings = allListings.filter(l => l.status === 'approved');
-    if (category !== 'all') listings = listings.filter(l => l.category === category);
-    listings = listings.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-    if (listings.length === 0) {
-        grid.innerHTML = '';
-        if (emptyEl) emptyEl.style.display = 'flex';
-    } else {
-        if (emptyEl) emptyEl.style.display = 'none';
-        grid.innerHTML = listings.map(renderListingCard).join('');
+    if (page === 1) {
+        grid.innerHTML = '<p style="text-align:center; padding: 2rem;">Loading...</p>';
+        const existingBtn = document.getElementById('loadMoreBuyerBtn');
+        if (existingBtn) existingBtn.remove();
     }
 
-    // Dynamic Filter Visibility
-    const filterContainer = document.getElementById('buyerFilter');
-    if (filterContainer) {
-        const categoriesWithProducts = new Set(allListings.filter(l => l.status === 'approved').map(l => l.category));
-        const filterBtns = filterContainer.querySelectorAll('.filter-btn');
-        filterBtns.forEach(btn => {
-            const cat = btn.dataset.category;
-            if (cat === 'all' || categoriesWithProducts.has(cat)) {
-                btn.style.display = 'inline-flex';
-            } else {
-                btn.style.display = 'none';
-            }
+    try {
+        const response = await window.api.getListings({
+            status: 'approved',
+            category: category,
+            page: page,
+            limit: 10
         });
+
+        if (page === 1) grid.innerHTML = '';
+        let listings = response.items || [];
+
+        if (listings.length === 0 && page === 1) {
+            grid.innerHTML = '';
+            if (emptyEl) emptyEl.style.display = 'flex';
+        } else {
+            if (emptyEl) emptyEl.style.display = 'none';
+            grid.insertAdjacentHTML('beforeend', listings.map(renderListingCard).join(''));
+        }
+
+        let loadMoreBtn = document.getElementById('loadMoreBuyerBtn');
+        if (response.has_more) {
+            if (!loadMoreBtn) {
+                const btnHtml = `<div id="loadMoreBuyerBtn" style="text-align:center; width:100%; margin-top:2rem; grid-column: 1 / -1;"><button class="btn-outline" style="padding:0.75rem 2rem;" onclick="renderBuyerListings('${category}', ${page + 1})">Load More</button></div>`;
+                grid.insertAdjacentHTML('beforeend', btnHtml);
+            } else {
+                grid.appendChild(loadMoreBtn);
+                loadMoreBtn.querySelector('button').onclick = () => renderBuyerListings(category, page + 1);
+            }
+        } else if (loadMoreBtn) {
+            loadMoreBtn.remove();
+        }
+
+        const filterContainer = document.getElementById('buyerFilter');
+        if (filterContainer) {
+            const filterBtns = filterContainer.querySelectorAll('.filter-btn');
+            filterBtns.forEach(btn => btn.style.display = 'inline-flex');
+        }
+    } catch(err) {
+        console.error("Error loading buyer listings:", err);
     }
 }
 
@@ -297,7 +369,9 @@ window.currentAdminInlineStatus = 'pending';
 /**
  * Renders admin listing panel directly below the grid
  */
-async function renderAdminListings(statusFilter = 'all') {
+window.currentAdminPage = 1;
+async function renderAdminListings(statusFilter = 'all', page = 1) {
+    if (page === 1) window.currentAdminPage = 1;
     if (statusFilter !== window.currentAdminInlineStatus) {
         window.currentAdminInlineStatus = statusFilter;
     }
@@ -308,42 +382,69 @@ async function renderAdminListings(statusFilter = 'all') {
     
     if (!container) return;
 
-    // Show category filter only when viewing approved products
-    if (catFilterEl && statusFilter === 'approved') {
+    if (page === 1 && catFilterEl && statusFilter === 'approved') {
         catFilterEl.style.display = 'flex';
-    } else if (catFilterEl) {
+    } else if (page === 1 && catFilterEl) {
         catFilterEl.style.display = 'none';
         catFilterEl.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
         const allBtn = catFilterEl.querySelector('.filter-btn[data-category="all"]');
         if (allBtn) allBtn.classList.add('active');
     }
 
-    // Get active category filter
     const activeCat = catFilterEl ? catFilterEl.querySelector('.filter-btn.active') : null;
     const categoryFilter = (statusFilter === 'approved' && activeCat) ? activeCat.dataset.category : 'all';
 
-    container.innerHTML = '<p style="text-align:center; color:var(--text-muted); padding:2rem;">Loading...</p>';
-    if (emptyEl) emptyEl.style.display = 'none';
+    if (page === 1) {
+        container.innerHTML = '<p style="text-align:center; color:var(--text-muted); padding:2rem;">Loading...</p>';
+    }
 
-    let listings = await window.api.getListings();
-    if(!listings) listings = [];
-    if (statusFilter !== 'all') listings = listings.filter(l => l.status === statusFilter);
-    if (categoryFilter !== 'all') listings = listings.filter(l => l.category === categoryFilter);
+    try {
+        const response = await window.api.getListings({
+            status: statusFilter,
+            category: categoryFilter,
+            page: page,
+            limit: 10
+        });
 
-    listings = listings.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-    if (listings.length === 0) {
-        container.innerHTML = '';
-        if (emptyEl) {
-            emptyEl.style.display = 'flex';
-            const emptyTitle = document.getElementById('adminEmptyTitle');
-            const emptyDesc = document.getElementById('adminEmptyDesc');
-            if (emptyTitle) emptyTitle.innerText = 'No Products Found';
-            if (emptyDesc) emptyDesc.innerText = 'Select a category from the statistics cards above to view products.';
-        }
-    } else {
+        if (page === 1) container.innerHTML = '';
         if (emptyEl) emptyEl.style.display = 'none';
-        container.innerHTML = `<div class="admin-listings-list">${listings.map(renderAdminCard).join('')}</div>`;
+
+        let listings = response.items || [];
+
+        let listContainer = container.querySelector('.admin-listings-list');
+        if (!listContainer) {
+            listContainer = document.createElement('div');
+            listContainer.className = 'admin-listings-list';
+            container.appendChild(listContainer);
+        }
+
+        if (listings.length === 0 && page === 1) {
+            listContainer.remove();
+            if (emptyEl) {
+                emptyEl.style.display = 'flex';
+                const emptyTitle = document.getElementById('adminEmptyTitle');
+                const emptyDesc = document.getElementById('adminEmptyDesc');
+                if (emptyTitle) emptyTitle.innerText = 'No Products Found';
+                if (emptyDesc) emptyDesc.innerText = 'Select a category from the statistics cards above to view products.';
+            }
+        } else {
+            listContainer.insertAdjacentHTML('beforeend', listings.map(renderAdminCard).join(''));
+        }
+
+        let loadMoreBtn = document.getElementById('loadMoreAdminBtn');
+        if (response.has_more) {
+            if (!loadMoreBtn) {
+                const btnHtml = `<div id="loadMoreAdminBtn" style="text-align:center; width:100%; margin-top:2rem;"><button class="btn-outline" style="padding:0.75rem 2rem;" onclick="renderAdminListings('${statusFilter}', ${page + 1})">Load More</button></div>`;
+                container.insertAdjacentHTML('beforeend', btnHtml);
+            } else {
+                container.appendChild(loadMoreBtn);
+                loadMoreBtn.querySelector('button').onclick = () => renderAdminListings(statusFilter, page + 1);
+            }
+        } else if (loadMoreBtn) {
+            loadMoreBtn.remove();
+        }
+    } catch(err) {
+        console.error("Error loading admin listings:", err);
     }
 }
 
@@ -561,9 +662,11 @@ async function renderAdminUsers(role) {
 /**
  * Renders products for a specific seller (Admin View)
  */
-async function renderSellerProductsForAdmin(sellerId, sellerName, previousRole = 'sellers') {
-    window.currentAdminInlineStatus = `seller_products_${sellerId}`;
-    window.currentSellerViewData = { id: sellerId, name: sellerName, prevRole: previousRole };
+async function renderSellerProductsForAdmin(sellerId, sellerName, previousRole = 'sellers', page = 1) {
+    if (page === 1) {
+        window.currentAdminInlineStatus = `seller_products_${sellerId}`;
+        window.currentSellerViewData = { id: sellerId, name: sellerName, prevRole: previousRole };
+    }
 
     const container = document.getElementById('adminListingsContainer');
     const emptyEl = document.getElementById('adminEmpty');
@@ -572,16 +675,26 @@ async function renderSellerProductsForAdmin(sellerId, sellerName, previousRole =
     if (!container) return;
     if (catFilterEl) catFilterEl.style.display = 'none';
 
-    container.innerHTML = '<p style="text-align:center; color:var(--text-muted); padding:2rem;">Loading seller products...</p>';
-    if (emptyEl) emptyEl.style.display = 'none';
+    if (page === 1) {
+        container.innerHTML = '<p style="text-align:center; color:var(--text-muted); padding:2rem;">Loading seller products...</p>';
+        const existingBtn = document.getElementById('loadMoreAdminSellerBtn');
+        if (existingBtn) existingBtn.remove();
+    }
 
     try {
-        let listings = await window.api.getListings();
-        listings = listings.filter(l => l.seller_id === sellerId);
-        listings = listings.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        const response = await window.api.getListings({
+            seller_id: sellerId,
+            page: page,
+            limit: 10
+        });
+
+        if (emptyEl) emptyEl.style.display = 'none';
+
+        let listings = response.items || [];
+        const totalCount = response.total || 0;
 
         const backBtnHtml = `
-            <div style="margin-bottom: 2.5rem; display: flex; align-items: center; justify-content: space-between; background: var(--surface); padding: 1.75rem; border-radius: 20px; border: 1px solid var(--border); border-left: 6px solid var(--primary); box-shadow: var(--shadow-sm); transition: all 0.3s ease;">
+            <div id="sellerViewHeader" style="margin-bottom: 2.5rem; display: flex; align-items: center; justify-content: space-between; background: var(--surface); padding: 1.75rem; border-radius: 20px; border: 1px solid var(--border); border-left: 6px solid var(--primary); box-shadow: var(--shadow-sm); transition: all 0.3s ease;">
                 <div style="display: flex; align-items: center; gap: 1.5rem;">
                     <div style="width: 56px; height: 56px; background: rgba(99, 102, 241, 0.08); color: var(--primary); border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; border: 1px solid rgba(99, 102, 241, 0.15);">
                         🏪
@@ -592,13 +705,22 @@ async function renderSellerProductsForAdmin(sellerId, sellerName, previousRole =
                     </div>
                 </div>
                 <div style="text-align: right;">
-                    <span style="display: inline-block; padding: 0.6rem 1.4rem; border-radius: 99px; background: rgba(99, 102, 241, 0.08); color: var(--primary); font-weight: 800; font-size: 0.85rem; letter-spacing: 0.06em; border: 1px solid rgba(99, 102, 241, 0.15); box-shadow: 0 2px 4px rgba(99, 102, 241, 0.05);">${listings.length} TOTAL POSTS</span>
+                    <span style="display: inline-block; padding: 0.6rem 1.4rem; border-radius: 99px; background: rgba(99, 102, 241, 0.08); color: var(--primary); font-weight: 800; font-size: 0.85rem; letter-spacing: 0.06em; border: 1px solid rgba(99, 102, 241, 0.15); box-shadow: 0 2px 4px rgba(99, 102, 241, 0.05);">${totalCount} TOTAL POSTS</span>
                 </div>
             </div>
         `;
 
-        if (listings.length === 0) {
-            container.innerHTML = backBtnHtml;
+        if (page === 1) container.innerHTML = backBtnHtml;
+
+        let listContainer = container.querySelector('.admin-listings-list');
+        if (!listContainer) {
+            listContainer = document.createElement('div');
+            listContainer.className = 'admin-listings-list';
+            container.appendChild(listContainer);
+        }
+
+        if (listings.length === 0 && page === 1) {
+            listContainer.remove();
             if (emptyEl) {
                 emptyEl.style.display = 'flex';
                 const emptyTitle = document.getElementById('adminEmptyTitle');
@@ -607,11 +729,24 @@ async function renderSellerProductsForAdmin(sellerId, sellerName, previousRole =
                 if (emptyDesc) emptyDesc.innerText = `${sellerName} hasn't posted any products yet.`;
             }
         } else {
-            if (emptyEl) emptyEl.style.display = 'none';
-            container.innerHTML = backBtnHtml + `<div class="admin-listings-list">${listings.map(renderAdminCard).join('')}</div>`;
+            listContainer.insertAdjacentHTML('beforeend', listings.map(renderAdminCard).join(''));
+        }
+
+        let loadMoreBtn = document.getElementById('loadMoreAdminSellerBtn');
+        if (response.has_more) {
+            if (!loadMoreBtn) {
+                const btnHtml = `<div id="loadMoreAdminSellerBtn" style="text-align:center; width:100%; margin-top:2rem;"><button class="btn-outline" style="padding:0.75rem 2rem;" onclick="renderSellerProductsForAdmin(${sellerId}, '${sellerName.replace(/'/g, "\\'")}', '${previousRole}', ${page + 1})">Load More</button></div>`;
+                container.insertAdjacentHTML('beforeend', btnHtml);
+            } else {
+                container.appendChild(loadMoreBtn);
+                loadMoreBtn.querySelector('button').onclick = () => renderSellerProductsForAdmin(sellerId, sellerName, previousRole, page + 1);
+            }
+        } else if (loadMoreBtn) {
+            loadMoreBtn.remove();
         }
     } catch(err) {
-        container.innerHTML = `<p style="text-align:center; color:red; padding:2rem;">Error: ${err.message}</p>`;
+        if (page === 1) container.innerHTML = `<p style="text-align:center; color:red; padding:2rem;">Error: ${err.message}</p>`;
+        else console.error(err);
     }
 }
 
