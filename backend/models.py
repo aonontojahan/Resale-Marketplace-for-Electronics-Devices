@@ -23,11 +23,24 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     role = Column(Enum(UserRole), default=UserRole.BUYER, nullable=False)
     
+    # Common Fields
+    phone_number = Column(String, nullable=True)
+    # Common Fields
+    phone_number = Column(String, nullable=True)
+    dob = Column(DateTime(timezone=True), nullable=True)
+    
+    # Seller-Specific Verification Fields
+    nid_number = Column(String, unique=True, index=True, nullable=True)
+    nid_front_path = Column(String, nullable=True)
+    nid_back_path = Column(String, nullable=True)
+    selfie_path = Column(String, nullable=True)
+    
     # Store user creation and update time
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-
-    # Disciplinary Actions
+ 
+    # Disciplinary Actions & Status
+    # Status can be: active, banned, pending_verification
     account_status = Column(String, default="active", nullable=False)
     suspended_until = Column(DateTime(timezone=True), nullable=True)
     listing_banned_until = Column(DateTime(timezone=True), nullable=True)
@@ -58,6 +71,7 @@ class ChatMessage(Base):
     session_id = Column(Integer, ForeignKey("chat_sessions.id"), nullable=False)
     sender_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     text = Column(String, nullable=False)
+    is_read = Column(Integer, default=0, nullable=False) # 0 for false, 1 for true (using Integer for SQLite compatibility with some old drivers, or Boolean)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
