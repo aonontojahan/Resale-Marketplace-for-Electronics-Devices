@@ -102,6 +102,10 @@ function renderListingCard(listing) {
                     }
                 </div>
                 
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.4rem; font-weight: 600;">
+                    👤 Seller: <a href="index.html?seller=${listing.seller_id}" onclick="event.stopPropagation();" style="color: var(--primary); text-decoration: none; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.textDecoration='underline'; this.style.color='var(--accent-cyan)'" onmouseout="this.style.textDecoration='none'; this.style.color='var(--primary)'">${listing.sellerName}</a>
+                </div>
+                
                 <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.4rem; font-weight: 500;">
                     🕒 Listed: ${formatListingDate(listing.created_at)}
                 </div>
@@ -273,6 +277,91 @@ async function renderPublicListings(category = 'all', page = 1) {
         console.error("Error loading public listings:", err);
     }
 }
+
+/**
+ * Renders a seller's public store page when visiting index.html?seller=ID
+ */
+async function renderSellerStore(sellerId, category = 'all') {
+    const grid = document.getElementById('listingsGrid');
+    const emptyEl = document.getElementById('listingsEmpty');
+    const storeHeader = document.getElementById('sellerStoreHeader');
+    if (!grid) return;
+
+    grid.innerHTML = '<p style="text-align:center; padding: 2rem; color: var(--text-muted);">Loading seller store...</p>';
+
+    // Hide marketing sections when viewing a seller store
+    document.querySelectorAll('.hero, .about-section, .escrow-overview-section, .safety-tips-section').forEach(el => {
+        el.style.display = 'none';
+    });
+
+    try {
+        const response = await window.api.getListings({
+            status: 'approved',
+            seller_id: sellerId,
+            category: category
+        });
+
+        let listings = response.items || response || [];
+        if (Array.isArray(listings)) {
+            listings = listings.filter(l => l.status === 'approved');
+        }
+        listings = listings.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+        // Get seller info from any listing
+        const sellerName = listings.length > 0 ? listings[0].sellerName : 'Seller';
+        const sellerInitials = sellerName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+
+        // Render the store header
+        if (storeHeader) {
+            storeHeader.style.display = 'block';
+            storeHeader.innerHTML = `
+                <div style="background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(34,211,238,0.05)); border: 1px solid rgba(99,102,241,0.15); border-radius: 20px; padding: 2rem; margin-bottom: 2rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1.5rem;">
+                    <div style="display: flex; align-items: center; gap: 1.5rem;">
+                        <div style="width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--accent-cyan)); color: white; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 1.6rem; box-shadow: 0 8px 24px rgba(99,102,241,0.3); flex-shrink: 0;">
+                            ${sellerInitials}
+                        </div>
+                        <div>
+                            <h2 style="margin: 0; font-size: 1.6rem; font-weight: 900; color: var(--text-primary); letter-spacing: -0.02em;">${sellerName}<span style="color: var(--text-muted); font-weight: 500; font-size: 0.9rem;">'s Store</span></h2>
+                            <div style="display: flex; align-items: center; gap: 1rem; margin-top: 0.5rem; flex-wrap: wrap;">
+                                <span style="font-size: 0.85rem; background: rgba(16,185,129,0.1); color: #10b981; font-weight: 700; padding: 0.3rem 0.8rem; border-radius: 20px; border: 1px solid rgba(16,185,129,0.2);">✅ Verified Seller</span>
+                                <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 600;">${listings.length} Product${listings.length !== 1 ? 's' : ''} Listed</span>
+                            </div>
+                        </div>
+                    </div>
+                    <a href="index.html" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.2rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; color: var(--text-secondary); text-decoration: none; font-weight: 700; font-size: 0.85rem; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--primary)'; this.style.color='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'; this.style.color='var(--text-secondary)'">
+                        ← Back to All Listings
+                    </a>
+                </div>
+            `;
+        }
+
+        // Update the page title
+        const listingsTitle = document.querySelector('.listings-header .section-title');
+        if (listingsTitle) {
+            listingsTitle.innerHTML = `<span class="text-gradient">${sellerName}</span>'s Products`;
+        }
+
+        grid.innerHTML = '';
+        if (listings.length === 0) {
+            if (emptyEl) {
+                emptyEl.style.display = 'flex';
+                const emptyTitle = emptyEl.querySelector('h3');
+                const emptyDesc = emptyEl.querySelector('p');
+                if (emptyTitle) emptyTitle.innerText = 'No Products Found';
+                if (emptyDesc) emptyDesc.innerText = category !== 'all'
+                    ? 'This seller has no products in this category.'
+                    : 'This seller hasn\'t listed any products yet.';
+            }
+        } else {
+            if (emptyEl) emptyEl.style.display = 'none';
+            grid.innerHTML = listings.map(renderListingCard).join('');
+        }
+    } catch (err) {
+        console.error('Error loading seller store:', err);
+        grid.innerHTML = '<p style="text-align:center; color:red; padding:2rem;">Failed to load seller store.</p>';
+    }
+}
+window.renderSellerStore = renderSellerStore;
 
 /**
  * Renders seller's own listings on profile.html
@@ -991,7 +1080,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const listingsGrid = document.getElementById('listingsGrid');
     if (listingsGrid) {
-        renderPublicListings('all');
+        // Check if we're viewing a specific seller's store
+        const urlParams = new URLSearchParams(window.location.search);
+        const sellerIdParam = urlParams.get('seller');
+        if (sellerIdParam) {
+            renderSellerStore(parseInt(sellerIdParam));
+        } else {
+            renderPublicListings('all');
+        }
 
         // Filter buttons
         const filterBtns = document.querySelectorAll('#listingsFilter .filter-btn');
@@ -999,7 +1095,12 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.addEventListener('click', () => {
                 filterBtns.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
-                renderPublicListings(btn.dataset.category);
+                const sp = new URLSearchParams(window.location.search).get('seller');
+                if (sp) {
+                    renderSellerStore(parseInt(sp), btn.dataset.category);
+                } else {
+                    renderPublicListings(btn.dataset.category);
+                }
             });
         });
     }

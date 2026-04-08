@@ -8,6 +8,21 @@ const api = {
         const headers = {
             "Content-Type": "application/json",
         };
+
+        // If no token is provided, try to get it from localStorage
+        if (!token) {
+            const userJson = localStorage.getItem('resale_user');
+            if (userJson) {
+                try {
+                    const user = JSON.parse(userJson);
+                    // The token is often stored as access_token or token
+                    token = user.access_token || user.token;
+                } catch (e) {
+                    console.error("Failed to parse user session for token:", e);
+                }
+            }
+        }
+
         if (token) {
             headers["Authorization"] = `Bearer ${token}`;
         }

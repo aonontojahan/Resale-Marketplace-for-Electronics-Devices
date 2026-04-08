@@ -5,7 +5,7 @@ from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocke
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from datetime import timedelta, datetime, timezone
 from typing import List, Dict
@@ -231,7 +231,7 @@ def get_listings(
     db: Session = Depends(get_db)
 ):
     """Fetch paginated listings."""
-    query = db.query(models.Listing)
+    query = db.query(models.Listing).options(joinedload(models.Listing.seller))
     
     if status is not None and status != 'all':
         query = query.filter(models.Listing.status == status)
