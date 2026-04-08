@@ -24,12 +24,12 @@ pip install -r requirements.txt
 
 uvicorn backend.main:app --reload
 
-### 3. Accessing the Application
+### 3. Accessing the Application:
 - **Frontend**: Open `frontend/index.html` in your browser.
 - **API Documentation**: Visit `http://localhost:8000/docs`.
 
 ---
-Built by Aononto Jahan. 
+Built by Aononto Jahan Junnurain. 
 
 ## 📄 License
 This project is licensed under a **Proprietary License** - Unauthorized copying, redistribution, or commercial use is strictly prohibited. See the [LICENSE](file:///e:/PROJECTS/Resale-Marketplace-for-Electronics-Devices/LICENSE) file for details.
