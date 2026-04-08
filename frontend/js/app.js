@@ -160,6 +160,12 @@ function renderSellerCard(listing) {
                     ${descHtml}
                 </div>
                 <div style="margin-top:auto; display:flex; gap:0.5rem;">
+                    ${listing.status === 'approved' 
+                        ? `<button class="btn-primary" style="flex:1; padding:0.4rem; font-size:0.8rem; background:linear-gradient(135deg,#10b981,#059669); border:none; border-radius:8px; color:white; font-weight:700; cursor:pointer;" onclick="markAsSold('${listing.id}')">🤝 Mark as Sold</button>`
+                        : listing.status === 'sold'
+                        ? `<button style="flex:1; padding:0.4rem; font-size:0.8rem; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.2); border-radius:8px; color:#ef4444; font-weight:700; cursor:not-allowed;" disabled>🤝 Sold</button>`
+                        : ''
+                    }
                     <button class="btn-outline" style="flex:1; padding:0.4rem; font-size:0.8rem;" onclick="deleteMyListing('${listing.id}')">🗑 Delete</button>
                 </div>
             </div>
