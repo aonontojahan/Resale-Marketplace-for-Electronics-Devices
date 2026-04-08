@@ -684,14 +684,6 @@ function updateNav() {
             `;
         }
 
-        if (role !== 'admin') {
-            navHtml += `
-                <a href="chat.html" class="${currentPath.includes('chat.html') ? 'active' : ''}" style="position:relative;">
-                    Messages
-                    <span id="navUnreadBadge" class="nav-unread-badge" style="display:none;"></span>
-                </a>
-            `;
-        }
 
         navHtml += `
             <a href="profile.html" class="nav-user-container">
@@ -736,7 +728,7 @@ function updateNav() {
 async function loginUser(email, password, role) {
     try {
         const response = await window.api.request('/auth/login', 'POST', { email, password });
-        const user = await window.api.request(`/users/me?token=${response.access_token}`);
+        const user = await window.api.getMe(response.access_token);
 
         if (user.role !== role) {
             alert(`Access denied. Your account is registered as "${user.role}", not "${role}". Please select the correct role.`);
@@ -1015,7 +1007,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 formData.append('price', document.getElementById('listingPrice').value);
                 formData.append('condition', document.getElementById('listingCondition').value);
                 formData.append('description', document.getElementById('listingDesc').value.trim());
-                formData.append('token', user.token);
+                // Token is sent via Authorization header, NOT in FormData
                 
                 const fileInput = document.getElementById('listingImages');
                 if (fileInput && fileInput.files.length > 0) {
@@ -1023,7 +1015,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 try {
-                    await window.api.createListing(formData);
+                    await window.api.createListing(formData, user.token);
                     form.reset();
                     if (previewContainer) previewContainer.innerHTML = '';
                     pendingImageUrls = [];
@@ -1638,7 +1630,7 @@ window.handleChatDelete = handleChatDelete;
 window.toggleDescription = toggleDescription;
 
 /**
- * Updates the global unread message badge in the navbar.
+ * Updates the unread message badge on the sidebar Messages link.
  */
 async function updateGlobalUnreadCount() {
     const user = getUser();
@@ -1648,13 +1640,14 @@ async function updateGlobalUnreadCount() {
         const chats = await window.api.getUserChats(user.id);
         const totalUnread = chats.reduce((sum, chat) => sum + (chat.unread_count || 0), 0);
         
-        const badge = document.getElementById('navUnreadBadge');
-        if (badge) {
+        // Update sidebar badge on profile.html
+        const sidebarBadge = document.getElementById('sidebarUnreadBadge');
+        if (sidebarBadge) {
             if (totalUnread > 0) {
-                badge.innerText = totalUnread > 9 ? '9+' : totalUnread;
-                badge.style.display = 'flex';
+                sidebarBadge.innerText = totalUnread > 9 ? '9+' : totalUnread;
+                sidebarBadge.style.display = 'flex';
             } else {
-                badge.style.display = 'none';
+                sidebarBadge.style.display = 'none';
             }
         }
     } catch (err) {

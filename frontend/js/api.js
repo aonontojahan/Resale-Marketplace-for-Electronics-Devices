@@ -51,11 +51,7 @@ const api = {
      * Get current user profile.
      */
     async getMe(token) {
-        // Updated to use the endpoint I just created
-        // Note: The FastAPI endpoint expects a query param or header? 
-        // My current main.py uses a query param 'token' which is odd for Bearer. 
-        // I should fix main.py to use proper OAuth2 dependency, but for now I'll match the param.
-        return this.request(`/users/me?token=${token}`, "GET");
+        return this.request('/users/me', 'GET', null, token);
     },
 
     /**
@@ -108,20 +104,24 @@ const api = {
         return this.request("/listings", "GET");
     },
     
-    async createListing(formData) {
-        // We use fetch manually here because we are sending FormData instead of JSON
+    async createListing(formData, token) {
+        // Uses fetch manually because we send FormData (not JSON).
+        // Token is sent in the Authorization header, NOT in the form body.
         try {
             const response = await fetch(`${API_BASE_URL}/listings`, {
-                method: "POST",
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
                 body: formData
             });
             const data = await response.json();
             if (!response.ok) {
-                throw new Error(data.detail || "Something went wrong");
+                throw new Error(data.detail || 'Something went wrong');
             }
             return data;
         } catch (error) {
-            console.error("API Error:", error);
+            console.error('API Error:', error);
             throw error;
         }
     },

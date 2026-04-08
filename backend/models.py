@@ -25,8 +25,6 @@ class User(Base):
     
     # Common Fields
     phone_number = Column(String, nullable=True)
-    # Common Fields
-    phone_number = Column(String, nullable=True)
     dob = Column(DateTime(timezone=True), nullable=True)
     
     # Seller-Specific Verification Fields

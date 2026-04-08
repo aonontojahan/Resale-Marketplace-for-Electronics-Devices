@@ -2,6 +2,7 @@ import os
 import shutil
 import uuid
 from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, Form, File, UploadFile
+from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
@@ -16,6 +17,9 @@ from .database import engine, get_db
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="ReSale Marketplace API")
+
+# OAuth2 scheme — reads 'Authorization: Bearer <token>' header
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 # Ensure uploads directory exists
 os.makedirs("backend/uploads", exist_ok=True)
@@ -127,8 +131,8 @@ def login(user_in: schemas.UserLogin, db: Session = Depends(get_db)):
     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.get("/users/me", response_model=schemas.UserResponse)
-def get_current_user(token: str, db: Session = Depends(get_db)):
-    """Fetch current user profile from token."""
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    """Fetch current user profile from Authorization: Bearer token header."""
     payload = auth.decode_access_token(token)
     if not payload:
         raise HTTPException(
@@ -166,7 +170,7 @@ def create_listing(
     condition: str = Form(...),
     description: str = Form(...),
     image: UploadFile = File(None),
-    token: str = Form(...),
+    token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
     """Create a new listing with an optional image upload."""
