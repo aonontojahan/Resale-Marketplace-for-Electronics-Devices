@@ -109,6 +109,7 @@ const api = {
         if (options.status && options.status !== 'all') queryParams.append('status', options.status);
         if (options.category && options.category !== 'all') queryParams.append('category', options.category);
         if (options.seller_id) queryParams.append('seller_id', options.seller_id);
+        if (options.search_query) queryParams.append('search_query', options.search_query);
 
         const queryString = queryParams.toString();
         if (queryString) {
@@ -153,6 +154,10 @@ const api = {
     
     async markChatRead(sessionId, userId) {
         return this.request(`/chats/${sessionId}/read?user_id=${userId}`, "POST");
+    },
+    
+    async createReview(reviewData) {
+        return this.request('/reviews', 'POST', reviewData);
     }
 };
 

@@ -71,34 +71,53 @@ function renderListingCard(listing) {
         : `<p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.8rem; line-height:1.5;">${listing.description}</p>`;
 
     const isSold = listing.status === 'sold';
-    const availabilityBadge = isSold 
-        ? `<div class="status-badge status-sold">Sold</div>`
-        : `<div class="status-badge status-available">Available</div>`;
 
     return `
-        <div class="card" data-category="${listing.category}" data-id="${listing.id}">
-            ${imgHtml}
-            <div class="card-content">
-                <h3 class="card-title">${listing.title}</h3>
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
-                    <p class="card-price" style="margin-bottom: 0;">৳${priceFormatted}</p>
-                    ${availabilityBadge}
+        <div class="card" data-category="${listing.category}" data-id="${listing.id}" style="border: 1px solid var(--border); border-radius: 16px; overflow: hidden; background: var(--surface); box-shadow: 0 4px 12px rgba(0,0,0,0.05); display: flex; flex-direction: column; transition: transform 0.3s ease, box-shadow 0.3s ease;" onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 12px 24px rgba(0,0,0,0.1)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.05)'">
+            <div style="position: relative;">
+                ${imgHtml}
+                <div style="position: absolute; top: 12px; left: 12px;">
+                    <span style="background: rgba(255,255,255,0.95); color: #0f172a; font-weight: 800; font-size: 0.75rem; padding: 0.4rem 0.8rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); letter-spacing: 0.03em;">${listing.condition.toUpperCase()}</span>
                 </div>
-                <div class="card-meta">
-                    <span class="badge badge-condition">${listing.condition}</span>
-                    <span class="badge badge-rating" style="background:rgba(59,130,246,0.15); color:#60a5fa; border-color:#60a5fa;">${CATEGORY_EMOJIS[listing.category] || '📦'} ${listing.category}</span>
+                <div style="position: absolute; top: 12px; right: 12px;">
+                    ${isSold 
+                        ? `<span style="background: rgba(239, 68, 68, 0.95); color: white; font-weight: 800; font-size: 0.75rem; padding: 0.4rem 0.8rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); letter-spacing: 0.03em;">SOLD</span>`
+                        : `<span style="background: rgba(16, 185, 129, 0.95); color: white; font-weight: 800; font-size: 0.75rem; padding: 0.4rem 0.8rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); letter-spacing: 0.03em;">AVAILABLE</span>`
+                    }
                 </div>
-                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; display: flex; align-items: center; gap: 0.4rem;">
-                    📅 Listed: ${formatListingDate(listing.created_at)}
+            </div>
+            <div class="card-content" style="padding: 1.25rem; display: flex; flex-direction: column; flex: 1;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <h3 class="card-title" style="margin: 0; font-size: 1.15rem; font-weight: 800; line-height: 1.3; color: var(--text-primary); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${listing.title}</h3>
                 </div>
-                <div style="margin-top: 1rem;">
+                <div style="display: flex; align-items: baseline; gap: 0.5rem; margin-bottom: 0.75rem;">
+                    <p class="card-price" style="margin: 0; font-size: 1.6rem; font-weight: 900; background: linear-gradient(135deg, var(--primary), var(--accent-cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">৳${priceFormatted}</p>
+                </div>
+                
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; align-items: center;">
+                    <span style="font-size: 0.75rem; background: rgba(99,102,241,0.08); color: var(--primary); font-weight: 700; padding: 0.35rem 0.6rem; border-radius: 6px; border: 1px solid rgba(99,102,241,0.2); white-space: nowrap;">${CATEGORY_EMOJIS[listing.category] || '📦'} ${listing.category}</span>
+                    ${listing.sellerTotalReviews > 0 
+                        ? `<span style="font-size: 0.75rem; background: rgba(245,158,11,0.08); color: #d97706; font-weight: 700; padding: 0.35rem 0.6rem; border-radius: 6px; border: 1px solid rgba(245,158,11,0.2); white-space: nowrap;">⭐ ${listing.sellerRating.toFixed(1)} (${listing.sellerTotalReviews})</span>` 
+                        : `<span style="font-size: 0.75rem; background: var(--bg-body); color: var(--text-muted); font-weight: 600; padding: 0.35rem 0.6rem; border-radius: 6px; border: 1px solid var(--border); white-space: nowrap;">⭐ New Seller</span>`
+                    }
+                </div>
+                
+                <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.4rem; font-weight: 500;">
+                    🕒 Listed: ${formatListingDate(listing.created_at)}
+                </div>
+                
+                <div style="margin-bottom: 1.25rem; flex: 1;">
                     ${descHtml}
                 </div>
-                ${isSold 
-                    ? `<button class="btn-view" style="margin-top: auto; border-radius: 8px; background: #475569; cursor: not-allowed;" disabled>🛒 Already Sold</button>`
-                    : `<button class="btn-view" style="margin-top: auto; border-radius: 8px;" onclick="handleBuyClick('${listing.id}')" id="buyBtn-${listing.id}">🛒 Buy with Escrow</button>`
-                }
-                <button class="btn-outline" style="width: 100%; padding: 0.75rem; border-radius: 8px; text-align: center; font-weight: 600; margin-top: 0.5rem;" onclick="handleMessageClick('${listing.id}', '${listing.seller_id}')" id="msgBtn-${listing.id}">💬 Message Seller</button>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: auto;">
+                    ${isSold 
+                        ? `<button style="background: var(--bg-body); color: var(--text-muted); border: 1px solid var(--border); border-radius: 10px; width: 100%; font-weight: 800; padding: 0.75rem; font-size: 0.85rem; cursor: not-allowed; transition: all 0.2s;" disabled>SOLD OUT</button>`
+                        : `<button style="background: linear-gradient(135deg, var(--primary), var(--accent-cyan)); color: white; border: none; border-radius: 10px; width: 100%; font-weight: 800; padding: 0.75rem; font-size: 0.85rem; cursor: pointer; box-shadow: 0 4px 12px rgba(99,102,241,0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(99,102,241,0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(99,102,241,0.3)'" onclick="handleBuyClick('${listing.id}')" id="buyBtn-${listing.id}">Buy with Escrow</button>`
+                    }
+                    <button style="background: transparent; color: var(--primary); border: 2px solid var(--primary); border-radius: 10px; text-align: center; font-weight: 800; width: 100%; padding: 0.65rem; font-size: 0.85rem; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='var(--primary)'; this.style.color='white'" onmouseout="this.style.background='transparent'; this.style.color='var(--primary)'" onclick="handleMessageClick('${listing.id}', '${listing.seller_id}')" id="msgBtn-${listing.id}">Message</button>
+                </div>
+                <button style="width: 100%; padding: 0.5rem; border-radius: 8px; text-align: center; font-weight: 600; font-size: 0.8rem; border: none; background: transparent; color: var(--text-muted); margin-top: 0.5rem; cursor: pointer; transition: color 0.2s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'" onclick="openReviewModal('${listing.id}')" id="revBtn-${listing.id}">⭐️ Leave a Review</button>
             </div>
         </div>`;
 }
@@ -212,12 +231,14 @@ async function renderPublicListings(category = 'all', page = 1) {
     }
 
     try {
-        const response = await window.api.getListings({
+        const options = {
             status: 'approved',
             category: category,
             page: page,
             limit: 10
-        });
+        };
+        if (window.currentSearchQuery) options.search_query = window.currentSearchQuery;
+        const response = await window.api.getListings(options);
 
         if (page === 1) grid.innerHTML = '';
         let listings = response.items || [];
@@ -323,12 +344,14 @@ async function renderBuyerListings(category = 'all', page = 1) {
     }
 
     try {
-        const response = await window.api.getListings({
+        const options = {
             status: 'approved',
             category: category,
             page: page,
             limit: 10
-        });
+        };
+        if (window.currentSearchQuery) options.search_query = window.currentSearchQuery;
+        const response = await window.api.getListings(options);
 
         if (page === 1) grid.innerHTML = '';
         let listings = response.items || [];
@@ -804,16 +827,20 @@ function updateNav() {
         const role = user.role || 'buyer';
         let navHtml = '';
 
+        const searchBar = document.getElementById('globalSearchBar');
         if (role === 'admin') {
+            if (searchBar) searchBar.parentElement.style.display = 'none';
             navHtml += `
                 <a href="profile.html" class="${currentPath.includes('profile') ? 'active' : ''}">Admin Panel</a>
             `;
         } else if (role === 'seller') {
+            if (searchBar) searchBar.parentElement.style.display = 'none';
             navHtml += `
                 <a href="profile.html" class="${currentPath.includes('profile') ? 'active' : ''}">My Listings</a>
             `;
         } else {
             // Buyer
+            if (searchBar) searchBar.parentElement.style.display = 'block';
             navHtml += `
                 <a href="index.html" class="${currentPath.includes('index') || currentPath === '/' ? 'active' : ''}">Browse</a>
             `;
@@ -849,6 +876,8 @@ function updateNav() {
             updateGlobalUnreadCount();
         }
     } else {
+        const searchBar = document.getElementById('globalSearchBar');
+        if (searchBar) searchBar.parentElement.style.display = 'block';
         nav.innerHTML = `
             <a href="index.html#about">About Us</a>
             <a href="index.html#escrow">How It Works</a>
@@ -942,6 +971,24 @@ document.addEventListener('DOMContentLoaded', () => {
     // ──────────────────────────────────────────────────────────
     //  INDEX.HTML — Public Listings + Filter
     // ──────────────────────────────────────────────────────────
+    const globalSearch = document.getElementById('globalSearchBar');
+    let searchTimeout;
+    if (globalSearch) {
+        globalSearch.addEventListener('keyup', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                window.currentSearchQuery = e.target.value;
+                if (document.getElementById('buyerListingsGrid')) {
+                    const activeCat = document.querySelector('#buyerFilter .filter-btn.active');
+                    renderBuyerListings(activeCat ? activeCat.dataset.category : 'all');
+                } else if (document.getElementById('listingsGrid')) {
+                    const activeCat = document.querySelector('#listingsFilter .filter-btn.active');
+                    renderPublicListings(activeCat ? activeCat.dataset.category : 'all');
+                }
+            }, 300);
+        });
+    }
+
     const listingsGrid = document.getElementById('listingsGrid');
     if (listingsGrid) {
         renderPublicListings('all');
@@ -1791,4 +1838,57 @@ async function updateGlobalUnreadCount() {
 }
 window.updateGlobalUnreadCount = updateGlobalUnreadCount;
 
+// ─── REVIEW LOGIC ───────────────────────────────────────────────
 
+window.openReviewModal = function(listingId) {
+    const user = getUser();
+    if (!user) {
+        alert("Please login to leave a review.");
+        window.location.href = "login.html";
+        return;
+    }
+    const modal = document.getElementById('reviewModal');
+    if (!modal) return;
+    
+    document.getElementById('reviewListingId').value = listingId;
+    document.getElementById('reviewRating').value = '';
+    document.getElementById('reviewComment').value = '';
+    
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    const reviewForm = document.getElementById('reviewForm');
+    if (reviewForm) {
+        reviewForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('submitReviewBtn');
+            const originalText = btn.innerText;
+            btn.innerText = 'Submitting...';
+            btn.disabled = true;
+            
+            try {
+                const listingId = document.getElementById('reviewListingId').value;
+                const rating = parseInt(document.getElementById('reviewRating').value);
+                const comment = document.getElementById('reviewComment').value;
+                
+                await window.api.createReview({
+                    listing_id: listingId,
+                    rating: rating,
+                    comment: comment
+                });
+                
+                document.getElementById('reviewModal').classList.remove('active');
+                document.body.style.overflow = '';
+                alert("Thank you! Your review has been submitted. It will appear on the seller's profile shortly.");
+                
+            } catch (err) {
+                alert("Failed to submit review: " + err.message);
+            } finally {
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
+        });
+    }
+});

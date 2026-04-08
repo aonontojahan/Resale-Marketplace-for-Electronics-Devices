@@ -227,6 +227,7 @@ def get_listings(
     status: str = None,
     category: str = None,
     seller_id: int = None,
+    search_query: str = None,
     db: Session = Depends(get_db)
 ):
     """Fetch paginated listings."""
@@ -238,6 +239,8 @@ def get_listings(
         query = query.filter(models.Listing.category == category)
     if seller_id is not None:
         query = query.filter(models.Listing.seller_id == seller_id)
+    if search_query:
+        query = query.filter(models.Listing.title.ilike(f"%{search_query}%"))
         
     query = query.order_by(models.Listing.created_at.desc())
     
@@ -252,6 +255,8 @@ def get_listings(
         l_response = schemas.ListingResponse.model_validate(l)
         l_response.sellerName = l.seller.full_name
         l_response.sellerEmail = l.seller.email
+        l_response.sellerRating = l.seller.average_rating
+        l_response.sellerTotalReviews = l.seller.total_reviews
         results.append(l_response)
         
     return schemas.PaginatedListingsResponse(
@@ -495,6 +500,31 @@ async def websocket_chat(websocket: WebSocket, session_id: int, token: str, db: 
             await manager.send_personal_message(msg_dict, chat_session.buyer_id)
             if chat_session.buyer_id != chat_session.seller_id:
                 await manager.send_personal_message(msg_dict, chat_session.seller_id)
-                
     except WebSocketDisconnect:
         manager.disconnect(websocket, user.id)
+
+# ─── REVIEWS ──────────────────────────────────────────────────
+
+@app.post("/reviews", response_model=schemas.ReviewResponse)
+def create_review(
+    review: schemas.ReviewCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Create a new review for a seller."""
+    listing = db.query(models.Listing).filter(models.Listing.id == review.listing_id).first()
+    if not listing:
+        raise HTTPException(status_code=404, detail="Listing not found")
+        
+    new_review = models.Review(
+        reviewer_id=current_user.id,
+        seller_id=listing.seller_id,
+        listing_id=review.listing_id,
+        rating=review.rating,
+        comment=review.comment
+    )
+    db.add(new_review)
+    db.commit()
+    db.refresh(new_review)
+    
+    return new_review

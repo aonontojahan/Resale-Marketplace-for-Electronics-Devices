@@ -32,6 +32,8 @@ class UserResponse(UserBase):
     nid_back_path: Optional[str] = None
     selfie_path: Optional[str] = None
     nid_number: Optional[str] = None
+    average_rating: float = 0.0
+    total_reviews: int = 0
 
     class Config:
         from_attributes = True
@@ -100,6 +102,8 @@ class ListingResponse(BaseModel):
     seller_id: int
     sellerName: Optional[str] = None # Added for frontend convenience
     sellerEmail: Optional[str] = None
+    sellerRating: float = 0.0
+    sellerTotalReviews: int = 0
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -115,3 +119,20 @@ class PaginatedListingsResponse(BaseModel):
     page: int
     pages: int
     has_more: bool
+
+class ReviewBase(BaseModel):
+    listing_id: str
+    rating: int = Field(..., ge=1, le=5)
+    comment: Optional[str] = None
+
+class ReviewCreate(ReviewBase):
+    pass
+
+class ReviewResponse(ReviewBase):
+    id: int
+    reviewer_id: int
+    seller_id: int
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True

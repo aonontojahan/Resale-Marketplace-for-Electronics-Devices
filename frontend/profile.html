@@ -16,7 +16,7 @@
     <div class="container">
       <a href="index.html" class="logo">ReSale.</a>
       <div class="search-container">
-        <input type="text" placeholder="Search for electronics..." class="search-bar">
+        <input type="text" placeholder="Search for electronics..." id="globalSearchBar" class="search-bar">
       </div>
       <nav>
         <!-- Nav links will be injected by app.js -->
@@ -234,6 +234,38 @@
         <div class="modal-footer">
           <button type="button" class="btn-outline" id="cancelListingBtn">Cancel</button>
           <button type="submit" class="btn-primary" id="submitListingBtn">Submit for Review →</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <div class="modal-overlay" id="reviewModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>⭐️ Leave a Review</h3>
+        <button class="modal-close" onclick="document.getElementById('reviewModal').classList.remove('active'); document.body.style.overflow=''">&times;</button>
+      </div>
+      <form id="reviewForm" class="modal-form">
+        <input type="hidden" id="reviewListingId">
+        <div class="form-group">
+          <label for="reviewRating">Rating (1-5 Stars) *</label>
+          <select id="reviewRating" class="form-input" required>
+            <option value="">Select Rating</option>
+            <option value="5">⭐⭐⭐⭐⭐ (5/5) Excellent</option>
+            <option value="4">⭐⭐⭐⭐ (4/5) Good</option>
+            <option value="3">⭐⭐⭐ (3/5) Average</option>
+            <option value="2">⭐⭐ (2/5) Poor</option>
+            <option value="1">⭐ (1/5) Terrible</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="reviewComment">Comment</label>
+          <textarea id="reviewComment" class="form-input" rows="3" placeholder="Tell us about your experience with this seller..." style="resize:vertical;"></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn-outline" onclick="document.getElementById('reviewModal').classList.remove('active'); document.body.style.overflow=''">Cancel</button>
+          <button type="submit" class="btn-primary" id="submitReviewBtn">Submit Review</button>
         </div>
       </form>
     </div>
