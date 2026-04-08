@@ -268,12 +268,16 @@ def get_listings(
     )
 
 @app.patch("/listings/{listing_id}/status", response_model=schemas.ListingResponse)
-def update_listing_status(listing_id: str, status_update: schemas.ListingStatusUpdate, db: Session = Depends(get_db)):
+def update_listing_status(
+    listing_id: str,
+    status_update: schemas.ListingStatusUpdate,
+    db: Session = Depends(get_db)
+):
     """Update listing status."""
     listing = db.query(models.Listing).filter(models.Listing.id == listing_id).first()
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found")
-        
+    
     listing.status = status_update.status
     db.commit()
     db.refresh(listing)
@@ -281,6 +285,8 @@ def update_listing_status(listing_id: str, status_update: schemas.ListingStatusU
     response_data = schemas.ListingResponse.model_validate(listing)
     response_data.sellerName = listing.seller.full_name
     response_data.sellerEmail = listing.seller.email
+    response_data.sellerRating = listing.seller.average_rating
+    response_data.sellerTotalReviews = listing.seller.total_reviews
     return response_data
 
 @app.delete("/listings/{listing_id}", status_code=status.HTTP_204_NO_CONTENT)
