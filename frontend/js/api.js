@@ -8,6 +8,21 @@ const api = {
         const headers = {
             "Content-Type": "application/json",
         };
+
+        // If no token is provided, try to get it from localStorage
+        if (!token) {
+            const userJson = localStorage.getItem('resale_user');
+            if (userJson) {
+                try {
+                    const user = JSON.parse(userJson);
+                    // The token is often stored as access_token or token
+                    token = user.access_token || user.token;
+                } catch (e) {
+                    console.error("Failed to parse user session for token:", e);
+                }
+            }
+        }
+
         if (token) {
             headers["Authorization"] = `Bearer ${token}`;
         }
@@ -51,11 +66,25 @@ const api = {
      * Get current user profile.
      */
     async getMe(token) {
-        // Updated to use the endpoint I just created
-        // Note: The FastAPI endpoint expects a query param or header? 
-        // My current main.py uses a query param 'token' which is odd for Bearer. 
-        // I should fix main.py to use proper OAuth2 dependency, but for now I'll match the param.
-        return this.request(`/users/me?token=${token}`, "GET");
+        return this.request('/users/me', 'GET', null, token);
+    },
+
+    /**
+     * Get all users (for admin)
+     */
+    async getUsers(role = null) {
+        let endpoint = "/users";
+        if (role) {
+            endpoint += `?role=${role}`;
+        }
+        return this.request(endpoint, "GET");
+    },
+
+    /**
+     * Admin: Perform disciplinary action
+     */
+    async adminUserAction(userId, action) {
+        return this.request(`/admin/users/${userId}/action`, "POST", { action });
     },
 
     /**
@@ -86,24 +115,42 @@ const api = {
     /**
      * Listings API
      */
-    async getListings() {
-        return this.request("/listings", "GET");
+    async getListings(options = {}) {
+        let endpoint = "/listings";
+        const queryParams = new URLSearchParams();
+        
+        if (options.page) queryParams.append('page', options.page);
+        if (options.limit) queryParams.append('limit', options.limit);
+        if (options.status && options.status !== 'all') queryParams.append('status', options.status);
+        if (options.category && options.category !== 'all') queryParams.append('category', options.category);
+        if (options.seller_id) queryParams.append('seller_id', options.seller_id);
+        if (options.search_query) queryParams.append('search_query', options.search_query);
+
+        const queryString = queryParams.toString();
+        if (queryString) {
+            endpoint += `?${queryString}`;
+        }
+        return this.request(endpoint, "GET");
     },
     
-    async createListing(formData) {
-        // We use fetch manually here because we are sending FormData instead of JSON
+    async createListing(formData, token) {
+        // Uses fetch manually because we send FormData (not JSON).
+        // Token is sent in the Authorization header, NOT in the form body.
         try {
             const response = await fetch(`${API_BASE_URL}/listings`, {
-                method: "POST",
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
                 body: formData
             });
             const data = await response.json();
             if (!response.ok) {
-                throw new Error(data.detail || "Something went wrong");
+                throw new Error(data.detail || 'Something went wrong');
             }
             return data;
         } catch (error) {
-            console.error("API Error:", error);
+            console.error('API Error:', error);
             throw error;
         }
     },
@@ -118,6 +165,14 @@ const api = {
     
     async deleteChat(sessionId) {
         return this.request(`/chats/${sessionId}`, "DELETE");
+    },
+    
+    async markChatRead(sessionId, userId) {
+        return this.request(`/chats/${sessionId}/read?user_id=${userId}`, "POST");
+    },
+    
+    async createReview(reviewData) {
+        return this.request('/reviews', 'POST', reviewData);
     }
 };
 

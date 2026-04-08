@@ -2,10 +2,12 @@ import os
 import shutil
 import uuid
 from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, Form, File, UploadFile
+from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy.orm import Session
-from datetime import timedelta
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func
+from datetime import timedelta, datetime, timezone
 from typing import List, Dict
 
 from . import models, schemas, auth, database
@@ -15,6 +17,9 @@ from .database import engine, get_db
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="ReSale Marketplace API")
+
+# OAuth2 scheme — reads 'Authorization: Bearer <token>' header
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 # Ensure uploads directory exists
 os.makedirs("backend/uploads", exist_ok=True)
@@ -56,24 +61,35 @@ manager = ConnectionManager()
 def read_root():
     return {"message": "Welcome to ReSale Marketplace API"}
 
-@app.post("/auth/signup", response_model=schemas.UserResponse, status_code=status.HTTP_201_CREATED)
-def signup(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
-    """Create a new user in the database."""
+@app.post("/auth/signup", response_model=schemas.UserResponse)
+def signup(user: schemas.UserCreate, db: Session = Depends(get_db)):
+    """Create a new user with minimal fields."""
     # Check if user already exists
-    db_user = db.query(models.User).filter(models.User.email == user_in.email).first()
+    db_user = db.query(models.User).filter(models.User.email == user.email).first()
     if db_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
-        )
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    # Check NID uniqueness across all users
+    if user.nid_number:
+        existing_nid = db.query(models.User).filter(models.User.nid_number == user.nid_number).first()
+        if existing_nid:
+            raise HTTPException(status_code=400, detail="This NID is already registered with another account")
+
+    # Status: Sellers are pending_verification, others are active
+    account_status = "pending_verification" if user.role == "seller" else "active"
     
     # Hash password and create user
-    hashed_password = auth.get_password_hash(user_in.password)
+    hashed_password = auth.get_password_hash(user.password)
     new_user = models.User(
-        email=user_in.email,
-        full_name=user_in.full_name,
+        email=user.email,
+        full_name=user.full_name,
         hashed_password=hashed_password,
-        role=user_in.role
+        role=user.role,
+        phone_number=user.phone_number,
+        dob=user.dob,
+        nid_number=user.nid_number,
+        account_status=account_status,
+        # Other fields like address, shop_name, etc. remain empty as they're not provided in signup anymore.
     )
     
     db.add(new_user)
@@ -92,6 +108,18 @@ def login(user_in: schemas.UserLogin, db: Session = Depends(get_db)):
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+        
+    if user.account_status == "banned":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account has been permanently banned."
+        )
+        
+    if user.suspended_until and user.suspended_until > datetime.now(timezone.utc):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Your account is suspended until {user.suspended_until.strftime('%Y-%m-%d %H:%M:%S')}."
+        )
     
     # Create access token
     access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -103,8 +131,8 @@ def login(user_in: schemas.UserLogin, db: Session = Depends(get_db)):
     return {"access_token": access_token, "token_type": "bearer"}
 
 @app.get("/users/me", response_model=schemas.UserResponse)
-def get_current_user(token: str, db: Session = Depends(get_db)):
-    """Fetch current user profile from token."""
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    """Fetch current user profile from Authorization: Bearer token header."""
     payload = auth.decode_access_token(token)
     if not payload:
         raise HTTPException(
@@ -117,8 +145,22 @@ def get_current_user(token: str, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.email == email).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+        
+    if user.account_status == "banned":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Your account has been permanently banned.")
+        
+    if user.suspended_until and user.suspended_until > datetime.now(timezone.utc):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Your account is suspended.")
     
     return user
+
+@app.get("/users", response_model=List[schemas.UserResponse])
+def get_users(role: str = None, db: Session = Depends(get_db)):
+    """Fetch all users, optionally filtered by role."""
+    query = db.query(models.User)
+    if role:
+        query = query.filter(models.User.role == role)
+    return query.all()
 
 @app.post("/listings", response_model=schemas.ListingResponse, status_code=status.HTTP_201_CREATED)
 def create_listing(
@@ -128,7 +170,7 @@ def create_listing(
     condition: str = Form(...),
     description: str = Form(...),
     image: UploadFile = File(None),
-    token: str = Form(...),
+    token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
 ):
     """Create a new listing with an optional image upload."""
@@ -140,6 +182,13 @@ def create_listing(
     user = db.query(models.User).filter(models.User.email == email).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+        
+    if user.account_status == "banned" or user.account_status == "pending_verification" or (user.suspended_until and user.suspended_until > datetime.now(timezone.utc)):
+        detail_msg = "Your account is pending verification by admin." if user.account_status == "pending_verification" else "Your account is suspended or banned."
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail_msg)
+        
+    if user.listing_banned_until and user.listing_banned_until > datetime.now(timezone.utc):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"You are banned from creating listings until {user.listing_banned_until.strftime('%Y-%m-%d %H:%M:%S')}.")
 
     image_url = ""
     if image and image.filename:
@@ -171,25 +220,64 @@ def create_listing(
     response_data.sellerEmail = user.email
     return response_data
 
-@app.get("/listings", response_model=List[schemas.ListingResponse])
-def get_listings(db: Session = Depends(get_db)):
-    """Fetch all listings."""
-    listings = db.query(models.Listing).all()
+@app.get("/listings", response_model=schemas.PaginatedListingsResponse)
+def get_listings(
+    page: int = 1,
+    limit: int = 10,
+    status: str = None,
+    category: str = None,
+    seller_id: int = None,
+    search_query: str = None,
+    db: Session = Depends(get_db)
+):
+    """Fetch paginated listings."""
+    query = db.query(models.Listing).options(joinedload(models.Listing.seller))
+    
+    if status is not None and status != 'all':
+        query = query.filter(models.Listing.status == status)
+    if category is not None and category != 'all':
+        query = query.filter(models.Listing.category == category)
+    if seller_id is not None:
+        query = query.filter(models.Listing.seller_id == seller_id)
+    if search_query:
+        query = query.filter(models.Listing.title.ilike(f"%{search_query}%"))
+        
+    query = query.order_by(models.Listing.created_at.desc())
+    
+    total = query.count()
+    pages = (total + limit - 1) // limit if limit > 0 else 1
+    
+    offset = (page - 1) * limit
+    listings = query.offset(offset).limit(limit).all()
+    
     results = []
     for l in listings:
         l_response = schemas.ListingResponse.model_validate(l)
         l_response.sellerName = l.seller.full_name
         l_response.sellerEmail = l.seller.email
+        l_response.sellerRating = l.seller.average_rating
+        l_response.sellerTotalReviews = l.seller.total_reviews
         results.append(l_response)
-    return results
+        
+    return schemas.PaginatedListingsResponse(
+        items=results,
+        total=total,
+        page=page,
+        pages=pages,
+        has_more=page < pages
+    )
 
 @app.patch("/listings/{listing_id}/status", response_model=schemas.ListingResponse)
-def update_listing_status(listing_id: str, status_update: schemas.ListingStatusUpdate, db: Session = Depends(get_db)):
+def update_listing_status(
+    listing_id: str,
+    status_update: schemas.ListingStatusUpdate,
+    db: Session = Depends(get_db)
+):
     """Update listing status."""
     listing = db.query(models.Listing).filter(models.Listing.id == listing_id).first()
     if not listing:
         raise HTTPException(status_code=404, detail="Listing not found")
-        
+    
     listing.status = status_update.status
     db.commit()
     db.refresh(listing)
@@ -197,6 +285,8 @@ def update_listing_status(listing_id: str, status_update: schemas.ListingStatusU
     response_data = schemas.ListingResponse.model_validate(listing)
     response_data.sellerName = listing.seller.full_name
     response_data.sellerEmail = listing.seller.email
+    response_data.sellerRating = listing.seller.average_rating
+    response_data.sellerTotalReviews = listing.seller.total_reviews
     return response_data
 
 @app.delete("/listings/{listing_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -209,6 +299,35 @@ def delete_listing(listing_id: str, db: Session = Depends(get_db)):
     db.delete(listing)
     db.commit()
     return
+
+@app.post("/admin/users/{user_id}/action", response_model=schemas.UserResponse)
+def admin_user_action(user_id: int, action_req: schemas.UserActionRequest, db: Session = Depends(get_db)):
+    """Apply disciplinary actions to a user."""
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    now = datetime.now(timezone.utc)
+    
+    if action_req.action == "ban_listings_7_days":
+        user.listing_banned_until = now + timedelta(days=7)
+    elif action_req.action == "suspend_15_days":
+        user.suspended_until = now + timedelta(days=15)
+    elif action_req.action == "permanent_ban":
+        user.account_status = "banned"
+        # Delete their listings
+        db.query(models.Listing).filter(models.Listing.seller_id == user_id).delete()
+    elif action_req.action == "approve_seller":
+        if user.role == "seller":
+            user.account_status = "active"
+        else:
+            raise HTTPException(status_code=400, detail="Only seller accounts can be approved.")
+    else:
+        raise HTTPException(status_code=400, detail="Invalid action")
+        
+    db.commit()
+    db.refresh(user)
+    return user
 
 @app.get("/stats")
 def get_platform_stats(db: Session = Depends(get_db)):
@@ -223,12 +342,24 @@ def get_platform_stats(db: Session = Depends(get_db)):
     # Satisfaction improves slightly as the community grows (capped at 99%)
     satisfaction = 99 if total_users == 0 else min(99, 94 + round(total_users / 10))
 
+    total_listings   = db.query(models.Listing).count()
+    pending_listings = db.query(models.Listing).filter(models.Listing.status == models.ListingStatus.PENDING).count()
+    approved_listings = db.query(models.Listing).filter(models.Listing.status == models.ListingStatus.APPROVED).count()
+    rejected_listings = db.query(models.Listing).filter(models.Listing.status == models.ListingStatus.REJECTED).count()
+    
+    pending_sellers = db.query(models.User).filter(models.User.role == models.UserRole.SELLER, models.User.account_status == "pending_verification").count()
+
     return {
         "total_users":      total_users,
         "total_buyers":     total_buyers,
         "total_sellers":    total_sellers,
         "satisfaction_pct": satisfaction,
         "avg_sale_hours":   24,
+        "total_listings":   total_listings,
+        "pending_listings": pending_listings,
+        "approved_listings": approved_listings,
+        "rejected_listings": rejected_listings,
+        "pending_sellers":   pending_sellers,
     }
 
 @app.post("/chats", response_model=schemas.ChatSessionResponse)
@@ -269,7 +400,7 @@ def get_user_chats(user_id: int, db: Session = Depends(get_db)):
     """Fetch all chat sessions for a specific user."""
     chats = db.query(models.ChatSession).filter(
         (models.ChatSession.buyer_id == user_id) | (models.ChatSession.seller_id == user_id)
-    ).all()
+    ).order_by(models.ChatSession.updated_at.desc()).all()
     
     results = []
     for chat in chats:
@@ -278,6 +409,15 @@ def get_user_chats(user_id: int, db: Session = Depends(get_db)):
             resp.listing_title = chat.listing.title
             resp.listing_price = chat.listing.price
             resp.listing_image_url = chat.listing.image_url
+        
+        # Calculate unread count for the requesting user
+        unread = db.query(models.ChatMessage).filter(
+            models.ChatMessage.session_id == chat.id,
+            models.ChatMessage.sender_id != user_id,
+            models.ChatMessage.is_read == 0
+        ).count()
+        resp.unread_count = unread
+
         results.append(resp)
     return results
 
@@ -291,6 +431,17 @@ def delete_chat(session_id: int, db: Session = Depends(get_db)):
     db.delete(chat)
     db.commit()
     return {"status": "success", "message": "Chat session deleted"}
+
+@app.post("/chats/{session_id}/read")
+def mark_chat_read(session_id: int, user_id: int, db: Session = Depends(get_db)):
+    """Mark all messages in a session as read for the recipient."""
+    db.query(models.ChatMessage).filter(
+        models.ChatMessage.session_id == session_id,
+        models.ChatMessage.sender_id != user_id,
+        models.ChatMessage.is_read == 0
+    ).update({models.ChatMessage.is_read: 1}, synchronize_session=False)
+    db.commit()
+    return {"status": "success"}
 
 @app.get("/chats/{session_id}/messages", response_model=List[schemas.MessageResponse])
 def get_chat_messages(session_id: int, db: Session = Depends(get_db)):
@@ -347,9 +498,39 @@ async def websocket_chat(websocket: WebSocket, session_id: int, token: str, db: 
                 "created_at": new_msg.created_at.isoformat()
             }
             
+            # Update session timestamp
+            chat_session.updated_at = func.now()
+            db.add(chat_session)
+            db.commit()
+            
             await manager.send_personal_message(msg_dict, chat_session.buyer_id)
             if chat_session.buyer_id != chat_session.seller_id:
                 await manager.send_personal_message(msg_dict, chat_session.seller_id)
-                
     except WebSocketDisconnect:
         manager.disconnect(websocket, user.id)
+
+# ─── REVIEWS ──────────────────────────────────────────────────
+
+@app.post("/reviews", response_model=schemas.ReviewResponse)
+def create_review(
+    review: schemas.ReviewCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Create a new review for a seller."""
+    listing = db.query(models.Listing).filter(models.Listing.id == review.listing_id).first()
+    if not listing:
+        raise HTTPException(status_code=404, detail="Listing not found")
+        
+    new_review = models.Review(
+        reviewer_id=current_user.id,
+        seller_id=listing.seller_id,
+        listing_id=review.listing_id,
+        rating=review.rating,
+        comment=review.comment
+    )
+    db.add(new_review)
+    db.commit()
+    db.refresh(new_review)
+    
+    return new_review

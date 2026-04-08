@@ -7,9 +7,13 @@ class UserBase(BaseModel):
     email: EmailStr
     full_name: str
     role: UserRole = UserRole.BUYER
+    phone_number: Optional[str] = None
+    dob: Optional[datetime] = None
 
 class UserCreate(UserBase):
     password: str = Field(..., min_length=8)
+    # Seller fields (optional in schema, enforced in logic)
+    nid_number: Optional[str] = None
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -19,9 +23,23 @@ class UserResponse(UserBase):
     id: int
     created_at: datetime
     updated_at: Optional[datetime] = None
+    account_status: str
+    suspended_until: Optional[datetime] = None
+    listing_banned_until: Optional[datetime] = None
+    
+    # Include paths for verification for Admin review
+    nid_front_path: Optional[str] = None
+    nid_back_path: Optional[str] = None
+    selfie_path: Optional[str] = None
+    nid_number: Optional[str] = None
+    average_rating: float = 0.0
+    total_reviews: int = 0
 
     class Config:
         from_attributes = True
+
+class UserActionRequest(BaseModel):
+    action: str
 
 class Token(BaseModel):
     access_token: str
@@ -41,6 +59,7 @@ class MessageResponse(MessageBase):
     id: int
     session_id: int
     sender_id: int
+    is_read: bool = False
     created_at: datetime
     
     class Config:
@@ -63,6 +82,7 @@ class ChatSessionResponse(ChatSessionBase):
     listing_title: Optional[str] = None
     listing_price: Optional[str] = None
     listing_image_url: Optional[str] = None
+    unread_count: int = 0
     messages: List[MessageResponse] = []
 
     class Config:
@@ -82,6 +102,8 @@ class ListingResponse(BaseModel):
     seller_id: int
     sellerName: Optional[str] = None # Added for frontend convenience
     sellerEmail: Optional[str] = None
+    sellerRating: float = 0.0
+    sellerTotalReviews: int = 0
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -90,3 +112,27 @@ class ListingResponse(BaseModel):
 
 class ListingStatusUpdate(BaseModel):
     status: ListingStatus
+
+class PaginatedListingsResponse(BaseModel):
+    items: List[ListingResponse]
+    total: int
+    page: int
+    pages: int
+    has_more: bool
+
+class ReviewBase(BaseModel):
+    listing_id: str
+    rating: int = Field(..., ge=1, le=5)
+    comment: Optional[str] = None
+
+class ReviewCreate(ReviewBase):
+    pass
+
+class ReviewResponse(ReviewBase):
+    id: int
+    reviewer_id: int
+    seller_id: int
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
