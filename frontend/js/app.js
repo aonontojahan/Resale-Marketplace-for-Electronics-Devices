@@ -53,31 +53,96 @@ function formatListingDate(dateString) {
 }
 
 /**
- * Renders a listing card for the public/buyer view.
+ * Build a multi-image carousel HTML string for a product.
+ * Falls back to a single image or placeholder if no images are available.
  */
-function renderListingCard(listing) {
-    const imgSrc = listing.image_url ? `http://localhost:8000${listing.image_url}` : (listing.imageUrl || '');
-    const imgHtml = imgSrc
-        ? `<img src="${imgSrc}" alt="${listing.title}" class="card-img" onerror="this.style.display='none'">`
-        : `<div class="card-img-placeholder">${CATEGORY_EMOJIS[listing.category] || '📦'}</div>`;
+function buildImageCarousel(product, carouselId) {
+    const imgs = (product.image_urls && product.image_urls.length > 0)
+        ? product.image_urls
+        : (product.image_url ? [product.image_url] : []);
 
-    const priceFormatted = Number(listing.price).toLocaleString('en-IN');
-    const needsReadMore = listing.description.length > 90;
-    const descHtml = needsReadMore
-        ? `<div class="description-container" id="desc-container-${listing.id}">
-             <p class="description-text truncated" id="desc-text-${listing.id}">${listing.description}</p>
-             <button class="read-more-btn" onclick="toggleDescription('${listing.id}', event)" id="read-more-${listing.id}">Read More</button>
-           </div>`
-        : `<p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.8rem; line-height:1.5;">${listing.description}</p>`;
+    if (imgs.length === 0) {
+        return `<div class="card-img-placeholder">${CATEGORY_EMOJIS[product.category] || '📦'}</div>`;
+    }
+    if (imgs.length === 1) {
+        return `<img src="http://localhost:8000${imgs[0]}" alt="${product.title}" class="card-img" onerror="this.style.display='none'">`;
+    }
 
-    const isSold = listing.status === 'sold';
+    // Multi-image carousel
+    const slides = imgs.map((url, i) => `
+        <div class="carousel-slide" style="display:${i === 0 ? 'block' : 'none'}; width:100%; height:100%;">
+            <img src="http://localhost:8000${url}" alt="${product.title} - photo ${i + 1}" class="card-img" style="width:100%; height:100%; object-fit:cover;" onerror="this.style.display='none'">
+        </div>`).join('');
 
     return `
-        <div class="card" data-category="${listing.category}" data-id="${listing.id}" style="border: 1px solid var(--border); border-radius: 16px; overflow: hidden; background: var(--surface); box-shadow: 0 4px 12px rgba(0,0,0,0.05); display: flex; flex-direction: column; transition: transform 0.3s ease, box-shadow 0.3s ease;" onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 12px 24px rgba(0,0,0,0.1)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.05)'">
+        <div class="img-carousel" id="${carouselId}" style="position:relative; overflow:hidden;">
+            ${slides}
+            <button onclick="carouselPrev('${carouselId}',${imgs.length},event)" style="position:absolute;left:6px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);color:white;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:0.9rem;display:flex;align-items:center;justify-content:center;z-index:5;">‹</button>
+            <button onclick="carouselNext('${carouselId}',${imgs.length},event)" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);color:white;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:0.9rem;display:flex;align-items:center;justify-content:center;z-index:5;">›</button>
+            <div style="position:absolute;bottom:6px;left:50%;transform:translateX(-50%);display:flex;gap:4px;z-index:5;">
+                ${imgs.map((_, i) => `<span class="carousel-dot" id="dot-${carouselId}-${i}" style="width:6px;height:6px;border-radius:50%;background:${i===0?'white':'rgba(255,255,255,0.5)'};cursor:pointer;" onclick="carouselGoto('${carouselId}',${imgs.length},${i},event)"></span>`).join('')}
+            </div>
+        </div>`;
+}
+
+/** Navigate carousel backward */
+function carouselPrev(id, total, event) {
+    if (event) event.stopPropagation();
+    _carouselMove(id, total, -1);
+}
+/** Navigate carousel forward */
+function carouselNext(id, total, event) {
+    if (event) event.stopPropagation();
+    _carouselMove(id, total, +1);
+}
+/** Jump to specific slide */
+function carouselGoto(id, total, idx, event) {
+    if (event) event.stopPropagation();
+    const el = document.getElementById(id);
+    if (!el) return;
+    const slides = el.querySelectorAll('.carousel-slide');
+    slides.forEach((s, i) => s.style.display = i === idx ? 'block' : 'none');
+    for (let i = 0; i < total; i++) {
+        const dot = document.getElementById(`dot-${id}-${i}`);
+        if (dot) dot.style.background = i === idx ? 'white' : 'rgba(255,255,255,0.5)';
+    }
+    el.dataset.current = idx;
+}
+function _carouselMove(id, total, dir) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const current = parseInt(el.dataset.current || '0');
+    const next = (current + dir + total) % total;
+    carouselGoto(id, total, next, null);
+}
+window.carouselPrev = carouselPrev;
+window.carouselNext = carouselNext;
+window.carouselGoto = carouselGoto;
+
+/**
+ * Renders a product card for the public/buyer view.
+ */
+function renderProductCard(product) {
+    const carouselId = `carousel-${product.id}`;
+    const imgHtml = buildImageCarousel(product, carouselId);
+
+    const priceFormatted = Number(product.price).toLocaleString('en-IN');
+    const needsReadMore = product.description.length > 90;
+    const descHtml = needsReadMore
+        ? `<div class="description-container" id="desc-container-${product.id}">
+             <p class="description-text truncated" id="desc-text-${product.id}">${product.description}</p>
+             <button class="read-more-btn" onclick="toggleDescription('${product.id}', event)" id="read-more-${product.id}">Read More</button>
+           </div>`
+        : `<p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:0.8rem; line-height:1.5;">${product.description}</p>`;
+
+    const isSold = product.status === 'sold';
+
+    return `
+        <div class="card" data-category="${product.category}" data-id="${product.id}" style="border: 1px solid var(--border); border-radius: 16px; overflow: hidden; background: var(--surface); box-shadow: 0 4px 12px rgba(0,0,0,0.05); display: flex; flex-direction: column; transition: transform 0.3s ease, box-shadow 0.3s ease;" onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 12px 24px rgba(0,0,0,0.1)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.05)'">
             <div style="position: relative;">
                 ${imgHtml}
                 <div style="position: absolute; top: 12px; left: 12px;">
-                    <span style="background: rgba(255,255,255,0.95); color: #0f172a; font-weight: 800; font-size: 0.75rem; padding: 0.4rem 0.8rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); letter-spacing: 0.03em;">${listing.condition.toUpperCase()}</span>
+                    <span style="background: rgba(255,255,255,0.95); color: #0f172a; font-weight: 800; font-size: 0.75rem; padding: 0.4rem 0.8rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); letter-spacing: 0.03em;">${product.condition.toUpperCase()}</span>
                 </div>
                 <div style="position: absolute; top: 12px; right: 12px;">
                     ${isSold
@@ -88,131 +153,122 @@ function renderListingCard(listing) {
             </div>
             <div class="card-content" style="padding: 1.25rem; display: flex; flex-direction: column; flex: 1;">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.5rem;">
-                    <h3 class="card-title" style="margin: 0; font-size: 1.15rem; font-weight: 800; line-height: 1.3; color: var(--text-primary); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${listing.title}</h3>
+                    <h3 class="card-title" style="margin: 0; font-size: 1.15rem; font-weight: 800; line-height: 1.3; color: var(--text-primary); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${product.title}</h3>
                 </div>
                 <div style="display: flex; align-items: baseline; gap: 0.5rem; margin-bottom: 0.75rem;">
                     <p class="card-price" style="margin: 0; font-size: 1.6rem; font-weight: 900; background: linear-gradient(135deg, var(--primary), var(--accent-cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">৳${priceFormatted}</p>
                 </div>
-                
                 <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; align-items: center;">
-                    <span style="font-size: 0.75rem; background: rgba(99,102,241,0.08); color: var(--primary); font-weight: 700; padding: 0.35rem 0.6rem; border-radius: 6px; border: 1px solid rgba(99,102,241,0.2); white-space: nowrap;">${CATEGORY_EMOJIS[listing.category] || '📦'} ${listing.category}</span>
-                    ${listing.sellerTotalReviews > 0
-            ? `<span style="font-size: 0.75rem; background: rgba(245,158,11,0.08); color: #d97706; font-weight: 700; padding: 0.35rem 0.6rem; border-radius: 6px; border: 1px solid rgba(245,158,11,0.2); white-space: nowrap;">⭐ ${listing.sellerRating.toFixed(1)} (${listing.sellerTotalReviews})</span>`
+                    <span style="font-size: 0.75rem; background: rgba(99,102,241,0.08); color: var(--primary); font-weight: 700; padding: 0.35rem 0.6rem; border-radius: 6px; border: 1px solid rgba(99,102,241,0.2); white-space: nowrap;">${CATEGORY_EMOJIS[product.category] || '📦'} ${product.category}</span>
+                    ${product.sellerTotalReviews > 0
+            ? `<span style="font-size: 0.75rem; background: rgba(245,158,11,0.08); color: #d97706; font-weight: 700; padding: 0.35rem 0.6rem; border-radius: 6px; border: 1px solid rgba(245,158,11,0.2); white-space: nowrap;">⭐ ${product.sellerRating.toFixed(1)} (${product.sellerTotalReviews})</span>`
             : `<span style="font-size: 0.75rem; background: var(--bg-body); color: var(--text-muted); font-weight: 600; padding: 0.35rem 0.6rem; border-radius: 6px; border: 1px solid var(--border); white-space: nowrap;">⭐ New Seller</span>`
         }
                 </div>
-                
                 <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.4rem; font-weight: 600;">
-                    👤 Seller: <a href="index.html?seller=${listing.seller_id}" onclick="event.stopPropagation();" style="color: var(--primary); text-decoration: none; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.textDecoration='underline'; this.style.color='var(--accent-cyan)'" onmouseout="this.style.textDecoration='none'; this.style.color='var(--primary)'">${listing.sellerName}</a>
+                    👤 Seller: <a href="index.html?seller=${product.seller_id}" onclick="event.stopPropagation();" style="color: var(--primary); text-decoration: none; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.textDecoration='underline'; this.style.color='var(--accent-cyan)'" onmouseout="this.style.textDecoration='none'; this.style.color='var(--primary)'">${product.sellerName}</a>
                 </div>
-                
                 <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.4rem; font-weight: 500;">
-                    🕒 Listed: ${formatListingDate(listing.created_at)}
+                    🕒 Posted: ${formatListingDate(product.created_at)}
                 </div>
-                
                 <div style="margin-bottom: 1.25rem; flex: 1;">
                     ${descHtml}
                 </div>
-                
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: auto;">
                     ${isSold
             ? `<button style="background: var(--bg-body); color: var(--text-muted); border: 1px solid var(--border); border-radius: 10px; width: 100%; font-weight: 800; padding: 0.75rem; font-size: 0.85rem; cursor: not-allowed; transition: all 0.2s;" disabled>SOLD OUT</button>`
-            : `<button style="background: linear-gradient(135deg, var(--primary), var(--accent-cyan)); color: white; border: none; border-radius: 10px; width: 100%; font-weight: 800; padding: 0.75rem; font-size: 0.85rem; cursor: pointer; box-shadow: 0 4px 12px rgba(99,102,241,0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(99,102,241,0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(99,102,241,0.3)'" onclick="handleBuyClick('${listing.id}')" id="buyBtn-${listing.id}">Buy with Escrow</button>`
+            : `<button style="background: linear-gradient(135deg, var(--primary), var(--accent-cyan)); color: white; border: none; border-radius: 10px; width: 100%; font-weight: 800; padding: 0.75rem; font-size: 0.85rem; cursor: pointer; box-shadow: 0 4px 12px rgba(99,102,241,0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(99,102,241,0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(99,102,241,0.3)'" onclick="handleBuyClick('${product.id}')" id="buyBtn-${product.id}">Buy with Escrow</button>`
         }
-                    <button style="background: transparent; color: var(--primary); border: 2px solid var(--primary); border-radius: 10px; text-align: center; font-weight: 800; width: 100%; padding: 0.65rem; font-size: 0.85rem; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='var(--primary)'; this.style.color='white'" onmouseout="this.style.background='transparent'; this.style.color='var(--primary)'" onclick="handleMessageClick('${listing.id}', '${listing.seller_id}')" id="msgBtn-${listing.id}">Message</button>
+                    <button style="background: transparent; color: var(--primary); border: 2px solid var(--primary); border-radius: 10px; text-align: center; font-weight: 800; width: 100%; padding: 0.65rem; font-size: 0.85rem; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='var(--primary)'; this.style.color='white'" onmouseout="this.style.background='transparent'; this.style.color='var(--primary)'" onclick="handleMessageClick('${product.id}', '${product.seller_id}')" id="msgBtn-${product.id}">Message</button>
                 </div>
-                <button style="width: 100%; padding: 0.5rem; border-radius: 8px; text-align: center; font-weight: 600; font-size: 0.8rem; border: none; background: transparent; color: var(--text-muted); margin-top: 0.5rem; cursor: pointer; transition: color 0.2s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'" onclick="openReviewModal('${listing.id}')" id="revBtn-${listing.id}">⭐️ Leave a Review</button>
+                <button style="width: 100%; padding: 0.5rem; border-radius: 8px; text-align: center; font-weight: 600; font-size: 0.8rem; border: none; background: transparent; color: var(--text-muted); margin-top: 0.5rem; cursor: pointer; transition: color 0.2s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'" onclick="openReviewModal('${product.id}')" id="revBtn-${product.id}">⭐️ Leave a Review</button>
             </div>
         </div>`;
 }
 
 /**
- * Renders a listing card in the seller's dashboard (with status + edit/delete).
+ * Renders a product card in the seller's dashboard (with status + delete).
  */
-function renderSellerCard(listing) {
-    const imgSrc = listing.image_url ? `http://localhost:8000${listing.image_url}` : (listing.imageUrl || '');
-    const imgHtml = imgSrc
-        ? `<img src="${imgSrc}" alt="${listing.title}" class="card-img" style="aspect-ratio:16/9;" onerror="this.style.display='none'">`
-        : `<div class="card-img-placeholder">${CATEGORY_EMOJIS[listing.category] || '📦'}</div>`;
+function renderSellerCard(product) {
+    const carouselId = `sel-carousel-${product.id}`;
+    const imgHtml = buildImageCarousel(product, carouselId);
 
-    const priceFormatted = Number(listing.price).toLocaleString('en-IN');
-    const status = STATUS_CONFIG[listing.status] || STATUS_CONFIG['pending'];
+    const priceFormatted = Number(product.price).toLocaleString('en-IN');
+    const statusCfg = STATUS_CONFIG[product.status] || STATUS_CONFIG['pending'];
 
-    const needsReadMore = listing.description.length > 60;
+    const needsReadMore = product.description.length > 60;
     const descHtml = needsReadMore
-        ? `<div class="description-container" id="desc-container-${listing.id}">
-             <p class="description-text truncated" id="desc-text-${listing.id}" style="font-size: 0.8rem;">${listing.description}</p>
-             <button class="read-more-btn" onclick="toggleDescription('${listing.id}', event)" id="read-more-${listing.id}">Read More</button>
+        ? `<div class="description-container" id="desc-container-${product.id}">
+             <p class="description-text truncated" id="desc-text-${product.id}" style="font-size: 0.8rem;">${product.description}</p>
+             <button class="read-more-btn" onclick="toggleDescription('${product.id}', event)" id="read-more-${product.id}">Read More</button>
            </div>`
-        : `<p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.5rem; line-height:1.4;">${listing.description}</p>`;
+        : `<p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.5rem; line-height:1.4;">${product.description}</p>`;
 
     return `
-        <div class="card" data-category="${listing.category}" data-id="${listing.id}" data-status="${listing.status}">
+        <div class="card" data-category="${product.category}" data-id="${product.id}" data-status="${product.status}">
             ${imgHtml}
             <div class="card-content">
-                <span class="listing-status-badge ${status.cls}">${status.label}</span>
-                <h4 class="card-title" style="font-size:0.95rem; margin-top:0.5rem;">${listing.title}</h4>
+                <span class="listing-status-badge ${statusCfg.cls}">${statusCfg.label}</span>
+                <h4 class="card-title" style="font-size:0.95rem; margin-top:0.5rem;">${product.title}</h4>
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <p class="card-price" style="font-size:1rem; margin-bottom: 0;">৳${priceFormatted}</p>
-                    <small style="font-size: 0.7rem; color: var(--text-muted); text-align: right;">🕒 ${formatListingDate(listing.created_at)}</small>
+                    <small style="font-size: 0.7rem; color: var(--text-muted); text-align: right;">🕒 ${formatListingDate(product.created_at)}</small>
                 </div>
                 <div style="margin-top: 0.5rem;">
                     ${descHtml}
                 </div>
                 <div style="margin-top:auto; display:flex; gap:0.5rem;">
-                    ${listing.status === 'approved'
+                    ${product.status === 'approved'
             ? `<button class="btn-primary" style="flex:1; padding:0.4rem; font-size:0.8rem; background:linear-gradient(135deg,#10b981,#059669); border:none; border-radius:8px; color:white; font-weight:700; cursor:pointer;">🤝 Mark as Sold</button>`
-            : listing.status === 'sold'
+            : product.status === 'sold'
                 ? `<button style="flex:1; padding:0.4rem; font-size:0.8rem; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.2); border-radius:8px; color:#ef4444; font-weight:700; cursor:not-allowed;" disabled>🤝 Sold</button>`
                 : ''
         }
-                    <button class="btn-outline" style="flex:1; padding:0.4rem; font-size:0.8rem;" onclick="deleteMyListing('${listing.id}')">🗑 Delete</button>
+                    <button class="btn-outline" style="flex:1; padding:0.4rem; font-size:0.8rem;" onclick="deleteMyProduct('${product.id}')">🗑 Delete</button>
                 </div>
             </div>
         </div>`;
 }
 
 /**
- * Renders an admin review card with Approve/Reject actions.
+ * Renders an admin product card with Approve/Reject actions.
  */
-function renderAdminCard(listing) {
-    const imgSrc = listing.image_url ? `http://localhost:8000${listing.image_url}` : (listing.imageUrl || '');
-    const imgHtml = imgSrc
-        ? `<img src="${imgSrc}" alt="${listing.title}" class="admin-card-img-el" onerror="this.parentElement.querySelector('.card-img-placeholder') && (this.style.display='none')">`
-        : `<div class="admin-card-img-placeholder">${CATEGORY_EMOJIS[listing.category] || '📦'}</div>`;
+function renderAdminCard(product) {
+    const carouselId = `adm-carousel-${product.id}`;
+    const imgHtml = buildImageCarousel(product, carouselId);
 
-    const priceFormatted = Number(listing.price).toLocaleString('en-IN');
-    const status = STATUS_CONFIG[listing.status] || STATUS_CONFIG['pending'];
+    const priceFormatted = Number(product.price).toLocaleString('en-IN');
+    const statusCfg = STATUS_CONFIG[product.status] || STATUS_CONFIG['pending'];
 
-    const actionBtns = listing.status === 'pending' ? `
-        <button class="btn-primary admin-btn-approve" onclick="adminAction('${listing.id}','approved')" id="approve-${listing.id}">✅ Approve</button>
-        <button class="btn-outline admin-btn-reject" onclick="adminAction('${listing.id}','rejected')" id="reject-${listing.id}">❌ Reject</button>
+    const actionBtns = product.status === 'pending' ? `
+        <button class="btn-primary admin-btn-approve" onclick="adminAction('${product.id}','approved')" id="approve-${product.id}">✅ Approve</button>
+        <button class="btn-outline admin-btn-reject" onclick="adminAction('${product.id}','rejected')" id="reject-${product.id}">❌ Reject</button>
     ` : `
-        <button class="btn-outline admin-btn-reset" onclick="adminAction('${listing.id}','pending')" id="reset-${listing.id}">↩ Reset to Pending</button>
+        <button class="btn-outline admin-btn-reset" onclick="adminAction('${product.id}','pending')" id="reset-${product.id}">↩ Reset to Pending</button>
     `;
 
     return `
-        <div class="admin-listing-card" data-status="${listing.status}" data-id="${listing.id}">
+        <div class="admin-listing-card" data-status="${product.status}" data-id="${product.id}">
             <div class="admin-card-img">
                 ${imgHtml}
             </div>
             <div class="admin-card-content">
                 <div class="admin-card-header">
                     <div class="admin-card-info">
-                        <span class="listing-status-badge ${status.cls}">${status.label}</span>
-                        <h4 class="admin-card-title">${listing.title}</h4>
+                        <span class="listing-status-badge ${statusCfg.cls}">${statusCfg.label}</span>
+                        <h4 class="admin-card-title">${product.title}</h4>
                         <p class="admin-card-price">৳${priceFormatted}</p>
                     </div>
                     <div class="admin-card-badges">
-                        <span class="badge badge-condition">${listing.condition}</span>
-                        <div class="admin-card-category">${CATEGORY_EMOJIS[listing.category] || '📦'} ${listing.category}</div>
+                        <span class="badge badge-condition">${product.condition}</span>
+                        <div class="admin-card-category">${CATEGORY_EMOJIS[product.category] || '📦'} ${product.category}</div>
                     </div>
                 </div>
-                <p class="admin-card-desc">${listing.description}</p>
+                <p class="admin-card-desc">${product.description}</p>
                 <div class="admin-card-footer">
                     <div class="admin-card-seller">
-                        👤 Seller: <strong>${listing.sellerName}</strong> 
-                        <span class="admin-card-date">🕒 ${formatListingDate(listing.created_at)}</span>
+                        👤 Seller: <strong>${product.sellerName}</strong>
+                        <span class="admin-card-date">🕒 ${formatListingDate(product.created_at)}</span>
                     </div>
                     <div class="admin-card-actions">
                         ${actionBtns}
@@ -248,7 +304,7 @@ async function renderPublicListings(category = 'all', page = 1) {
             limit: 10
         };
         if (window.currentSearchQuery) options.search_query = window.currentSearchQuery;
-        const response = await window.api.getListings(options);
+        const response = await window.api.getProducts(options);
 
         if (page === 1) grid.innerHTML = '';
         let listings = response.items || [];
@@ -258,7 +314,7 @@ async function renderPublicListings(category = 'all', page = 1) {
             if (emptyEl) emptyEl.style.display = 'flex';
         } else {
             if (emptyEl) emptyEl.style.display = 'none';
-            grid.insertAdjacentHTML('beforeend', listings.map(renderListingCard).join(''));
+            grid.insertAdjacentHTML('beforeend', listings.map(renderProductCard).join(''));
         }
 
         let loadMoreBtn = document.getElementById('loadMorePublicBtn');
@@ -301,7 +357,7 @@ async function renderSellerStore(sellerId, category = 'all') {
     });
 
     try {
-        const response = await window.api.getListings({
+        const response = await window.api.getProducts({
             status: 'approved',
             seller_id: sellerId,
             category: category
@@ -360,7 +416,7 @@ async function renderSellerStore(sellerId, category = 'all') {
             }
         } else {
             if (emptyEl) emptyEl.style.display = 'none';
-            grid.innerHTML = listings.map(renderListingCard).join('');
+            grid.innerHTML = listings.map(renderProductCard).join('');
         }
     } catch (err) {
         console.error('Error loading seller store:', err);
@@ -387,7 +443,7 @@ async function renderSellerListings(statusFilter = 'all', page = 1) {
     }
 
     try {
-        const response = await window.api.getListings({
+        const response = await window.api.getProducts({
             seller_id: user.id,
             status: statusFilter,
             page: page,
@@ -446,7 +502,7 @@ async function renderBuyerListings(category = 'all', page = 1) {
             limit: 10
         };
         if (window.currentSearchQuery) options.search_query = window.currentSearchQuery;
-        const response = await window.api.getListings(options);
+        const response = await window.api.getProducts(options);
 
         if (page === 1) grid.innerHTML = '';
         let listings = response.items || [];
@@ -456,7 +512,7 @@ async function renderBuyerListings(category = 'all', page = 1) {
             if (emptyEl) emptyEl.style.display = 'flex';
         } else {
             if (emptyEl) emptyEl.style.display = 'none';
-            grid.insertAdjacentHTML('beforeend', listings.map(renderListingCard).join(''));
+            grid.insertAdjacentHTML('beforeend', listings.map(renderProductCard).join(''));
         }
 
         let loadMoreBtn = document.getElementById('loadMoreBuyerBtn');
@@ -517,7 +573,7 @@ async function renderAdminListings(statusFilter = 'all', page = 1) {
     }
 
     try {
-        const response = await window.api.getListings({
+        const response = await window.api.getProducts({
             status: statusFilter,
             category: categoryFilter,
             page: page,
@@ -594,7 +650,7 @@ async function loadAdminStats() {
 // ─── Action Handlers ──────────────────────────────────────────
 
 async function adminAction(id, newStatus) {
-    await window.api.updateListingStatus(id, newStatus);
+    await window.api.updateProductStatus(id, newStatus);
 
     // Check if we are in a seller-specific view
     if (window.currentAdminInlineStatus && window.currentAdminInlineStatus.startsWith('seller_products_')) {
@@ -609,9 +665,9 @@ async function adminAction(id, newStatus) {
     loadAdminStats();
 }
 
-async function deleteMyListing(id) {
+async function deleteMyProduct(id) {
     if (!confirm('Are you sure you want to delete this product?')) return;
-    await window.api.deleteListing(id);
+    await window.api.deleteProduct(id);
     const activeTab = document.querySelector('#sellerStatusTabs .status-tab.active');
     const filter = activeTab ? activeTab.dataset.status : 'all';
     renderSellerListings(filter);
@@ -801,7 +857,7 @@ async function renderSellerProductsForAdmin(sellerId, sellerName, previousRole =
     }
 
     try {
-        const response = await window.api.getListings({
+        const response = await window.api.getProducts({
             seller_id: sellerId,
             page: page,
             limit: 10
@@ -1297,13 +1353,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 formData.append('description', document.getElementById('listingDesc').value.trim());
                 // Token is sent via Authorization header, NOT in FormData
 
+                // Append ALL selected images (up to 5) with key 'images'
                 const fileInput = document.getElementById('listingImages');
                 if (fileInput && fileInput.files.length > 0) {
-                    formData.append('image', fileInput.files[0]);
+                    const files = Array.from(fileInput.files).slice(0, 5);
+                    files.forEach(file => formData.append('images', file));
                 }
 
+                const submitBtn = document.getElementById('submitListingBtn');
+                if (submitBtn) { submitBtn.disabled = true; submitBtn.innerText = 'Uploading...'; }
+
                 try {
-                    await window.api.createListing(formData, user.token);
+                    await window.api.createProduct(formData, user.token);
                     form.reset();
                     if (previewContainer) previewContainer.innerHTML = '';
                     pendingImageUrls = [];
@@ -1317,7 +1378,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     const allTab = document.getElementById('sellerTabAll');
                     if (allTab) allTab.classList.add('active');
                 } catch (err) {
-                    alert('Error adding product: ' + err.message);
+                    alert('Error uploading product: ' + err.message);
+                } finally {
+                    if (submitBtn) { submitBtn.disabled = false; submitBtn.innerText = 'Submit for Review →'; }
                 }
             });
         }
@@ -1494,18 +1557,18 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const bannerContainer = document.getElementById('chatListingBanner');
-            if (bannerContainer && chat.listing_title) {
-                const imgSrc = chat.listing_image_url ? `http://localhost:8000${chat.listing_image_url}` : '';
+            if (bannerContainer && chat.product_title) {
+                const imgSrc = chat.product_image_url ? `http://localhost:8000${chat.product_image_url}` : '';
                 const imgHtml = imgSrc ? `<img src="${imgSrc}" style="width: 48px; height: 48px; object-fit: cover; border-radius: 8px;">` : `<div style="width: 48px; height: 48px; background: #e2e8f0; border-radius: 8px; display:flex; align-items:center; justify-content:center;">📦</div>`;
                 const buyBtnHtml = user.role === 'buyer'
-                    ? `<button class="btn-primary" style="padding: 0.5rem 1rem; font-size: 0.85rem;" onclick="handleBuyClick('${chat.listing_id}')">🛒 Buy with Escrow</button>`
+                    ? `<button class="btn-primary" style="padding: 0.5rem 1rem; font-size: 0.85rem;" onclick="handleBuyClick('${chat.product_id}')">🛒 Buy with Escrow</button>`
                     : '';
                 bannerContainer.innerHTML = `
                     <div style="display:flex; align-items:center; gap: 1rem;">
                         ${imgHtml}
                         <div>
-                            <div style="font-weight: 600; font-size: 0.95rem;">${chat.listing_title}</div>
-                            <div style="color: var(--primary); font-weight: 700;">৳${Number(chat.listing_price).toLocaleString('en-IN')}</div>
+                            <div style="font-weight: 600; font-size: 0.95rem;">${chat.product_title}</div>
+                            <div style="color: var(--primary); font-weight: 700;">৳${Number(chat.product_price).toLocaleString('en-IN')}</div>
                         </div>
                     </div>
                     ${buyBtnHtml}
@@ -1595,7 +1658,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
                             <span style="font-size:0.65rem; background:rgba(99,102,241,0.1); color:var(--primary); padding:0.1rem 0.4rem; border-radius:4px; font-weight:800;">${otherPartyRole}</span>
                         </div>
-                        <div style="font-size:0.75rem; color:var(--text-secondary); margin:0.15rem 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${chat.listing_title || 'Enquiry'}</div>
+                        <div style="font-size:0.75rem; color:var(--text-secondary); margin:0.15rem 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${chat.product_title || 'Enquiry'}</div>
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.25rem;">
                             <span class="last-msg-snippet" style="font-size:0.8rem; color:var(--text-muted); font-style:italic; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${lastMsgSnippet}</span>
                             <span style="font-size:0.7rem; color:#94a3b8;">${lastMsgTime}</span>
@@ -1658,7 +1721,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             </div>
                             <span style="font-size:0.65rem; background:rgba(99,102,241,0.1); color:var(--primary); padding:0.1rem 0.4rem; border-radius:4px; font-weight:800;">${otherPartyRole}</span>
                         </div>
-                        <div style="font-size:0.75rem; color:var(--text-secondary); margin:0.15rem 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${chat.listing_title || 'Enquiry'}</div>
+                        <div style="font-size:0.75rem; color:var(--text-secondary); margin:0.15rem 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${chat.product_title || 'Enquiry'}</div>
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.25rem;">
                             <span class="last-msg-snippet" style="font-size:0.8rem; color:var(--text-muted); font-style:italic; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${lastMsgSnippet}</span>
                             <span style="font-size:0.7rem; color:#94a3b8;">${lastMsgTime}</span>
@@ -1905,7 +1968,7 @@ window.renderSellerProductsForAdmin = renderSellerProductsForAdmin;
 window.takeAdminUserAction = takeAdminUserAction;
 window.renderAdminListings = renderAdminListings;
 window.adminAction = adminAction;
-window.deleteMyListing = deleteMyListing;
+window.deleteMyProduct = deleteMyProduct;
 window.handleBuyClick = handleBuyClick;
 window.logoutUser = logoutUser;
 window.handleChatDelete = handleChatDelete;
@@ -1940,7 +2003,7 @@ window.updateGlobalUnreadCount = updateGlobalUnreadCount;
 
 // ─── REVIEW LOGIC ───────────────────────────────────────────────
 
-window.openReviewModal = function (listingId) {
+window.openReviewModal = function (productId) {
     const user = getUser();
     if (!user) {
         alert("Please login to leave a review.");
@@ -1950,7 +2013,7 @@ window.openReviewModal = function (listingId) {
     const modal = document.getElementById('reviewModal');
     if (!modal) return;
 
-    document.getElementById('reviewListingId').value = listingId;
+    document.getElementById('reviewProductId').value = productId;
     document.getElementById('reviewRating').value = '';
     document.getElementById('reviewComment').value = '';
 
@@ -1969,12 +2032,12 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.disabled = true;
 
             try {
-                const listingId = document.getElementById('reviewListingId').value;
+                const productId = document.getElementById('reviewProductId').value;
                 const rating = parseInt(document.getElementById('reviewRating').value);
                 const comment = document.getElementById('reviewComment').value;
 
                 await window.api.createReview({
-                    listing_id: listingId,
+                    product_id: productId,
                     rating: rating,
                     comment: comment
                 });

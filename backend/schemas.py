@@ -1,7 +1,7 @@
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List
 from datetime import datetime
-from .models import UserRole, ListingStatus
+from .models import UserRole, ProductStatus
 
 class UserBase(BaseModel):
     email: EmailStr
@@ -23,7 +23,6 @@ class UserResponse(UserBase):
     account_status: str
     suspended_until: Optional[datetime] = None
     listing_banned_until: Optional[datetime] = None
-
 
     average_rating: float = 0.0
     total_reviews: int = 0
@@ -54,12 +53,12 @@ class MessageResponse(MessageBase):
     sender_id: int
     is_read: bool = False
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 
 class ChatSessionBase(BaseModel):
-    listing_id: str
+    product_id: str
     buyer_id: int
     seller_id: int
 
@@ -72,28 +71,30 @@ class ChatSessionResponse(ChatSessionBase):
     updated_at: Optional[datetime] = None
     buyer: UserResponse
     seller: UserResponse
-    listing_title: Optional[str] = None
-    listing_price: Optional[str] = None
-    listing_image_url: Optional[str] = None
+    product_title: Optional[str] = None
+    product_price: Optional[str] = None
+    product_image_url: Optional[str] = None
     unread_count: int = 0
     messages: List[MessageResponse] = []
 
     class Config:
         from_attributes = True
 
-# --- Listing Schemas ---
 
-class ListingResponse(BaseModel):
+# --- Product Schemas ---
+
+class ProductResponse(BaseModel):
     id: str
     title: str
     category: str
     price: str
     condition: str
     description: str
-    image_url: Optional[str] = None
-    status: ListingStatus
+    image_url: Optional[str] = None           # Legacy / cover photo fallback
+    image_urls: List[str] = []                # All uploaded images (ordered; first = cover)
+    status: ProductStatus
     seller_id: int
-    sellerName: Optional[str] = None # Added for frontend convenience
+    sellerName: Optional[str] = None          # Added for frontend convenience
     sellerEmail: Optional[str] = None
     sellerRating: float = 0.0
     sellerTotalReviews: int = 0
@@ -103,18 +104,18 @@ class ListingResponse(BaseModel):
     class Config:
         from_attributes = True
 
-class ListingStatusUpdate(BaseModel):
-    status: ListingStatus
+class ProductStatusUpdate(BaseModel):
+    status: ProductStatus
 
-class PaginatedListingsResponse(BaseModel):
-    items: List[ListingResponse]
+class PaginatedProductsResponse(BaseModel):
+    items: List[ProductResponse]
     total: int
     page: int
     pages: int
     has_more: bool
 
 class ReviewBase(BaseModel):
-    listing_id: str
+    product_id: str
     rating: int = Field(..., ge=1, le=5)
     comment: Optional[str] = None
 
@@ -126,6 +127,6 @@ class ReviewResponse(ReviewBase):
     reviewer_id: int
     seller_id: int
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
