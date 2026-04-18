@@ -9,7 +9,7 @@ class UserRole(str, enum.Enum):
     SELLER = "seller"
     BUYER = "buyer"
 
-class ListingStatus(str, enum.Enum):
+class ProductStatus(str, enum.Enum):
     PENDING = "pending"
     APPROVED = "approved"
     REJECTED = "rejected"
@@ -23,21 +23,14 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     role = Column(Enum(UserRole), default=UserRole.BUYER, nullable=False)
-    
+
     # Common Fields
     phone_number = Column(String, nullable=True)
-    dob = Column(DateTime(timezone=True), nullable=True)
-    
-    # Seller-Specific Verification Fields
-    nid_number = Column(String, unique=True, index=True, nullable=True)
-    nid_front_path = Column(String, nullable=True)
-    nid_back_path = Column(String, nullable=True)
-    selfie_path = Column(String, nullable=True)
-    
+
     # Store user creation and update time
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
- 
+
     # Disciplinary Actions & Status
     # Status can be: active, banned, pending_verification
     account_status = Column(String, default="active", nullable=False)
@@ -57,21 +50,23 @@ class User(Base):
     def __repr__(self):
         return f"<User(email='{self.email}', role='{self.role}')>"
 
+
 class ChatSession(Base):
     __tablename__ = "chat_sessions"
 
     id = Column(Integer, primary_key=True, index=True)
-    listing_id = Column(String, ForeignKey("listings.id"), index=True, nullable=False)
+    product_id = Column(String, ForeignKey("products.id"), index=True, nullable=False)
     buyer_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     seller_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    listing = relationship("Listing")
+    product = relationship("Product")
     buyer = relationship("User", foreign_keys=[buyer_id])
     seller = relationship("User", foreign_keys=[seller_id])
     messages = relationship("ChatMessage", back_populates="session", cascade="all, delete-orphan")
+
 
 class ChatMessage(Base):
     __tablename__ = "chat_messages"
@@ -80,15 +75,16 @@ class ChatMessage(Base):
     session_id = Column(Integer, ForeignKey("chat_sessions.id"), nullable=False)
     sender_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     text = Column(String, nullable=False)
-    is_read = Column(Integer, default=0, nullable=False) # 0 for false, 1 for true (using Integer for SQLite compatibility with some old drivers, or Boolean)
-    
+    is_read = Column(Integer, default=0, nullable=False)  # 0=false, 1=true
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     session = relationship("ChatSession", back_populates="messages")
     sender = relationship("User")
 
-class Listing(Base):
-    __tablename__ = "listings"
+
+class Product(Base):
+    __tablename__ = "products"
 
     id = Column(String, primary_key=True, index=True)
     title = Column(String, nullable=False)
@@ -96,15 +92,32 @@ class Listing(Base):
     price = Column(String, nullable=False)
     condition = Column(String, nullable=False)
     description = Column(String, nullable=False)
-    image_url = Column(String, nullable=True) # Relative path to the uploaded image
-    status = Column(Enum(ListingStatus), default=ListingStatus.PENDING, nullable=False)
-    
+    image_url = Column(String, nullable=True)  # Legacy cover photo (kept for backward compatibility)
+    status = Column(Enum(ProductStatus), default=ProductStatus.PENDING, nullable=False)
+    inventory_quantity = Column(Integer, default=1, nullable=False)
+
     seller_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    seller = relationship("User", backref="listings")
+    seller = relationship("User", backref="products")
+    images = relationship("ProductImage", back_populates="product",
+                          cascade="all, delete-orphan",
+                          order_by="ProductImage.order")
+
+
+class ProductImage(Base):
+    """Stores multiple images per product (ordered; order=0 is the cover photo)."""
+    __tablename__ = "product_images"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(String, ForeignKey("products.id"), nullable=False, index=True)
+    image_url = Column(String, nullable=False)   # Relative path: /uploads/...
+    order = Column(Integer, default=0, nullable=False)
+
+    product = relationship("Product", back_populates="images")
+
 
 class Review(Base):
     __tablename__ = "reviews"
@@ -112,11 +125,11 @@ class Review(Base):
     id = Column(Integer, primary_key=True, index=True)
     reviewer_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     seller_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    listing_id = Column(String, ForeignKey("listings.id"), nullable=False)
+    product_id = Column(String, ForeignKey("products.id"), nullable=False)
     rating = Column(Integer, nullable=False)
     comment = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     reviewer = relationship("User", foreign_keys=[reviewer_id])
     seller = relationship("User", foreign_keys=[seller_id], backref="reviews_received")
-    listing = relationship("Listing")
+    product = relationship("Product")

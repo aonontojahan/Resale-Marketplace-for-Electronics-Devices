@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dashboard | ReSale</title>
-  <meta name="description" content="Your ReSale dashboard — manage listings, orders, and your escrow wallet.">
+  <meta name="description" content="Your ReSale dashboard — manage products, orders, and your escrow wallet.">
   <link rel="stylesheet" href="css/style.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
@@ -52,8 +52,8 @@
         <!-- ====== SELLER VIEW ====== -->
         <div id="sellerView" style="display:none;">
           <div class="profile-section-title">
-            <h2 style="font-size: 1.5rem; font-weight: 700;">My <span class="text-gradient">Listings</span></h2>
-            <button id="openListingModalBtn" class="btn-primary" style="padding: 0.5rem 1.2rem; font-size: 0.9rem;">+ Create New Listing</button>
+            <h2 style="font-size: 1.5rem; font-weight: 700;">My <span class="text-gradient">Products</span></h2>
+            <button id="openListingModalBtn" class="btn-primary" style="padding: 0.5rem 1.2rem; font-size: 0.9rem;">+ Upload New Product</button>
           </div>
 
           <!-- Status Filter Tabs (Seller) -->
@@ -67,15 +67,15 @@
           <div class="product-grid" id="sellerListingsGrid" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));"></div>
           <div class="listings-empty" id="sellerEmpty" style="display:none;">
             <div class="empty-icon">📸</div>
-            <h3>No Listings Yet</h3>
-            <p>Click "Create New Listing" to post your first device and reach thousands of buyers.</p>
+            <h3>No Products Yet</h3>
+            <p>Click "Upload New Product" to post your first device and reach thousands of buyers.</p>
           </div>
         </div>
 
         <!-- ====== BUYER VIEW ====== -->
         <div id="buyerView" style="display:none;">
           <div class="profile-section-title">
-            <h2 style="font-size: 1.5rem; font-weight: 700;">Browse <span class="text-gradient">Approved Listings</span></h2>
+            <h2 style="font-size: 1.5rem; font-weight: 700;">Browse <span class="text-gradient">Approved Products</span></h2>
             <span class="badge badge-condition" style="font-size:0.85rem;">Buyer Mode</span>
           </div>
 
@@ -92,8 +92,8 @@
           <div class="product-grid" id="buyerListingsGrid" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));"></div>
           <div class="listings-empty" id="buyerEmpty" style="display:none;">
             <div class="empty-icon">🔎</div>
-            <h3>No Listings Available</h3>
-            <p>Check back soon — sellers are listing their devices and admins are approving them.</p>
+            <h3>No Products Available</h3>
+            <p>Check back soon — sellers are uploading their devices and admins are approving them.</p>
           </div>
         </div>
 
@@ -183,7 +183,7 @@
   <div class="modal-overlay" id="listingModal">
     <div class="modal-box">
       <div class="modal-header">
-        <h3>📱 Create New Listing</h3>
+        <h3>📱 Upload New Product</h3>
         <button class="modal-close" id="closeListingModal">&times;</button>
       </div>
       <form id="createListingForm" class="modal-form">
@@ -209,6 +209,12 @@
             <label for="listingPrice">Price (৳) *</label>
             <input type="number" id="listingPrice" class="form-input" placeholder="e.g. 82500" min="1" required>
           </div>
+          <div class="form-group">
+            <label for="listingQuantity">Quantity *</label>
+            <input type="number" id="listingQuantity" class="form-input" value="1" min="1" required>
+          </div>
+        </div>
+        <div class="form-row">
           <div class="form-group">
             <label for="listingCondition">Condition *</label>
             <select id="listingCondition" class="form-input" required>
@@ -247,7 +253,7 @@
         <button class="modal-close" onclick="document.getElementById('reviewModal').classList.remove('active'); document.body.style.overflow=''">&times;</button>
       </div>
       <form id="reviewForm" class="modal-form">
-        <input type="hidden" id="reviewListingId">
+        <input type="hidden" id="reviewProductId">
         <div class="form-group">
           <label for="reviewRating">Rating (1-5 Stars) *</label>
           <select id="reviewRating" class="form-input" required>
@@ -282,7 +288,7 @@
         <div>
           <h4 class="footer-title">Quick Links</h4>
           <ul class="footer-links">
-            <li><a href="index.html">Browse Listings</a></li>
+            <li><a href="index.html">Browse Products</a></li>
             <li><a href="index.html#escrow">How Escrow Works</a></li>
             <li><a href="escrow-policy.html">Escrow &amp; Policy</a></li>
           </ul>
