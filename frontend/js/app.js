@@ -206,15 +206,24 @@ function renderSellerCard(product) {
         : `<p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:0.5rem; line-height:1.4;">${product.description}</p>`;
 
     return `
-        <div class="card" data-category="${product.category}" data-id="${product.id}" data-status="${product.status}">
-            ${imgHtml}
+        <div class="card" data-category="${product.category}" data-id="${product.id}" data-status="${product.status}" style="border: 1px solid var(--border); border-radius: 16px; overflow: hidden; background: var(--surface); box-shadow: 0 4px 12px rgba(0,0,0,0.05); display: flex; flex-direction: column; transition: transform 0.3s ease, box-shadow 0.3s ease;" onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 12px 24px rgba(0,0,0,0.1)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.05)'">
+            <div style="position: relative;">
+                ${imgHtml}
+                <div style="position: absolute; top: 12px; left: 12px;">
+                    <span style="background: rgba(255,255,255,0.95); color: #0f172a; font-weight: 800; font-size: 0.75rem; padding: 0.4rem 0.8rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); letter-spacing: 0.03em;">${product.condition.toUpperCase()}</span>
+                </div>
+                <div style="position: absolute; top: 12px; right: 12px;">
+                    <span class="listing-status-badge ${statusCfg.cls}" style="margin: 0; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">${statusCfg.label.toUpperCase()}</span>
+                </div>
+            </div>
             <div class="card-content">
-                <span class="listing-status-badge ${statusCfg.cls}">${statusCfg.label}</span>
-                <h4 class="card-title" style="font-size:0.95rem; margin-top:0.5rem;">${product.title}</h4>
+                <h4 class="card-title" style="font-size:1.05rem; margin: 0.5rem 0; line-height: 1.3;">${product.title}</h4>
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <p class="card-price" style="font-size:1rem; margin-bottom: 0;">৳${priceFormatted}</p>
-                    <span style="font-size: 0.7rem; color: #10b981; font-weight: bold;">In Stock: ${product.inventory_quantity || 1}</span>
-                    <small style="font-size: 0.7rem; color: var(--text-muted); text-align: right;">🕒 ${formatListingDate(product.created_at)}</small>
+                    <p class="card-price" style="font-size:1.05rem; margin-bottom: 0;">৳${priceFormatted}</p>
+                    <span style="font-size: 0.75rem; background: rgba(16,185,129,0.1); color: #10b981; font-weight: bold; padding: 0.25rem 0.6rem; border-radius: 4px; border: 1px solid rgba(16,185,129,0.2); white-space: nowrap;">Qty: ${product.inventory_quantity || 1}</span>
+                </div>
+                <div style="margin-top: 0.4rem;">
+                    <small style="font-size: 0.7rem; color: var(--text-muted); display: block;">🕒 Uploaded: ${formatListingDate(product.created_at)}</small>
                 </div>
                 <div style="margin-top: 0.5rem;">
                     ${descHtml}
@@ -262,6 +271,7 @@ function renderAdminCard(product) {
                         <p class="admin-card-price">৳${priceFormatted}</p>
                     </div>
                     <div class="admin-card-badges">
+                        <span class="badge badge-condition" style="background: rgba(16,185,129,0.1); color: #10b981; border: 1px solid rgba(16,185,129,0.2);">Qty: ${product.inventory_quantity || 1}</span>
                         <span class="badge badge-condition">${product.condition}</span>
                         <div class="admin-card-category">${CATEGORY_EMOJIS[product.category] || '📦'} ${product.category}</div>
                     </div>
