@@ -86,6 +86,10 @@ const api = {
         if (qs) endpoint += `?${qs}`;
         return this.request(endpoint, "GET");
     },
+    
+    async getProduct(productId) {
+        return this.request(`/products/${productId}`, "GET");
+    },
 
     /**
      * Create a product. Uses raw fetch because we send FormData (multipart).

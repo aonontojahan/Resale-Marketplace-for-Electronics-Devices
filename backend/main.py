@@ -252,6 +252,18 @@ def create_product(
     return _build_product_response(new_product, user)
 
 
+@app.get("/products/{product_id}", response_model=schemas.ProductResponse)
+def get_product(product_id: str, db: Session = Depends(get_db)):
+    """Fetch a single product by its ID."""
+    product = db.query(models.Product).options(
+        joinedload(models.Product.seller),
+        joinedload(models.Product.images)
+    ).filter(models.Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    return _build_product_response(product, product.seller)
+
+
 @app.get("/products", response_model=schemas.PaginatedProductsResponse)
 def get_products(
     page: int = 1,
