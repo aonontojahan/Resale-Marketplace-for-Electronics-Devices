@@ -26,13 +26,6 @@ class User(Base):
     
     # Common Fields
     phone_number = Column(String, nullable=True)
-    dob = Column(DateTime(timezone=True), nullable=True)
-    
-    # Seller-Specific Verification Fields
-    nid_number = Column(String, unique=True, index=True, nullable=True)
-    nid_front_path = Column(String, nullable=True)
-    nid_back_path = Column(String, nullable=True)
-    selfie_path = Column(String, nullable=True)
     
     # Store user creation and update time
     created_at = Column(DateTime(timezone=True), server_default=func.now())

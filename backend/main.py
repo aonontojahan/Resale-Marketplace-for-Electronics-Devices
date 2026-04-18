@@ -69,11 +69,6 @@ def signup(user: schemas.UserCreate, db: Session = Depends(get_db)):
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     
-    # Check NID uniqueness across all users
-    if user.nid_number:
-        existing_nid = db.query(models.User).filter(models.User.nid_number == user.nid_number).first()
-        if existing_nid:
-            raise HTTPException(status_code=400, detail="This NID is already registered with another account")
 
     # Status: Sellers are pending_verification, others are active
     account_status = "pending_verification" if user.role == "seller" else "active"
@@ -86,8 +81,6 @@ def signup(user: schemas.UserCreate, db: Session = Depends(get_db)):
         hashed_password=hashed_password,
         role=user.role,
         phone_number=user.phone_number,
-        dob=user.dob,
-        nid_number=user.nid_number,
         account_status=account_status,
         # Other fields like address, shop_name, etc. remain empty as they're not provided in signup anymore.
     )

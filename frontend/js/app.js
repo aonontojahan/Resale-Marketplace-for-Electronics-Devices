@@ -335,7 +335,7 @@ async function renderSellerStore(sellerId, category = 'all') {
                         </div>
                     </div>
                     <a href="index.html" style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.2rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; color: var(--text-secondary); text-decoration: none; font-weight: 700; font-size: 0.85rem; transition: all 0.2s;" onmouseover="this.style.borderColor='var(--primary)'; this.style.color='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'; this.style.color='var(--text-secondary)'">
-                        ← Back to All Listings
+                        ← Back to All Products
                     </a>
                 </div>
             `;
@@ -610,7 +610,7 @@ async function adminAction(id, newStatus) {
 }
 
 async function deleteMyListing(id) {
-    if (!confirm('Are you sure you want to delete this listing?')) return;
+    if (!confirm('Are you sure you want to delete this product?')) return;
     await window.api.deleteListing(id);
     const activeTab = document.querySelector('#sellerStatusTabs .status-tab.active');
     const filter = activeTab ? activeTab.dataset.status : 'all';
@@ -646,7 +646,7 @@ function handleMessageClick(id, sellerId) {
     }
 
     if (!sellerId || sellerId === 'undefined') {
-        alert("Error: Listing has no seller information. Please contact support.");
+        alert("Error: Product has no seller information. Please contact support.");
         return;
     }
 
@@ -932,7 +932,7 @@ function updateNav() {
         } else if (role === 'seller') {
             if (searchBar) searchBar.parentElement.style.display = 'none';
             navHtml += `
-                <a href="profile.html" class="${currentPath.includes('profile') ? 'active' : ''}">My Listings</a>
+                <a href="profile.html" class="${currentPath.includes('profile') ? 'active' : ''}">My Products</a>
             `;
         } else {
             // Buyer
@@ -958,7 +958,7 @@ function updateNav() {
         if (emptyBtn) {
             if (role === 'seller') {
                 emptyBtn.href = 'profile.html';
-                emptyBtn.innerText = 'Go to Dashboard to List →';
+                emptyBtn.innerText = 'Go to Dashboard to Upload Product →';
             } else {
                 emptyBtn.style.display = 'none';
             }
@@ -1013,9 +1013,7 @@ async function signupUser(name, phone, email, password, role) {
         phone_number: phone,
         email: email,
         password: password,
-        role: role,
-        dob: document.getElementById('dob').value || null,
-        nid_number: role === 'seller' ? document.getElementById('nidNumber').value : null
+        role: role
     };
 
     try {
@@ -1311,7 +1309,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     pendingImageUrls = [];
                     closeModal('listingModal');
 
-                    showToast('🎉 Listing submitted! Awaiting admin approval.');
+                    showToast('🎉 Product submitted! Awaiting admin approval.');
                     await renderSellerListings('all');
 
                     const tabs = document.querySelectorAll('#sellerStatusTabs .status-tab');
@@ -1319,7 +1317,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const allTab = document.getElementById('sellerTabAll');
                     if (allTab) allTab.classList.add('active');
                 } catch (err) {
-                    alert('Error creating listing: ' + err.message);
+                    alert('Error adding product: ' + err.message);
                 }
             });
         }
@@ -1334,7 +1332,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (roleSelector) {
         const tabs = roleSelector.querySelectorAll('.role-tab');
         const roleInput = document.getElementById('selectedRole');
-        const nidGroup = document.getElementById('nidGroup');
 
         tabs.forEach(tab => {
             tab.addEventListener('click', () => {
@@ -1342,11 +1339,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 tab.classList.add('active');
                 const role = tab.dataset.role;
                 if (roleInput) roleInput.value = role;
-
-                // Show/Hide NID field only for sellers (Signup only)
-                if (nidGroup) {
-                    nidGroup.style.display = (role === 'seller') ? 'block' : 'none';
-                }
             });
         });
     }
@@ -1852,7 +1844,7 @@ function updateFooter() {
             if (title) title.innerText = 'Resources';
             if (list) {
                 list.innerHTML = `
-                    <li><a href="index.html#listings">Browse Listings</a></li>
+                    <li><a href="index.html#listings">Browse Products</a></li>
                 `;
             }
         }
