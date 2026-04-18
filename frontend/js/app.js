@@ -158,11 +158,12 @@ function renderProductCard(product) {
                 <div style="display: flex; align-items: baseline; gap: 0.5rem; margin-bottom: 0.75rem;">
                     <p class="card-price" style="margin: 0; font-size: 1.6rem; font-weight: 900; background: linear-gradient(135deg, var(--primary), var(--accent-cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">৳${priceFormatted}</p>
                 </div>
-                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; align-items: center;">
-                    <span style="font-size: 0.75rem; background: rgba(99,102,241,0.08); color: var(--primary); font-weight: 700; padding: 0.35rem 0.6rem; border-radius: 6px; border: 1px solid rgba(99,102,241,0.2); white-space: nowrap;">${CATEGORY_EMOJIS[product.category] || '📦'} ${product.category}</span>
+                <div style="display: flex; gap: 0.4rem; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; margin-bottom: 0.75rem; align-items: center;">
+                    <span style="font-size: 0.72rem; background: rgba(99,102,241,0.08); color: var(--primary); font-weight: 700; padding: 0.35rem 0.4rem; border-radius: 6px; border: 1px solid rgba(99,102,241,0.2); white-space: nowrap;">${CATEGORY_EMOJIS[product.category] || '📦'} ${product.category}</span>
+                    <span style="font-size: 0.72rem; background: rgba(16,185,129,0.08); color: #10b981; font-weight: 700; padding: 0.35rem 0.4rem; border-radius: 6px; border: 1px solid rgba(16,185,129,0.2); white-space: nowrap;">Stock: ${product.inventory_quantity || 1}</span>
                     ${product.sellerTotalReviews > 0
-            ? `<span style="font-size: 0.75rem; background: rgba(245,158,11,0.08); color: #d97706; font-weight: 700; padding: 0.35rem 0.6rem; border-radius: 6px; border: 1px solid rgba(245,158,11,0.2); white-space: nowrap;">⭐ ${product.sellerRating.toFixed(1)} (${product.sellerTotalReviews})</span>`
-            : `<span style="font-size: 0.75rem; background: var(--bg-body); color: var(--text-muted); font-weight: 600; padding: 0.35rem 0.6rem; border-radius: 6px; border: 1px solid var(--border); white-space: nowrap;">⭐ New Seller</span>`
+            ? `<span style="font-size: 0.72rem; background: rgba(245,158,11,0.08); color: #d97706; font-weight: 700; padding: 0.35rem 0.4rem; border-radius: 6px; border: 1px solid rgba(245,158,11,0.2); white-space: nowrap;">⭐ ${product.sellerRating.toFixed(1)} (${product.sellerTotalReviews})</span>`
+            : `<span style="font-size: 0.72rem; background: var(--bg-body); color: var(--text-muted); font-weight: 600; padding: 0.35rem 0.4rem; border-radius: 6px; border: 1px solid var(--border); white-space: nowrap;">⭐ New Seller</span>`
         }
                 </div>
                 <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.4rem; font-weight: 600;">
@@ -212,6 +213,7 @@ function renderSellerCard(product) {
                 <h4 class="card-title" style="font-size:0.95rem; margin-top:0.5rem;">${product.title}</h4>
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <p class="card-price" style="font-size:1rem; margin-bottom: 0;">৳${priceFormatted}</p>
+                    <span style="font-size: 0.7rem; color: #10b981; font-weight: bold;">In Stock: ${product.inventory_quantity || 1}</span>
                     <small style="font-size: 0.7rem; color: var(--text-muted); text-align: right;">🕒 ${formatListingDate(product.created_at)}</small>
                 </div>
                 <div style="margin-top: 0.5rem;">
@@ -1351,6 +1353,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 formData.append('price', document.getElementById('listingPrice').value);
                 formData.append('condition', document.getElementById('listingCondition').value);
                 formData.append('description', document.getElementById('listingDesc').value.trim());
+                
+                const qtyInput = document.getElementById('listingQuantity');
+                formData.append('inventory_quantity', qtyInput ? qtyInput.value : 1);
+                
                 // Token is sent via Authorization header, NOT in FormData
 
                 // Append ALL selected images (up to 5) with key 'images'

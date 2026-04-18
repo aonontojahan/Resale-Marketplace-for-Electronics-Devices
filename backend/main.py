@@ -181,6 +181,7 @@ def create_product(
     price: str = Form(...),
     condition: str = Form(...),
     description: str = Form(...),
+    inventory_quantity: int = Form(1),
     images: List[UploadFile] = File(default=[]),
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db)
@@ -232,6 +233,7 @@ def create_product(
         price=price,
         condition=condition,
         description=description,
+        inventory_quantity=inventory_quantity,
         image_url=cover_url,      # legacy cover photo field
         seller_id=user.id
     )

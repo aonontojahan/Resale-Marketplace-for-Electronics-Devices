@@ -94,6 +94,7 @@ class Product(Base):
     description = Column(String, nullable=False)
     image_url = Column(String, nullable=True)  # Legacy cover photo (kept for backward compatibility)
     status = Column(Enum(ProductStatus), default=ProductStatus.PENDING, nullable=False)
+    inventory_quantity = Column(Integer, default=1, nullable=False)
 
     seller_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 

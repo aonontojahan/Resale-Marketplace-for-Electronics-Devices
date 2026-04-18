@@ -93,6 +93,7 @@ class ProductResponse(BaseModel):
     image_url: Optional[str] = None           # Legacy / cover photo fallback
     image_urls: List[str] = []                # All uploaded images (ordered; first = cover)
     status: ProductStatus
+    inventory_quantity: int
     seller_id: int
     sellerName: Optional[str] = None          # Added for frontend convenience
     sellerEmail: Optional[str] = None
