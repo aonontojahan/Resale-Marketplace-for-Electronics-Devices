@@ -96,6 +96,17 @@ const api = {
      * Token goes in the Authorization header, NOT in the form body.
      */
     async createProduct(formData, token) {
+        if (!token) {
+            const userJson = localStorage.getItem('resale_user');
+            if (userJson) {
+                try {
+                    const user = JSON.parse(userJson);
+                    token = user.token || user.access_token;
+                } catch (e) {
+                    console.error("Failed to parse user session for token:", e);
+                }
+            }
+        }
         try {
             const response = await fetch(`${API_BASE_URL}/products`, {
                 method: 'POST',

@@ -187,13 +187,17 @@ def create_product(
     db: Session = Depends(get_db)
 ):
     """Create a new product with optional multiple image uploads (max 5)."""
+    print(f"DEBUG /products: received token starts with {token[:10] if token else 'None'}")
     payload = auth.decode_access_token(token)
     if not payload:
+        print("DEBUG /products: decode_access_token failed! Invalid token.")
         raise HTTPException(status_code=401, detail="Invalid token")
 
     email = payload.get("sub")
+    print(f"DEBUG /products: user email from token={email}")
     user = db.query(models.User).filter(models.User.email == email).first()
     if not user:
+        print("DEBUG /products: user not found in DB")
         raise HTTPException(status_code=404, detail="User not found")
 
     if user.account_status in ("banned", "pending_verification") or \
