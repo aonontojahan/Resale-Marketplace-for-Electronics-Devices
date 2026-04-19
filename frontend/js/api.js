@@ -57,6 +57,16 @@ const api = {
         return this.request('/users/me', 'GET', null, token);
     },
 
+    // ─── Wallet ─────────────────────────────────────────────────────────────
+
+    async depositWallet(amount) {
+        return this.request('/wallet/deposit', 'POST', { amount });
+    },
+
+    async getWalletTransactions() {
+        return this.request('/wallet/transactions', 'GET');
+    },
+
     // ─── Users ──────────────────────────────────────────────────────────────
 
     async getUsers(role = null) {

@@ -163,6 +163,44 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     return user
 
 
+# ─── WALLET ───────────────────────────────────────────────────────────────────
+
+@app.post("/wallet/deposit", response_model=schemas.UserResponse)
+def mock_deposit_funds(
+    deposit_req: schemas.WalletDepositRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Mock Payment Gateway: Adds funds to user's wallet."""
+    if deposit_req.amount <= 0:
+        raise HTTPException(status_code=400, detail="Deposit amount must be greater than 0.")
+    
+    current_user.wallet_balance += deposit_req.amount
+
+    # Create transaction record
+    new_tx = models.WalletTransaction(
+        user_id=current_user.id,
+        amount=deposit_req.amount,
+        transaction_type="deposit",
+        description="Deposit via SecurePay Demo"
+    )
+    db.add(new_tx)
+
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+@app.get("/wallet/transactions", response_model=List[schemas.WalletTransactionResponse])
+def get_user_transactions(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Fetch user's wallet transaction history."""
+    return db.query(models.WalletTransaction).filter(
+        models.WalletTransaction.user_id == current_user.id
+    ).order_by(models.WalletTransaction.created_at.desc()).all()
+
+
 @app.get("/users", response_model=List[schemas.UserResponse])
 def get_users(role: str = None, db: Session = Depends(get_db)):
     """Fetch all users, optionally filtered by role."""
