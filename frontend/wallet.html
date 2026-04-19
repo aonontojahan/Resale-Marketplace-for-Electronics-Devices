@@ -180,9 +180,8 @@
         style="background: #0f172a; padding: 1.5rem; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1);">
         <h3
           style="color: white; margin: 0; font-size: 1.4rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
-          <span style="color: var(--accent-cyan);">Secure</span>Pay Demo
+          <span style="color: var(--accent-cyan);">Secure</span>Pay
         </h3>
-        <p style="color: #94a3b8; font-size: 0.85rem; margin-top: 0.5rem; margin-bottom: 0;">Test Mode Gateway</p>
       </div>
 
       <div id="gatewayFormView" style="padding: 2rem;">
@@ -190,10 +189,17 @@
           <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.5rem;">Amount to
             Deposit (৳)</label>
           <input type="number" id="depositAmount" class="form-input"
-            style="font-size: 1.2rem; font-weight: bold; background: var(--surface);" value="1000" min="10">
+            style="background: var(--surface);" placeholder="e.g. 500" min="10">
         </div>
 
-        <div class="form-group" style="margin-bottom: 1.5rem;">
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.5rem;">Cardholder
+            Name</label>
+          <input type="text" id="cardholderName" class="form-input" style="background: var(--surface);"
+            placeholder="e.g. aonontojahan">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1.25rem;">
           <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.5rem;">Card
             Number</label>
           <input type="text" class="form-input" value="4242 4242 4242 4242"
@@ -216,7 +222,7 @@
         <button id="processPaymentBtn"
           style="width: 100%; background: linear-gradient(135deg, var(--primary), var(--accent-cyan)); color: white; font-weight: 700; font-size: 1.1rem; border: none; padding: 1rem; border-radius: 8px; cursor: pointer; margin-top: 0.5rem;"
           onclick="processMockPayment()">
-          Pay Now
+          Add Money
         </button>
         <button
           style="width: 100%; background: transparent; color: var(--text-muted); border: none; padding: 0.75rem; margin-top: 0.5rem; cursor: pointer;"
@@ -306,6 +312,7 @@
       const urlParams = new URLSearchParams(window.location.search);
       const action = urlParams.get('action');
       const listingId = urlParams.get('listing');
+      const offerId = urlParams.get('offer');
 
       if (action === 'buy' && listingId) {
         document.getElementById('walletDashView').style.display = 'none';
@@ -314,9 +321,20 @@
 
         try {
           const product = await window.api.getProduct(listingId);
+          const currentUser = await window.api.getMe();
+
+          let negotiatedPrice = Number(product.price);
+          if (offerId) {
+            const offer = await window.api.getOffer(offerId);
+            if (offer.status === 'accepted') {
+              negotiatedPrice = Number(offer.offered_price);
+              document.getElementById('walletPageTitle').innerHTML = `Secure Escrow Checkout <span style="font-size:0.8rem; background:var(--accent-green); color:white; padding:2px 8px; border-radius:12px; margin-left:10px;">Negotiated</span>`;
+            }
+          }
+
           let currentQty = 1;
           const maxQty = product.inventory_quantity || 1;
-          const basePrice = Number(product.price);
+          const basePrice = negotiatedPrice;
 
           const rawImgUrl = product.image_urls && product.image_urls.length ? product.image_urls[0] : null;
           const finalImgSrc = rawImgUrl ? (rawImgUrl.startsWith('http') ? rawImgUrl : `http://localhost:8000${rawImgUrl}`) : 'https://via.placeholder.com/120';
@@ -335,8 +353,20 @@
           const updateTotal = () => {
             document.getElementById('coQtyText').innerText = currentQty;
             const itemsTotal = currentQty * basePrice;
+            const totalToPay = itemsTotal + deliveryFee;
             document.getElementById('coBasePrice').innerText = itemsTotal.toLocaleString('en-IN');
-            totalEl.innerText = (itemsTotal + deliveryFee).toLocaleString('en-IN');
+            totalEl.innerText = totalToPay.toLocaleString('en-IN');
+
+            const btn = document.getElementById('coConfirmBtn');
+            if (currentUser && currentUser.wallet_balance < totalToPay) {
+              btn.disabled = true;
+              btn.style.background = '#94a3b8';
+              btn.innerText = `Insufficient Funds (Short ৳${(totalToPay - currentUser.wallet_balance).toLocaleString()})`;
+            } else {
+              btn.disabled = false;
+              btn.style.background = '#f97316';
+              btn.innerText = 'Proceed to Pay';
+            }
           };
           updateTotal();
 
@@ -356,9 +386,19 @@
             }
           });
 
-          document.getElementById('coConfirmBtn').addEventListener('click', () => {
-            alert(`Demo: Successfully placed ৳${(currentQty * basePrice).toLocaleString('en-IN')} into Escrow for ${currentQty}x ${product.title}!`);
-            window.location.href = 'wallet.html';
+          document.getElementById('coConfirmBtn').addEventListener('click', async () => {
+            try {
+              if (offerId) {
+                await window.api.finalizePayment(offerId, currentQty);
+                alert("Success! Payment moved to Escrow at negotiated price.");
+              } else {
+                alert("Purchasing at listing price is only available for direct buys. Please use Negotiation for now.");
+                return;
+              }
+              window.location.href = 'wallet.html';
+            } catch (e) {
+              alert("Payment failed: " + e.message);
+            }
           });
 
         } catch (err) {
@@ -394,23 +434,56 @@
         // Load transactions
         const txs = await window.api.getWalletTransactions();
         const txList = document.getElementById('transactionsList');
-        if (txs.length === 0) {
-          txList.innerHTML = '<p style="color: var(--text-muted); font-size: 0.9rem;">No recent transactions.</p>';
+
+        if (!txs || txs.length === 0) {
+          txList.innerHTML = `
+            <div style="padding: 3rem 1rem; text-align: center; color: var(--text-muted);">
+              <div style="font-size: 2.5rem; margin-bottom: 1rem; opacity: 0.3;">💸</div>
+              <p style="font-size: 0.95rem;">No recent transactions found.</p>
+              <p style="font-size: 0.8rem; opacity: 0.7;">Your deposits and purchases will appear here.</p>
+            </div>
+          `;
         } else {
           txList.innerHTML = txs.map(tx => {
-            const date = new Date(tx.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+            const date = new Date(tx.created_at).toLocaleString('en-GB', {
+              day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+            });
+            const isDeposit = tx.transaction_type === 'deposit';
             const isPositive = tx.amount > 0;
-            const color = isPositive ? 'var(--accent-green)' : 'var(--secondary)';
-            const sign = isPositive ? '+' : '';
+
+            // Premium Colors & Icons
+            let icon = '💳';
+            let color = '#3b82f6'; // Blue
+            let label = tx.description || 'Transaction';
+
+            if (isDeposit) {
+              icon = '➕';
+              color = '#10b981'; // Green
+            } else if (tx.transaction_type === 'escrow_hold') {
+              icon = '🔒';
+              color = '#f59e0b'; // Amber
+            } else if (tx.amount < 0) {
+              icon = '➖';
+              color = '#ef4444'; // Red
+            }
+
+            const sign = tx.amount > 0 ? '+' : '';
+
             return `
-                      <div class="transaction-item">
-                        <div>
-                          <p style="font-weight: 600;">${tx.description || tx.transaction_type}</p>
-                          <p style="font-size: 0.85rem; color: var(--text-muted);">${date}</p>
-                        </div>
-                        <div style="color: ${color}; font-weight: 700;">${sign}৳${tx.amount.toLocaleString('en-IN')}</div>
-                      </div>
-                    `;
+                <div class="transaction-item" style="display: flex; align-items: center; gap: 1rem; padding: 1.25rem; transition: background 0.2s;">
+                    <div style="width: 40px; height: 40px; background: ${color}10; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; color: ${color};">
+                        ${icon}
+                    </div>
+                    <div style="flex: 1;">
+                        <p style="font-weight: 700; color: var(--text-primary); margin: 0 0 0.2rem 0;">${label}</p>
+                        <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0;">${date}</p>
+                    </div>
+                    <div style="text-align: right;">
+                        <p style="color: ${color}; font-weight: 800; font-size: 1.05rem; margin: 0;">${sign}৳${Math.abs(tx.amount).toLocaleString('en-IN')}</p>
+                        <p style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; margin-top: 0.2rem;">${tx.transaction_type.replace('_', ' ')}</p>
+                    </div>
+                </div>
+            `;
           }).join('');
         }
       } catch (e) {
@@ -434,9 +507,15 @@
 
     async function processMockPayment() {
       const amountStr = document.getElementById('depositAmount').value;
+      const cardholder = document.getElementById('cardholderName').value.trim();
       const amount = parseInt(amountStr);
+
       if (isNaN(amount) || amount <= 0) {
         alert("Please enter a valid amount.");
+        return;
+      }
+      if (!cardholder) {
+        alert("Please enter the cardholder name.");
         return;
       }
 

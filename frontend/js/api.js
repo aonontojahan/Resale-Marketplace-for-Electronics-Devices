@@ -67,6 +67,32 @@ const api = {
         return this.request('/wallet/transactions', 'GET');
     },
 
+    // ─── Offers & Negotiation ──────────────────────────────────────────
+
+    async createOffer(sessionId, productId, price) {
+        return this.request('/offers', 'POST', {
+            session_id: parseInt(sessionId),
+            product_id: productId,
+            offered_price: parseInt(price)
+        });
+    },
+
+    async getOffer(offerId) {
+        return this.request(`/offers/${offerId}`, 'GET');
+    },
+
+    async acceptOffer(offerId) {
+        return this.request(`/offers/${offerId}/accept`, 'POST');
+    },
+
+    async rejectOffer(offerId) {
+        return this.request(`/offers/${offerId}/reject`, 'POST');
+    },
+
+    async finalizePayment(offerId, quantity = 1) {
+        return this.request(`/escrow/pay?offer_id=${offerId}&quantity=${quantity}`, 'POST');
+    },
+
     // ─── Users ──────────────────────────────────────────────────────────────
 
     async getUsers(role = null) {

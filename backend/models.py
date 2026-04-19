@@ -70,6 +70,7 @@ class ChatSession(Base):
     buyer = relationship("User", foreign_keys=[buyer_id])
     seller = relationship("User", foreign_keys=[seller_id])
     messages = relationship("ChatMessage", back_populates="session", cascade="all, delete-orphan")
+    offers = relationship("Offer", back_populates="session", cascade="all, delete-orphan")
 
 
 class ChatMessage(Base):
@@ -172,7 +173,7 @@ class Offer(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    session = relationship("ChatSession", backref="offers")
+    session = relationship("ChatSession", back_populates="offers")
     product = relationship("Product", backref="offers")
     buyer = relationship("User", foreign_keys=[buyer_id], backref="offers_made")
     seller = relationship("User", foreign_keys=[seller_id], backref="offers_received")
