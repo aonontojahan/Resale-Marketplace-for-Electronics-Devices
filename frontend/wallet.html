@@ -31,26 +31,32 @@
     <!-- CHECKOUT VIEW -->
     <div id="checkoutView" style="display: none; padding-top: 1rem;">
       <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem;">
-        
+
         <!-- LEFT: Delivery Info -->
         <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 2rem;">
           <h3 style="margin-top: 0; margin-bottom: 1.5rem; font-size: 1.25rem;">Delivery Information</h3>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
             <div class="form-group" style="margin: 0;">
               <label style="font-size: 0.85rem; color: var(--text-muted);">Full name</label>
-              <input type="text" class="form-input" style="background: var(--surface);" placeholder="Enter your first and last name">
+              <input type="text" class="form-input" style="background: var(--surface);"
+                placeholder="Enter your first and last name">
             </div>
             <div class="form-group" style="margin: 0;">
               <label style="font-size: 0.85rem; color: var(--text-muted);">Region</label>
-              <select class="form-input" style="background: var(--surface);"><option>Please choose your region</option></select>
+              <select class="form-input" style="background: var(--surface);">
+                <option>Please choose your region</option>
+              </select>
             </div>
             <div class="form-group" style="margin: 0;">
               <label style="font-size: 0.85rem; color: var(--text-muted);">Phone Number</label>
-              <input type="text" class="form-input" style="background: var(--surface);" placeholder="Please enter your phone number">
+              <input type="text" class="form-input" style="background: var(--surface);"
+                placeholder="Please enter your phone number">
             </div>
             <div class="form-group" style="margin: 0;">
               <label style="font-size: 0.85rem; color: var(--text-muted);">City</label>
-              <select class="form-input" style="background: var(--surface);"><option>Please choose your city</option></select>
+              <select class="form-input" style="background: var(--surface);">
+                <option>Please choose your city</option>
+              </select>
             </div>
             <div class="form-group" style="margin: 0;">
               <label style="font-size: 0.85rem; color: var(--text-muted);">Building / House No / Floor / Street</label>
@@ -58,7 +64,9 @@
             </div>
             <div class="form-group" style="margin: 0;">
               <label style="font-size: 0.85rem; color: var(--text-muted);">Area</label>
-              <select class="form-input" style="background: var(--surface);"><option>Please choose your area</option></select>
+              <select class="form-input" style="background: var(--surface);">
+                <option>Please choose your area</option>
+              </select>
             </div>
             <div class="form-group" style="margin: 0;">
               <label style="font-size: 0.85rem; color: var(--text-muted);">Colony / Suburb / Locality / Landmark</label>
@@ -66,7 +74,8 @@
             </div>
             <div class="form-group" style="margin: 0;">
               <label style="font-size: 0.85rem; color: var(--text-muted);">Address</label>
-              <input type="text" class="form-input" style="background: var(--surface);" placeholder="For Example: House# 123, Street# 123">
+              <input type="text" class="form-input" style="background: var(--surface);"
+                placeholder="For Example: House# 123, Street# 123">
             </div>
           </div>
         </div>
@@ -75,21 +84,29 @@
         <div>
           <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 2rem;">
             <h3 style="margin-top: 0; margin-bottom: 1.5rem; font-size: 1.25rem;">Order Summary</h3>
-            
-            <div style="display: flex; gap: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 1.5rem; margin-bottom: 1.5rem;">
+
+            <div
+              style="display: flex; gap: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 1.5rem; margin-bottom: 1.5rem;">
               <img id="coImage" src="" style="width: 60px; height: 60px; border-radius: 8px; object-fit: cover;">
               <div>
                 <h4 id="coTitle" style="margin: 0 0 0.35rem 0; font-size: 0.95rem; line-height: 1.3;">Loading...</h4>
-                <span id="coCondition" style="font-size: 0.7rem; background: rgba(99,102,241,0.1); color: var(--primary); padding: 0.2rem 0.5rem; border-radius: 4px; border: 1px solid rgba(99,102,241,0.2);">Condition</span>
+                <span id="coCondition"
+                  style="font-size: 0.7rem; background: rgba(99,102,241,0.1); color: var(--primary); padding: 0.2rem 0.5rem; border-radius: 4px; border: 1px solid rgba(99,102,241,0.2);">Condition</span>
               </div>
             </div>
 
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-              <span style="font-size: 0.9rem; color: var(--text-muted);">Quantity <small>(Max: <span id="coMaxStock">0</span>)</small></span>
-              <div style="display: flex; align-items: center; background: var(--surface); border-radius: 6px; border: 1px solid var(--border);">
-                <button id="coMinus" style="width: 32px; height: 32px; border: none; background: transparent; color: var(--text-primary); font-size: 1rem; cursor: pointer; font-weight: bold;">-</button>
-                <input type="number" id="coQtyInput" value="1" min="1" max="1" style="width: 40px; text-align: center; background: transparent; border: none; color: var(--text-primary); font-weight: bold; outline: none;" readonly>
-                <button id="coPlus" style="width: 32px; height: 32px; border: none; background: transparent; color: var(--text-primary); font-size: 1rem; cursor: pointer; font-weight: bold;">+</button>
+              <span style="font-size: 0.9rem; color: var(--text-muted);">Quantity <small>(Max: <span
+                    id="coMaxStock">0</span>)</small></span>
+              <div
+                style="display: flex; align-items: center; background: var(--surface); border-radius: 6px; border: 1px solid var(--border);">
+                <button id="coMinus"
+                  style="width: 32px; height: 32px; border: none; background: transparent; color: var(--text-primary); font-size: 1rem; cursor: pointer; font-weight: bold;">-</button>
+                <input type="number" id="coQtyInput" value="1" min="1" max="1"
+                  style="width: 40px; text-align: center; background: transparent; border: none; color: var(--text-primary); font-weight: bold; outline: none;"
+                  readonly>
+                <button id="coPlus"
+                  style="width: 32px; height: 32px; border: none; background: transparent; color: var(--text-primary); font-size: 1rem; cursor: pointer; font-weight: bold;">+</button>
               </div>
             </div>
 
@@ -106,10 +123,13 @@
               <span style="font-size: 1.2rem; font-weight: 600;">Total:</span>
               <span style="font-size: 1.6rem; font-weight: 800; color: #f97316;">৳<span id="coTotal">0</span></span>
             </div>
-            
-            <p style="font-size: 0.75rem; color: var(--text-muted); text-align: right; margin-bottom: 1.5rem;">VAT included, where applicable</p>
-            
-            <button id="coConfirmBtn" style="width: 100%; background: #f97316; color: white; font-weight: 700; font-size: 1.05rem; letter-spacing: 0.02em; border: none; padding: 1rem; border-radius: 8px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#ea580c'" onmouseout="this.style.background='#f97316'">
+
+            <p style="font-size: 0.75rem; color: var(--text-muted); text-align: right; margin-bottom: 1.5rem;">VAT
+              included, where applicable</p>
+
+            <button id="coConfirmBtn"
+              style="width: 100%; background: #f97316; color: white; font-weight: 700; font-size: 1.05rem; letter-spacing: 0.02em; border: none; padding: 1rem; border-radius: 8px; cursor: pointer; transition: background 0.2s;"
+              onmouseover="this.style.background='#ea580c'" onmouseout="this.style.background='#f97316'">
               Proceed to Pay
             </button>
 
@@ -122,48 +142,126 @@
     <div id="walletDashView">
       <div class="wallet-grid">
         <div class="wallet-card available">
-        <h3>Available Balance</h3>
-        <p class="balance">৳1,45,000</p>
-        <div style="margin-top: 2rem;">
-          <button class="btn-primary" style="width: 100%; border-radius: 8px;">Withdraw Funds</button>
+          <h3 id="availableBalanceTitle">Available Balance</h3>
+          <p class="balance" id="walletAvailableBalance">৳0</p>
+          <div id="buyerWalletActions" style="display: none; margin-top: 2rem;">
+            <button class="btn-primary" onclick="openMockGateway()"
+              style="width: 100%; border-radius: 8px; background: linear-gradient(135deg, var(--primary), var(--accent-cyan)); box-shadow: 0 4px 12px rgba(99,102,241,0.3);">+
+              Add Balance</button>
+          </div>
+          <div id="sellerWalletActions" style="display: none; margin-top: 2rem;">
+            <button class="btn-primary" onclick="alert('Withdrawals are coming soon!')"
+              style="width: 100%; border-radius: 8px; background: var(--secondary);">Withdraw Balance</button>
+          </div>
+        </div>
+
+        <div class="wallet-card escrow">
+          <h3 id="escrowBalanceTitle">Escrow Balance</h3>
+          <p class="balance" id="walletEscrowBalance">৳0</p>
+          <p id="escrowDescription" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 1rem;">Holdings</p>
         </div>
       </div>
 
-      <div class="wallet-card escrow">
-        <h3>Escrow Balance</h3>
-        <p class="balance">৳75,000</p>
-        <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 1rem;">These funds are held securely until
-          the buyer confirms receipt of the item.</p>
-      </div>
-    </div>
-
-    <div class="recent-transactions">
-      <div class="transactions-header">Recent Transactions</div>
-      <div class="transaction-item">
-        <div>
-          <p style="font-weight: 600;">Sale: MacBook Air M1</p>
-          <p style="font-size: 0.85rem; color: var(--text-muted);">March 28, 2026</p>
+      <div class="recent-transactions">
+        <div class="transactions-header">Recent Transactions</div>
+        <div id="transactionsList">
+          <p style="color: var(--text-muted); font-size: 0.9rem;">Loading transactions...</p>
         </div>
-        <div style="color: var(--accent-green); font-weight: 700;">+৳85,000</div>
       </div>
-      <div class="transaction-item">
-        <div>
-          <p style="font-weight: 600;">Withdrawal to Bank</p>
-          <p style="font-size: 0.85rem; color: var(--text-muted);">March 25, 2026</p>
-        </div>
-        <div style="color: var(--secondary); font-weight: 700;">-৳25,000</div>
-      </div>
-      <div class="transaction-item">
-        <div>
-          <p style="font-weight: 600;">Sale: Sony Headphones</p>
-          <p style="font-size: 0.85rem; color: var(--text-muted);">March 20, 2026</p>
-        </div>
-        <div style="color: var(--accent-green); font-weight: 700;">+৳12,500</div>
-      </div>
-      </div>
-    </div>
     </div> <!-- END WALLET DASHBOARD -->
   </main>
+
+  <!-- MOCK PAYMENT GATEWAY MODAL -->
+  <div id="mockGatewayModal"
+    style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.8); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+    <div
+      style="background: var(--bg-card); width: 100%; max-width: 450px; border-radius: 16px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); overflow: hidden; border: 1px solid var(--border);">
+      <div
+        style="background: #0f172a; padding: 1.5rem; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1);">
+        <h3
+          style="color: white; margin: 0; font-size: 1.4rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+          <span style="color: var(--accent-cyan);">Secure</span>Pay
+        </h3>
+      </div>
+
+      <div id="gatewayFormView" style="padding: 2rem;">
+        <div class="form-group" style="margin-bottom: 1.5rem;">
+          <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.5rem;">Amount to
+            Deposit (৳)</label>
+          <input type="number" id="depositAmount" class="form-input"
+            style="background: var(--surface);" placeholder="e.g. 500" min="10">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.5rem;">Cardholder
+            Name</label>
+          <input type="text" id="cardholderName" class="form-input" style="background: var(--surface);"
+            placeholder="e.g. aonontojahan">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1.25rem;">
+          <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.5rem;">Card
+            Number</label>
+          <input type="text" class="form-input" value="4242 4242 4242 4242"
+            style="letter-spacing: 2px; background: var(--surface);">
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div class="form-group" style="margin-bottom: 1.5rem;">
+            <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.5rem;">Expiry
+              Date</label>
+            <input type="text" class="form-input" value="12/28" style="background: var(--surface);">
+          </div>
+          <div class="form-group" style="margin-bottom: 1.5rem;">
+            <label
+              style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.5rem;">CVV</label>
+            <input type="text" class="form-input" value="123" style="background: var(--surface);">
+          </div>
+        </div>
+
+        <button id="processPaymentBtn"
+          style="width: 100%; background: linear-gradient(135deg, var(--primary), var(--accent-cyan)); color: white; font-weight: 700; font-size: 1.1rem; border: none; padding: 1rem; border-radius: 8px; cursor: pointer; margin-top: 0.5rem;"
+          onclick="processMockPayment()">
+          Add Money
+        </button>
+        <button
+          style="width: 100%; background: transparent; color: var(--text-muted); border: none; padding: 0.75rem; margin-top: 0.5rem; cursor: pointer;"
+          onclick="closeMockGateway()">Cancel</button>
+      </div>
+
+      <div id="gatewayProcessingView" style="display: none; padding: 3rem 2rem; text-align: center;">
+        <div
+          style="width: 50px; height: 50px; border: 4px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 1.5rem;">
+        </div>
+        <h3 id="processingText" style="margin: 0; font-size: 1.2rem; color: var(--text-primary);">Connecting to Bank...
+        </h3>
+      </div>
+
+      <div id="gatewaySuccessView" style="display: none; padding: 3rem 2rem; text-align: center;">
+        <div
+          style="width: 60px; height: 60px; background: rgba(16,185,129,0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem;">
+          <span style="font-size: 2rem;">✅</span>
+        </div>
+        <h3 style="margin: 0 0 0.5rem 0; font-size: 1.4rem; color: #10b981;">Payment Successful!</h3>
+        <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Transaction ID: #MOCK-<span id="mockTxnId"></span>
+        </p>
+        <button
+          style="width: 100%; background: var(--primary); color: white; border: none; padding: 1rem; border-radius: 8px; font-weight: 700; cursor: pointer;"
+          onclick="closeMockGateway(true)">Return to Wallet</button>
+      </div>
+    </div>
+  </div>
+  <style>
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
 
 
   <footer class="site-footer">
@@ -211,70 +309,237 @@
   <script src="js/app.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
-        const urlParams = new URLSearchParams(window.location.search);
-        const action = urlParams.get('action');
-        const listingId = urlParams.get('listing');
+      const urlParams = new URLSearchParams(window.location.search);
+      const action = urlParams.get('action');
+      const listingId = urlParams.get('listing');
+      const offerId = urlParams.get('offer');
 
-        if (action === 'buy' && listingId) {
-            document.getElementById('walletDashView').style.display = 'none';
-            document.getElementById('checkoutView').style.display = 'block';
-            document.getElementById('walletPageTitle').innerText = 'Secure Escrow Checkout';
+      if (action === 'buy' && listingId) {
+        document.getElementById('walletDashView').style.display = 'none';
+        document.getElementById('checkoutView').style.display = 'block';
+        document.getElementById('walletPageTitle').innerText = 'Secure Escrow Checkout';
 
-            try {
-                const product = await window.api.getProduct(listingId);
-                let currentQty = 1;
-                const maxQty = product.inventory_quantity || 1;
-                const basePrice = Number(product.price);
+        try {
+          const product = await window.api.getProduct(listingId);
+          const currentUser = await window.api.getMe();
 
-                const rawImgUrl = product.image_urls && product.image_urls.length ? product.image_urls[0] : null;
-                const finalImgSrc = rawImgUrl ? (rawImgUrl.startsWith('http') ? rawImgUrl : `http://localhost:8000${rawImgUrl}`) : 'https://via.placeholder.com/120';
-
-                document.getElementById('coImage').src = finalImgSrc;
-                document.getElementById('coTitle').innerText = product.title;
-                document.getElementById('coCondition').innerText = product.condition;
-                document.getElementById('coMaxStock').innerText = maxQty;
-                
-                const input = document.getElementById('coQtyInput');
-                const totalEl = document.getElementById('coTotal');
-                input.max = maxQty;
-
-                const deliveryFee = 70;
-
-                const updateTotal = () => {
-                    document.getElementById('coQtyText').innerText = currentQty;
-                    const itemsTotal = currentQty * basePrice;
-                    document.getElementById('coBasePrice').innerText = itemsTotal.toLocaleString('en-IN');
-                    totalEl.innerText = (itemsTotal + deliveryFee).toLocaleString('en-IN');
-                };
-                updateTotal();
-
-                document.getElementById('coMinus').addEventListener('click', () => {
-                    if (currentQty > 1) {
-                        currentQty--;
-                        input.value = currentQty;
-                        updateTotal();
-                    }
-                });
-
-                document.getElementById('coPlus').addEventListener('click', () => {
-                    if (currentQty < maxQty) {
-                        currentQty++;
-                        input.value = currentQty;
-                        updateTotal();
-                    }
-                });
-
-                document.getElementById('coConfirmBtn').addEventListener('click', () => {
-                    alert(`Demo: Successfully placed ৳${(currentQty * basePrice).toLocaleString('en-IN')} into Escrow for ${currentQty}x ${product.title}!`);
-                    window.location.href = 'wallet.html';
-                });
-
-            } catch (err) {
-                alert('Could not load checkout data: ' + err.message);
-                window.location.href = 'wallet.html';
+          let negotiatedPrice = Number(product.price);
+          if (offerId) {
+            const offer = await window.api.getOffer(offerId);
+            if (offer.status === 'accepted') {
+              negotiatedPrice = Number(offer.offered_price);
+              document.getElementById('walletPageTitle').innerHTML = `Secure Escrow Checkout <span style="font-size:0.8rem; background:var(--accent-green); color:white; padding:2px 8px; border-radius:12px; margin-left:10px;">Negotiated</span>`;
             }
+          }
+
+          let currentQty = 1;
+          const maxQty = product.inventory_quantity || 1;
+          const basePrice = negotiatedPrice;
+
+          const rawImgUrl = product.image_urls && product.image_urls.length ? product.image_urls[0] : null;
+          const finalImgSrc = rawImgUrl ? (rawImgUrl.startsWith('http') ? rawImgUrl : `http://localhost:8000${rawImgUrl}`) : 'https://via.placeholder.com/120';
+
+          document.getElementById('coImage').src = finalImgSrc;
+          document.getElementById('coTitle').innerText = product.title;
+          document.getElementById('coCondition').innerText = product.condition;
+          document.getElementById('coMaxStock').innerText = maxQty;
+
+          const input = document.getElementById('coQtyInput');
+          const totalEl = document.getElementById('coTotal');
+          input.max = maxQty;
+
+          const deliveryFee = 70;
+
+          const updateTotal = () => {
+            document.getElementById('coQtyText').innerText = currentQty;
+            const itemsTotal = currentQty * basePrice;
+            const totalToPay = itemsTotal + deliveryFee;
+            document.getElementById('coBasePrice').innerText = itemsTotal.toLocaleString('en-IN');
+            totalEl.innerText = totalToPay.toLocaleString('en-IN');
+
+            const btn = document.getElementById('coConfirmBtn');
+            if (currentUser && currentUser.wallet_balance < totalToPay) {
+              btn.disabled = true;
+              btn.style.background = '#94a3b8';
+              btn.innerText = `Insufficient Funds (Short ৳${(totalToPay - currentUser.wallet_balance).toLocaleString()})`;
+            } else {
+              btn.disabled = false;
+              btn.style.background = '#f97316';
+              btn.innerText = 'Proceed to Pay';
+            }
+          };
+          updateTotal();
+
+          document.getElementById('coMinus').addEventListener('click', () => {
+            if (currentQty > 1) {
+              currentQty--;
+              input.value = currentQty;
+              updateTotal();
+            }
+          });
+
+          document.getElementById('coPlus').addEventListener('click', () => {
+            if (currentQty < maxQty) {
+              currentQty++;
+              input.value = currentQty;
+              updateTotal();
+            }
+          });
+
+          document.getElementById('coConfirmBtn').addEventListener('click', async () => {
+            try {
+              if (offerId) {
+                await window.api.finalizePayment(offerId, currentQty);
+                alert("Success! Payment moved to Escrow at negotiated price.");
+              } else {
+                alert("Purchasing at listing price is only available for direct buys. Please use Negotiation for now.");
+                return;
+              }
+              window.location.href = 'wallet.html';
+            } catch (e) {
+              alert("Payment failed: " + e.message);
+            }
+          });
+
+        } catch (err) {
+          alert('Could not load checkout data: ' + err.message);
+          window.location.href = 'wallet.html';
         }
+      } else {
+        loadWalletData();
+      }
     });
+
+    async function loadWalletData() {
+      try {
+        const user = await window.api.getMe();
+        document.getElementById('walletAvailableBalance').innerText = '৳' + (user.wallet_balance || 0).toLocaleString('en-IN');
+        document.getElementById('walletEscrowBalance').innerText = '৳' + (user.escrow_balance || 0).toLocaleString('en-IN');
+
+        // Adjust UI by Role
+        if (user.role === 'buyer') {
+          document.getElementById('availableBalanceTitle').innerText = 'Deposit Balance';
+          document.getElementById('escrowBalanceTitle').innerText = 'In Escrow';
+          document.getElementById('escrowDescription').innerText = 'Funds securely locked for pending purchases until you confirm receipt.';
+          document.getElementById('buyerWalletActions').style.display = 'block';
+          document.getElementById('sellerWalletActions').style.display = 'none';
+        } else if (user.role === 'seller') {
+          document.getElementById('availableBalanceTitle').innerText = 'Available Balance';
+          document.getElementById('escrowBalanceTitle').innerText = 'Escrow Balance';
+          document.getElementById('escrowDescription').innerText = 'Pending payouts from sold items awaiting buyer confirmation.';
+          document.getElementById('buyerWalletActions').style.display = 'none';
+          document.getElementById('sellerWalletActions').style.display = 'block';
+        }
+
+        // Load transactions
+        const txs = await window.api.getWalletTransactions();
+        const txList = document.getElementById('transactionsList');
+
+        if (!txs || txs.length === 0) {
+          txList.innerHTML = `
+            <div style="padding: 3rem 1rem; text-align: center; color: var(--text-muted);">
+              <div style="font-size: 2.5rem; margin-bottom: 1rem; opacity: 0.3;">💸</div>
+              <p style="font-size: 0.95rem;">No recent transactions found.</p>
+              <p style="font-size: 0.8rem; opacity: 0.7;">Your deposits and purchases will appear here.</p>
+            </div>
+          `;
+        } else {
+          txList.innerHTML = txs.map(tx => {
+            const date = new Date(tx.created_at).toLocaleString('en-GB', {
+              day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+            });
+            const isDeposit = tx.transaction_type === 'deposit';
+            const isPositive = tx.amount > 0;
+
+            // Premium Colors & Icons
+            let icon = '💳';
+            let color = '#3b82f6'; // Blue
+            let label = tx.description || 'Transaction';
+
+            if (isDeposit) {
+              icon = '➕';
+              color = '#10b981'; // Green
+            } else if (tx.transaction_type === 'escrow_hold') {
+              icon = '🔒';
+              color = '#f59e0b'; // Amber
+            } else if (tx.amount < 0) {
+              icon = '➖';
+              color = '#ef4444'; // Red
+            }
+
+            const sign = tx.amount > 0 ? '+' : '';
+
+            return `
+                <div class="transaction-item" style="display: flex; align-items: center; gap: 1rem; padding: 1.25rem; transition: background 0.2s;">
+                    <div style="width: 40px; height: 40px; background: ${color}10; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; color: ${color};">
+                        ${icon}
+                    </div>
+                    <div style="flex: 1;">
+                        <p style="font-weight: 700; color: var(--text-primary); margin: 0 0 0.2rem 0;">${label}</p>
+                        <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0;">${date}</p>
+                    </div>
+                    <div style="text-align: right;">
+                        <p style="color: ${color}; font-weight: 800; font-size: 1.05rem; margin: 0;">${sign}৳${Math.abs(tx.amount).toLocaleString('en-IN')}</p>
+                        <p style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; margin-top: 0.2rem;">${tx.transaction_type.replace('_', ' ')}</p>
+                    </div>
+                </div>
+            `;
+          }).join('');
+        }
+      } catch (e) {
+        console.error("Failed to load wallet data", e);
+      }
+    }
+
+    function openMockGateway() {
+      document.getElementById('mockGatewayModal').style.display = 'flex';
+      document.getElementById('gatewayFormView').style.display = 'block';
+      document.getElementById('gatewayProcessingView').style.display = 'none';
+      document.getElementById('gatewaySuccessView').style.display = 'none';
+    }
+
+    function closeMockGateway(refresh = false) {
+      document.getElementById('mockGatewayModal').style.display = 'none';
+      if (refresh) {
+        loadWalletData();
+      }
+    }
+
+    async function processMockPayment() {
+      const amountStr = document.getElementById('depositAmount').value;
+      const cardholder = document.getElementById('cardholderName').value.trim();
+      const amount = parseInt(amountStr);
+
+      if (isNaN(amount) || amount <= 0) {
+        alert("Please enter a valid amount.");
+        return;
+      }
+      if (!cardholder) {
+        alert("Please enter the cardholder name.");
+        return;
+      }
+
+      document.getElementById('gatewayFormView').style.display = 'none';
+      document.getElementById('gatewayProcessingView').style.display = 'block';
+      document.getElementById('processingText').innerText = "Connecting to Bank...";
+
+      await new Promise(r => setTimeout(r, 800));
+      document.getElementById('processingText').innerText = "Verifying Funds...";
+      await new Promise(r => setTimeout(r, 800));
+      document.getElementById('processingText').innerText = "Authorizing Transaction...";
+      await new Promise(r => setTimeout(r, 800));
+
+      try {
+        await window.api.depositWallet(amount);
+        document.getElementById('mockTxnId').innerText = Math.floor(Math.random() * 1000000);
+        document.getElementById('gatewayProcessingView').style.display = 'none';
+        document.getElementById('gatewaySuccessView').style.display = 'block';
+      } catch (e) {
+        alert("Payment failed: " + e.message);
+        document.getElementById('gatewayProcessingView').style.display = 'none';
+        document.getElementById('gatewayFormView').style.display = 'block';
+      }
+    }
   </script>
 </body>
 

@@ -57,6 +57,42 @@ const api = {
         return this.request('/users/me', 'GET', null, token);
     },
 
+    // ─── Wallet ─────────────────────────────────────────────────────────────
+
+    async depositWallet(amount) {
+        return this.request('/wallet/deposit', 'POST', { amount });
+    },
+
+    async getWalletTransactions() {
+        return this.request('/wallet/transactions', 'GET');
+    },
+
+    // ─── Offers & Negotiation ──────────────────────────────────────────
+
+    async createOffer(sessionId, productId, price) {
+        return this.request('/offers', 'POST', {
+            session_id: parseInt(sessionId),
+            product_id: productId,
+            offered_price: parseInt(price)
+        });
+    },
+
+    async getOffer(offerId) {
+        return this.request(`/offers/${offerId}`, 'GET');
+    },
+
+    async acceptOffer(offerId) {
+        return this.request(`/offers/${offerId}/accept`, 'POST');
+    },
+
+    async rejectOffer(offerId) {
+        return this.request(`/offers/${offerId}/reject`, 'POST');
+    },
+
+    async finalizePayment(offerId, quantity = 1) {
+        return this.request(`/escrow/pay?offer_id=${offerId}&quantity=${quantity}`, 'POST');
+    },
+
     // ─── Users ──────────────────────────────────────────────────────────────
 
     async getUsers(role = null) {
@@ -75,18 +111,18 @@ const api = {
         let endpoint = "/products";
         const queryParams = new URLSearchParams();
 
-        if (options.page)         queryParams.append('page', options.page);
-        if (options.limit)        queryParams.append('limit', options.limit);
+        if (options.page) queryParams.append('page', options.page);
+        if (options.limit) queryParams.append('limit', options.limit);
         if (options.status && options.status !== 'all') queryParams.append('status', options.status);
         if (options.category && options.category !== 'all') queryParams.append('category', options.category);
-        if (options.seller_id)    queryParams.append('seller_id', options.seller_id);
+        if (options.seller_id) queryParams.append('seller_id', options.seller_id);
         if (options.search_query) queryParams.append('search_query', options.search_query);
 
         const qs = queryParams.toString();
         if (qs) endpoint += `?${qs}`;
         return this.request(endpoint, "GET");
     },
-    
+
     async getProduct(productId) {
         return this.request(`/products/${productId}`, "GET");
     },

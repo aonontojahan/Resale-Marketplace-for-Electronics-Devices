@@ -44,7 +44,9 @@
           </div>
         </div>
 
-        <div id="chatListingBanner" style="display:none; padding: 1rem 1.5rem; background: #f8fafc; border-bottom: 1px solid var(--border); justify-content: space-between; align-items: center;"></div>
+        <div id="chatListingBanner"
+          style="display:none; padding: 1rem 1.5rem; background: #f8fafc; border-bottom: 1px solid var(--border); justify-content: space-between; align-items: center;">
+        </div>
 
         <div class="chat-box" id="chatBox">
           <!-- Javascript dynamically injects messages here -->
@@ -52,6 +54,7 @@
 
         <div class="chat-input-area">
           <form class="chat-form" id="chatForm">
+            <div id="offerBtnContainer"></div>
             <input type="text" id="chatInput" placeholder="Type your message here..." autocomplete="off">
             <button type="submit" class="btn-send">Send</button>
           </form>
@@ -59,6 +62,24 @@
       </section>
     </div>
   </main>
+
+  <!-- Negotiation Modal -->
+  <div id="offerModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+    <div style="background: white; padding: 2rem; border-radius: 16px; width: 400px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
+      <h3 style="margin-top: 0; color: var(--primary); display: flex; align-items: center; gap: 0.5rem;">🤝 Negotiate Price</h3>
+      <p style="font-size: 0.9rem; color: #64748b; margin-bottom: 1.5rem;">Enter your suggested price for this item. The seller must accept it before you can check out.</p>
+      
+      <div style="margin-bottom: 1.5rem;">
+        <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 0.5rem;">Offer Price (৳)</label>
+        <input type="number" id="modalOfferInput" style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 1rem; font-weight: 600;" placeholder="e.g. 5000">
+      </div>
+
+      <div style="display: flex; gap: 1rem;">
+        <button class="btn-secondary" style="flex: 1;" onclick="document.getElementById('offerModal').style.display='none'">Cancel</button>
+        <button class="btn-primary" style="flex: 1;" id="modalSubmitOffer">Send Offer</button>
+      </div>
+    </div>
+  </div>
 
   <footer class="site-footer">
     <div class="container">

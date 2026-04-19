@@ -26,12 +26,45 @@ class UserResponse(UserBase):
 
     average_rating: float = 0.0
     total_reviews: int = 0
+    wallet_balance: int = 0
+    escrow_balance: int = 0
 
     class Config:
         from_attributes = True
 
 class UserActionRequest(BaseModel):
     action: str
+
+class WalletDepositRequest(BaseModel):
+    amount: int
+
+class WalletTransactionResponse(BaseModel):
+    id: int
+    amount: int
+    transaction_type: str
+    description: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class OfferBase(BaseModel):
+    session_id: int
+    product_id: str
+    offered_price: int
+
+class OfferCreate(OfferBase):
+    pass
+
+class OfferResponse(OfferBase):
+    id: int
+    buyer_id: int
+    seller_id: int
+    status: str
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
 
 class Token(BaseModel):
     access_token: str

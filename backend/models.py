@@ -37,6 +37,10 @@ class User(Base):
     suspended_until = Column(DateTime(timezone=True), nullable=True)
     listing_banned_until = Column(DateTime(timezone=True), nullable=True)
 
+    # Wallet System
+    wallet_balance = Column(Integer, default=0, nullable=False)
+    escrow_balance = Column(Integer, default=0, nullable=False)
+
     @property
     def average_rating(self):
         if not self.reviews_received:
@@ -66,6 +70,7 @@ class ChatSession(Base):
     buyer = relationship("User", foreign_keys=[buyer_id])
     seller = relationship("User", foreign_keys=[seller_id])
     messages = relationship("ChatMessage", back_populates="session", cascade="all, delete-orphan")
+    offers = relationship("Offer", back_populates="session", cascade="all, delete-orphan")
 
 
 class ChatMessage(Base):
@@ -133,3 +138,42 @@ class Review(Base):
     reviewer = relationship("User", foreign_keys=[reviewer_id])
     seller = relationship("User", foreign_keys=[seller_id], backref="reviews_received")
     product = relationship("Product")
+
+
+class WalletTransaction(Base):
+    __tablename__ = "wallet_transactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    amount = Column(Integer, nullable=False)
+    transaction_type = Column(String, nullable=False) # e.g., 'deposit', 'escrow_hold', 'withdrawal'
+    description = Column(String, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", backref="transactions")
+
+class OfferStatus(str, enum.Enum):
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+    PAID = "paid"
+
+class Offer(Base):
+    __tablename__ = "offers"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(Integer, ForeignKey("chat_sessions.id"), nullable=False)
+    product_id = Column(String, ForeignKey("products.id"), nullable=False)
+    buyer_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    seller_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    offered_price = Column(Integer, nullable=False)
+    status = Column(Enum(OfferStatus), default=OfferStatus.PENDING, nullable=False)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    session = relationship("ChatSession", back_populates="offers")
+    product = relationship("Product", backref="offers")
+    buyer = relationship("User", foreign_keys=[buyer_id], backref="offers_made")
+    seller = relationship("User", foreign_keys=[seller_id], backref="offers_received")

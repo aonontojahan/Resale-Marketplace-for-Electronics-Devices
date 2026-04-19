@@ -80,7 +80,7 @@ function buildImageCarousel(product, carouselId) {
             <button onclick="carouselPrev('${carouselId}',${imgs.length},event)" style="position:absolute;left:6px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);color:white;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:0.9rem;display:flex;align-items:center;justify-content:center;z-index:5;">‹</button>
             <button onclick="carouselNext('${carouselId}',${imgs.length},event)" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);color:white;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:0.9rem;display:flex;align-items:center;justify-content:center;z-index:5;">›</button>
             <div style="position:absolute;bottom:6px;left:50%;transform:translateX(-50%);display:flex;gap:4px;z-index:5;">
-                ${imgs.map((_, i) => `<span class="carousel-dot" id="dot-${carouselId}-${i}" style="width:6px;height:6px;border-radius:50%;background:${i===0?'white':'rgba(255,255,255,0.5)'};cursor:pointer;" onclick="carouselGoto('${carouselId}',${imgs.length},${i},event)"></span>`).join('')}
+                ${imgs.map((_, i) => `<span class="carousel-dot" id="dot-${carouselId}-${i}" style="width:6px;height:6px;border-radius:50%;background:${i === 0 ? 'white' : 'rgba(255,255,255,0.5)'};cursor:pointer;" onclick="carouselGoto('${carouselId}',${imgs.length},${i},event)"></span>`).join('')}
             </div>
         </div>`;
 }
@@ -1363,10 +1363,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 formData.append('price', document.getElementById('listingPrice').value);
                 formData.append('condition', document.getElementById('listingCondition').value);
                 formData.append('description', document.getElementById('listingDesc').value.trim());
-                
+
                 const qtyInput = document.getElementById('listingQuantity');
                 formData.append('inventory_quantity', qtyInput ? qtyInput.value : 1);
-                
+
                 // Token is sent via Authorization header, NOT in FormData
 
                 // Append ALL selected images (up to 5) with key 'images'
@@ -1483,152 +1483,184 @@ document.addEventListener('DOMContentLoaded', () => {
     // ──────────────────────────────────────────────────────────
     //  WALLET & CHAT DYMANIC CONTENT
     // ──────────────────────────────────────────────────────────
-    if (window.location.pathname.includes('wallet.html') && user) {
-        const walletGrid = document.querySelector('.wallet-grid');
-        const transactionsList = document.querySelector('.recent-transactions');
 
-        let availableBalance = 0;
-        let escrowBalance = 0;
-
-        if (walletGrid && transactionsList) {
-            if (user.role === 'buyer') {
-                walletGrid.innerHTML = `
-                  <div class="wallet-card available">
-                    <h3>Deposit Balance</h3>
-                    <p class="balance">৳${availableBalance.toLocaleString()}</p>
-                    <div style="margin-top: 2rem;">
-                      <button class="btn-primary" style="width: 100%; border-radius: 8px;">Add Funds</button>
-                    </div>
-                  </div>
-                  <div class="wallet-card escrow">
-                    <h3>In Escrow</h3>
-                    <p class="balance">৳${escrowBalance.toLocaleString()}</p>
-                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 1rem;">Funds locked for pending purchases until you confirm receipt.</p>
-                  </div>
-                `;
-                transactionsList.innerHTML = `
-                  <div class="transactions-header">Recent Transactions</div>
-                  <div class="listings-empty" style="padding: 2rem; border: none; background: transparent;">
-                    <div class="empty-icon">💸</div>
-                    <h3>No Transactions Yet</h3>
-                    <p>Your transaction history will appear here.</p>
-                  </div>
-                `;
-            } else if (user.role === 'seller') {
-                walletGrid.innerHTML = `
-                  <div class="wallet-card available">
-                    <h3>Available Balance</h3>
-                    <p class="balance">৳${availableBalance.toLocaleString()}</p>
-                    <div style="margin-top: 2rem;">
-                      <button class="btn-primary" style="width: 100%; border-radius: 8px;">Withdraw Funds</button>
-                    </div>
-                  </div>
-                  <div class="wallet-card escrow">
-                    <h3>Escrow Balance</h3>
-                    <p class="balance">৳${escrowBalance.toLocaleString()}</p>
-                    <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 1rem;">These funds are held securely until the buyer confirms receipt of the item.</p>
-                  </div>
-                `;
-                transactionsList.innerHTML = `
-                  <div class="transactions-header">Recent Transactions</div>
-                  <div class="listings-empty" style="padding: 2rem; border: none; background: transparent;">
-                    <div class="empty-icon">💸</div>
-                    <h3>No Transactions Yet</h3>
-                    <p>Your transaction history will appear here.</p>
-                  </div>
-                `;
-            }
-        }
-    }
 
     if (window.location.pathname.includes('chat.html') && user) {
         const chatBox = document.getElementById('chatBox');
         const sidebar = document.querySelector('.chat-sidebar');
         const chatHeader = document.querySelector('.chat-header');
         const chatForm = document.getElementById('chatForm');
-        let currentSocket = null;
+        window.currentChatSocket = null;
         let activeSessionId = new URLSearchParams(window.location.search).get('session');
 
         function appendMessage(msg) {
             if (!chatBox) return;
             const div = document.createElement('div');
-            const isMe = msg.sender_id === user.id;
-            div.className = `message ${isMe ? 'user' : 'seller'}`;
-            div.innerText = msg.text;
+            // Use == for type-agnostic comparison or cast both to String
+            const isMe = String(msg.sender_id) === String(user.id);
+
+            // Senior Engineer Logic: Smart Dynamic Cards
+            if (msg.text && msg.text.startsWith("📢 OFFER MADE:")) {
+                div.className = "message-system offer-card-container";
+                div.style.cssText = "align-self: center; width: 85%; margin: 1.5rem 0;";
+                
+                const priceMatch = msg.text.match(/৳([\d,]+)/);
+                const priceLabel = priceMatch ? priceMatch[1] : 'N/A';
+
+                div.innerHTML = `
+                    <div class="offer-card" style="background: white; border: 1.5px solid var(--primary); padding: 1.25rem; border-radius: 16px; box-shadow: 0 10px 15px -3px rgba(99,102,241,0.1); border-left: 6px solid var(--primary);">
+                        <div style="font-weight: 800; color: var(--primary); margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: between;">
+                            <span style="display:flex; align-items:center; gap:0.5rem;"><span style="font-size: 1.4rem;">🤝</span> Negotiation Offer</span>
+                            <span style="font-size:0.7rem; background: #e0e7ff; padding: 2px 8px; border-radius:10px; margin-left:auto;">ACTIVE</span>
+                        </div>
+                        <div style="font-size: 0.95rem; color: #334155; margin-bottom: 1.25rem; line-height: 1.5;">
+                            A new offer of <strong style="color:var(--primary); font-size:1.1rem;">৳${priceLabel}</strong> was placed for this product.
+                        </div>
+                        ${user.role === 'seller' ? `
+                        <div class="offer-actions" style="display: flex; gap: 0.75rem;">
+                            <button class="btn-primary" style="flex:1.5; padding: 0.7rem; font-weight:700; border-radius:10px;" onclick="handleCardAccept(this, '${activeSessionId}')">Accept Offer</button>
+                            <button class="btn-secondary" style="flex:1; padding: 0.7rem; border-radius:10px;" onclick="handleCardReject(this, '${activeSessionId}')">Decline</button>
+                        </div>` : ''}
+                    </div>
+                `;
+            } else if (msg.text.startsWith("✅ OFFER ACCEPTED:")) {
+                div.className = "message-system";
+                div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
+                const priceMatch = msg.text.match(/৳([\d,]+)/);
+                const priceLabel = priceMatch ? priceMatch[1] : 'N/A';
+
+                div.innerHTML = `
+                    <div style="background: #ecfdf5; border: 1.5px solid #10b981; padding: 1.25rem; border-radius: 16px; border-left: 6px solid #10b981; box-shadow: 0 10px 15px -3px rgba(16,185,129,0.1);">
+                        <div style="font-weight: 800; color: #10b981; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.4rem;">🎉</span> Price Agreed!
+                        </div>
+                        <div style="font-size: 0.95rem; color: #064e3b; margin-bottom: 1.25rem;">
+                            Seller accepted <strong>৳${priceLabel}</strong>. You can now finish the purchase.
+                        </div>
+                        ${user.role === 'buyer' ? `
+                        <button class="btn-primary" style="width:100%; background: #10b981; border: none; padding: 0.8rem; color: white; font-weight: 800; border-radius: 10px; cursor: pointer; transition: transform 0.2s;" onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'" onclick="handleProceedToCheckout('${activeSessionId}')">Complete Purchase Now</button>
+                        ` : `<div style="font-size: 0.85rem; color: #059669; font-weight: 700; background: #d1fae5; padding: 0.5rem; text-align:center; border-radius:8px;">Ready for Buyer Payment</div>`}
+                    </div>
+                `;
+            } else if (msg.text.startsWith("❌ OFFER REJECTED:")) {
+                div.className = "message-system";
+                div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
+                div.innerHTML = `
+                    <div style="background: #fef2f2; border: 1.5px solid #ef4444; padding: 1rem; border-radius: 12px; color: #991b1b; text-align: center; font-size: 0.9rem;">
+                        <strong>Offer Declined:</strong> The seller did not accept this price.
+                    </div>
+                `;
+            } else {
+                div.className = `message ${isMe ? 'user' : 'seller'}`;
+                div.innerText = msg.text;
+            }
             chatBox.appendChild(div);
         }
 
         function initActiveChat(chat) {
+            if (!chat) return;
+            activeSessionId = chat.id.toString();
+            console.log(`[Chat] Initializing session: ${activeSessionId}`);
+            
             const otherParty = user.role === 'buyer' ? chat.seller : chat.buyer;
             if (chatHeader) {
                 chatHeader.innerHTML = `
-                  <div style="width: 40px; height: 40px; background: #e2e8f0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--primary);">
-                    ${otherParty.full_name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                  <div style="width: 42px; height: 42px; background: #eef2ff; border-radius: 50%; border: 2px solid #6366f1; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #6366f1;">
+                    ${otherParty.full_name ? otherParty.full_name.split(' ').map(n => n[0]).join('').toUpperCase() : '?'}
                   </div>
                   <div>
-                    <p style="font-weight: 600;">${otherParty.full_name}</p>
-                    <p style="font-size: 0.75rem; color: #10b981;">● Online</p>
+                    <p style="font-weight: 700; color: #1e293b; margin: 0;">${otherParty.full_name}</p>
+                    <p style="font-size: 0.7rem; color: #10b981; margin: 0; display:flex; align-items:center; gap:2px;">
+                       <span style="width:6px; height:6px; background:#10b981; border-radius:50%"></span> Online
+                    </p>
                   </div>
                 `;
             }
 
             const bannerContainer = document.getElementById('chatListingBanner');
-            if (bannerContainer && chat.product_title) {
+            if (bannerContainer) {
+                const productTitle = chat.product_title || 'Product Discussion';
+                const productPrice = chat.product_price || '0';
                 const imgSrc = chat.product_image_url ? `http://localhost:8000${chat.product_image_url}` : '';
-                const imgHtml = imgSrc ? `<img src="${imgSrc}" style="width: 48px; height: 48px; object-fit: cover; border-radius: 8px;">` : `<div style="width: 48px; height: 48px; background: #e2e8f0; border-radius: 8px; display:flex; align-items:center; justify-content:center;">📦</div>`;
-                const buyBtnHtml = user.role === 'buyer'
-                    ? `<button class="btn-primary" style="padding: 0.5rem 1rem; font-size: 0.85rem;" onclick="handleBuyClick('${chat.product_id}')">🛒 Buy with Escrow</button>`
-                    : '';
+                const imgHtml = imgSrc ? `<img src="${imgSrc}" style="width: 44px; height: 44px; object-fit: cover; border-radius: 8px;">` : `<div style="width: 44px; height: 44px; background: #e2e8f0; border-radius: 8px; display:flex; align-items:center; justify-content:center;">📦</div>`;
+                
                 bannerContainer.innerHTML = `
-                    <div style="display:flex; align-items:center; gap: 1rem;">
+                    <div style="display:flex; align-items:center; gap: 1rem; flex: 1;">
                         ${imgHtml}
                         <div>
-                            <div style="font-weight: 600; font-size: 0.95rem;">${chat.product_title}</div>
-                            <div style="color: var(--primary); font-weight: 700;">৳${Number(chat.product_price).toLocaleString('en-IN')}</div>
+                            <div style="font-weight: 600; font-size: 0.9rem; line-height: 1.2;">${productTitle}</div>
+                            <div style="color: var(--primary); font-weight: 700; font-size: 1rem;">৳${Number(productPrice).toLocaleString('en-IN')}</div>
                         </div>
                     </div>
-                    ${buyBtnHtml}
+                    <div style="display: flex; gap: 0.5rem;">
+                        ${user.role === 'buyer' ? `<button class="btn-secondary" style="padding: 0.55rem 1rem; font-size: 0.85rem;" onclick="openOfferModal('${chat.id}', '${chat.product_id}')">🤝 Make Offer</button>` : ''}
+                        ${user.role === 'buyer' ? `<button class="btn-primary" style="padding: 0.55rem 1rem; font-size: 0.85rem;" onclick="handleBuyClick('${chat.product_id}')">🛒 Buy Now</button>` : ''}
+                    </div>
                 `;
                 bannerContainer.style.display = 'flex';
             }
 
-            if (chatBox) chatBox.innerHTML = '';
+            // --- LOAD MESSAGES ---
+            if (chatBox) chatBox.innerHTML = '<div style="text-align:center; padding:1rem; color:#94a3b8;">Loading history...</div>';
             window.api.getChatMessages(chat.id).then(messages => {
+                if (chatBox) chatBox.innerHTML = '';
                 messages.forEach(msg => appendMessage(msg));
-                if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
+                setTimeout(() => { chatBox.scrollTop = chatBox.scrollHeight; }, 100);
             });
 
-            if (currentSocket) { currentSocket.close(); currentSocket = null; }
-            const wsUrl = `ws://localhost:8000/ws/chat/${chat.id}?token=${user.token}`;
-            currentSocket = new WebSocket(wsUrl);
+            // --- SOCKET MANAGEMENT ---
+            if (window.currentChatSocket) {
+                console.log("[Chat] Closing existing socket...");
+                window.currentChatSocket.close();
+            }
 
-            currentSocket.onmessage = (event) => {
-                const msg = JSON.parse(event.data);
-                if (msg.session_id.toString() === activeSessionId) {
-                    appendMessage(msg);
-                    if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
-                    window.api.markChatRead(msg.session_id, user.id).catch(err => console.error(err));
-                    // Re-sort sidebar so this chat floats to the top
-                    renderSidebarList();
-                } else {
-                    updateGlobalUnreadCount();
-                    refreshChatSidebar();
+            const wsUrl = `ws://localhost:8000/ws/chat/${chat.id}?token=${user.token}`;
+            window.currentChatSocket = new WebSocket(wsUrl);
+
+            window.currentChatSocket.onopen = () => console.log(`[Chat] Socket connected to ${chat.id}`);
+            window.currentChatSocket.onerror = (e) => console.error("[Chat] WebSocket Error:", e);
+            
+            window.currentChatSocket.onmessage = (event) => {
+                try {
+                    const msg = JSON.parse(event.data);
+                    console.log("[Chat] Received message:", msg);
+                    
+                    if (String(msg.session_id) === String(activeSessionId)) {
+                        appendMessage(msg);
+                        requestAnimationFrame(() => {
+                           if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
+                        });
+                        window.api.markChatRead(msg.session_id, user.id).catch(() => {});
+                        refreshChatSidebar();
+                    } else {
+                        updateGlobalUnreadCount();
+                        refreshChatSidebar();
+                    }
+                } catch (err) {
+                    console.error("[Chat] Parse Error:", err);
                 }
             };
 
-            if (chatForm) {
-                const newForm = chatForm.cloneNode(true);
-                chatForm.parentNode.replaceChild(newForm, chatForm);
-                const newChatInput = newForm.querySelector('#chatInput');
-                newForm.addEventListener('submit', (e) => {
+            // ONE-TIME FORM BINDING
+            if (chatForm && !chatForm.dataset.listenerAttached) {
+                chatForm.addEventListener('submit', (e) => {
                     e.preventDefault();
-                    const text = newChatInput.value.trim();
-                    if (!text || !currentSocket) return;
-                    currentSocket.send(text);
-                    newChatInput.value = '';
-                    // Re-sort sidebar so sender's chat floats to top
-                    setTimeout(() => renderSidebarList(), 300);
+                    const input = chatForm.querySelector('#chatInput');
+                    const text = input.value.trim();
+                    if (!text) return;
+
+                    if (!window.currentChatSocket || window.currentChatSocket.readyState !== WebSocket.OPEN) {
+                        alert("Connection lost. Please wait or refresh.");
+                        return;
+                    }
+
+                    // --- OPTIMISTIC UI: Show instantly ---
+                    // (We don't append locally because we trust the fast round-trip)
+                    // If round-trip is failing, we'll see console errors
+                    window.currentChatSocket.send(text);
+                    input.value = '';
                 });
+                chatForm.dataset.listenerAttached = "true";
             }
         }
 
@@ -1988,6 +2020,92 @@ window.deleteMyProduct = deleteMyProduct;
 window.handleBuyClick = handleBuyClick;
 window.logoutUser = logoutUser;
 window.handleChatDelete = handleChatDelete;
+
+// ─── Negotiation Helper Functions ───────────────────────────
+
+window.openOfferModal = function(sessionId, productId) {
+    const modal = document.getElementById('offerModal');
+    if (!modal) return alert("Offer modal not found.");
+    modal.style.display = 'flex';
+    document.getElementById('modalOfferInput').focus();
+    
+    document.getElementById('modalSubmitOffer').onclick = async () => {
+        const input = document.getElementById('modalOfferInput');
+        const price = parseInt(input.value);
+        if (!price || price <= 0) return alert("Please enter a valid price.");
+        
+        try {
+            await window.api.createOffer(sessionId, productId, price);
+            modal.style.display = 'none';
+            input.value = '';
+            alert("Success! Your offer has been sent to the seller.");
+            
+            // Re-focus the chat input immediately
+            const chatIn = document.getElementById('chatInput');
+            if (chatIn) chatIn.focus();
+        } catch (e) {
+            alert("Failed: " + e.message);
+        }
+    };
+};
+
+window.handleCardAccept = async function(btn, sessionId) {
+    if (btn) btn.closest('.offer-actions').innerHTML = '<div style="color:#10b981; font-weight:700; text-align:center; flex:1;">Accepting...</div>';
+    await window.handleAcceptOffer(sessionId);
+};
+
+window.handleCardReject = async function(btn, sessionId) {
+    if (btn) btn.closest('.offer-actions').innerHTML = '<div style="color:#ef4444; font-weight:700; text-align:center; flex:1;">Declining...</div>';
+    await window.handleRejectOffer(sessionId);
+};
+
+window.handleAcceptOffer = async function(sessionId) {
+    try {
+        const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
+        const pendingOffer = offersResponses.reverse().find(o => o.status === 'pending');
+        if (!pendingOffer) return alert("No pending offer found.");
+
+        await window.api.acceptOffer(pendingOffer.id);
+        
+        // Auto-send follow-up message
+        if (window.currentChatSocket && window.currentChatSocket.readyState === WebSocket.OPEN) {
+            window.currentChatSocket.send("Your offer price is accepted. Payment for buy this product");
+        }
+        alert("Offer accepted!");
+    } catch (e) {
+        alert("Failed: " + e.message);
+    }
+};
+
+window.handleRejectOffer = async function(sessionId) {
+    if (!confirm("Are you sure you want to decline this offer?")) return;
+    try {
+        const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
+        const pendingOffer = offersResponses.reverse().find(o => o.status === 'pending');
+        if (!pendingOffer) return alert("No pending offer found.");
+
+        await window.api.rejectOffer(pendingOffer.id);
+
+        // Auto-send follow-up message
+        if (window.currentChatSocket && window.currentChatSocket.readyState === WebSocket.OPEN) {
+            window.currentChatSocket.send("Offer a better price");
+        }
+        alert("Offer rejected.");
+    } catch (e) {
+        alert("Failed: " + e.message);
+    }
+};
+
+window.handleProceedToCheckout = async function(sessionId) {
+    try {
+        const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
+        const acceptedOffer = offersResponses.reverse().find(o => o.status === 'accepted');
+        if (!acceptedOffer) return alert("No accepted offer found.");
+        window.location.href = `wallet.html?action=buy&listing=${acceptedOffer.product_id}&offer=${acceptedOffer.id}`;
+    } catch (e) {
+        alert("Redirect failed: " + e.message);
+    }
+};
 window.toggleDescription = toggleDescription;
 
 /**

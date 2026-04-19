@@ -1,7 +1,7 @@
 import os
 import shutil
 import uuid
-from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, Form, File, UploadFile
+from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, Form, File, UploadFile, Query
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -161,6 +161,223 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="Your account is suspended.")
     return user
+
+
+# ─── WALLET ───────────────────────────────────────────────────────────────────
+
+@app.post("/wallet/deposit", response_model=schemas.UserResponse)
+def mock_deposit_funds(
+    deposit_req: schemas.WalletDepositRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Mock Payment Gateway: Adds funds to user's wallet."""
+    if deposit_req.amount <= 0:
+        raise HTTPException(status_code=400, detail="Deposit amount must be greater than 0.")
+    
+    current_user.wallet_balance += deposit_req.amount
+
+    # Create transaction record
+    new_tx = models.WalletTransaction(
+        user_id=current_user.id,
+        amount=deposit_req.amount,
+        transaction_type="deposit",
+        description="Deposit via SecurePay"
+    )
+    db.add(new_tx)
+
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+@app.get("/wallet/transactions", response_model=List[schemas.WalletTransactionResponse])
+def get_user_transactions(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Fetch user's wallet transaction history."""
+    return db.query(models.WalletTransaction).filter(
+        models.WalletTransaction.user_id == current_user.id
+    ).order_by(models.WalletTransaction.created_at.desc()).all()
+
+
+# ─── Offers & Negotiation ──────────────────────────────────────────
+
+@app.post("/offers", response_model=schemas.OfferResponse)
+def create_offer(
+    offer_in: schemas.OfferCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    # Ensure user is part of the session
+    session = db.query(models.ChatSession).filter(models.ChatSession.id == offer_in.session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Chat session not found")
+    
+    if current_user.id != session.buyer_id:
+        raise HTTPException(status_code=403, detail="Only the buyer can make an offer")
+    
+    # Create the offer
+    new_offer = models.Offer(
+        session_id=offer_in.session_id,
+        product_id=offer_in.product_id,
+        buyer_id=session.buyer_id,
+        seller_id=session.seller_id,
+        offered_price=offer_in.offered_price,
+        status=models.OfferStatus.PENDING
+    )
+    db.add(new_offer)
+    
+    # Drop a system message in the chat
+    system_msg = models.ChatMessage(
+        session_id=offer_in.session_id,
+        sender_id=session.buyer_id,
+        text=f"📢 OFFER MADE: {current_user.full_name} offered ৳{offer_in.offered_price:,d} for this item."
+    )
+    db.add(system_msg)
+    
+    # Touch session to float to top of sidebar
+    session.updated_at = func.now()
+    db.add(session)
+    
+    db.commit()
+    db.refresh(new_offer)
+    return new_offer
+
+@app.get("/offers", response_model=List[schemas.OfferResponse])
+def get_offers(
+    session_id: Optional[int] = Query(None),
+    db: Session = Depends(get_db)
+):
+    query = db.query(models.Offer)
+    if session_id:
+        query = query.filter(models.Offer.session_id == session_id)
+    return query.all()
+
+@app.get("/offers/{offer_id}", response_model=schemas.OfferResponse)
+def get_offer(offer_id: int, db: Session = Depends(get_db)):
+    offer = db.query(models.Offer).filter(models.Offer.id == offer_id).first()
+    if not offer:
+        raise HTTPException(status_code=404, detail="Offer not found")
+    return offer
+
+@app.post("/offers/{offer_id}/accept", response_model=schemas.OfferResponse)
+def accept_offer(
+    offer_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    offer = db.query(models.Offer).filter(models.Offer.id == offer_id).first()
+    if not offer:
+        raise HTTPException(status_code=404, detail="Offer not found")
+    
+    if current_user.id != offer.seller_id:
+        raise HTTPException(status_code=403, detail="Only the seller can accept the offer")
+    
+    offer.status = models.OfferStatus.ACCEPTED
+    
+    # System message
+    system_msg = models.ChatMessage(
+        session_id=offer.session_id,
+        sender_id=offer.seller_id,
+        text=f"✅ OFFER ACCEPTED: {current_user.full_name} has accepted the offer of ৳{offer.offered_price:,d}!"
+    )
+    db.add(system_msg)
+    
+    # Touch session
+    offer.session.updated_at = func.now()
+    db.add(offer.session)
+    
+    db.commit()
+    db.refresh(offer)
+    return offer
+
+@app.post("/offers/{offer_id}/reject", response_model=schemas.OfferResponse)
+def reject_offer(
+    offer_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    offer = db.query(models.Offer).filter(models.Offer.id == offer_id).first()
+    if not offer:
+        raise HTTPException(status_code=404, detail="Offer not found")
+    
+    if current_user.id != offer.seller_id:
+        raise HTTPException(status_code=403, detail="Only the seller can reject the offer")
+    
+    offer.status = models.OfferStatus.REJECTED
+    
+    # System message
+    system_msg = models.ChatMessage(
+        session_id=offer.session_id,
+        sender_id=offer.seller_id,
+        text=f"❌ OFFER REJECTED: The seller has declined the offer of ৳{offer.offered_price:,d}."
+    )
+    db.add(system_msg)
+    
+    # Touch session
+    offer.session.updated_at = func.now()
+    db.add(offer.session)
+    
+    db.commit()
+    db.refresh(offer)
+    return offer
+
+@app.post("/escrow/pay")
+def finalize_payment(
+    offer_id: int,
+    quantity: int = Query(1),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    offer = db.query(models.Offer).filter(models.Offer.id == offer_id).first()
+    if not offer:
+        raise HTTPException(status_code=404, detail="Offer not found")
+    
+    if offer.status != models.OfferStatus.ACCEPTED:
+        raise HTTPException(status_code=400, detail="Offer is not accepted")
+
+    product = db.query(models.Product).filter(models.Product.id == offer.product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    total_cost = offer.offered_price * quantity
+    delivery_fee = 150 # Fixed example delivery fee
+    final_total = total_cost + delivery_fee
+
+    if current_user.wallet_balance < final_total:
+        raise HTTPException(status_code=400, detail="Insufficient wallet balance")
+
+    # Move funds
+    current_user.wallet_balance -= final_total
+    current_user.escrow_balance += total_cost # we keep the delivery fee separate or handled by platform
+    
+    offer.status = models.OfferStatus.PAID
+    product.status = models.ProductStatus.SOLD
+    
+    # Notify chat
+    pay_msg = models.ChatMessage(
+        session_id=offer.session_id,
+        sender_id=offer.buyer_id,
+        text=f"💰 PAYMENT COMPLETED: ৳{final_total:,d} moved to escrow via SecurePay."
+    )
+    db.add(pay_msg)
+    
+    # Add transaction record
+    new_tx = models.WalletTransaction(
+        user_id=current_user.id,
+        amount=-final_total,
+        transaction_type="escrow_hold",
+        description=f"Escrow payment for {product.title}"
+    )
+    db.add(new_tx)
+
+    # Touch session
+    offer.session.updated_at = func.now()
+    db.add(offer.session)
+
+    db.commit()
+    return {"status": "success", "amount_held": total_cost}
 
 
 @app.get("/users", response_model=List[schemas.UserResponse])
@@ -453,26 +670,35 @@ def create_chat(chat_in: schemas.ChatSessionCreate, db: Session = Depends(get_db
 
 @app.get("/chats", response_model=List[schemas.ChatSessionResponse])
 def get_user_chats(user_id: int, db: Session = Depends(get_db)):
-    """Fetch all chat sessions for a specific user."""
-    chats = db.query(models.ChatSession).filter(
+    """Fetch all chat sessions for a specific user with optimized loading."""
+    chats = db.query(models.ChatSession).options(
+        joinedload(models.ChatSession.buyer),
+        joinedload(models.ChatSession.seller),
+        joinedload(models.ChatSession.product)
+    ).filter(
         (models.ChatSession.buyer_id == user_id) | (models.ChatSession.seller_id == user_id)
     ).order_by(models.ChatSession.updated_at.desc()).all()
 
     results = []
     for chat in chats:
-        resp = schemas.ChatSessionResponse.model_validate(chat)
-        if chat.product:
-            resp.product_title = chat.product.title
-            resp.product_price = chat.product.price
-            resp.product_image_url = chat.product.image_url
-
-        unread = db.query(models.ChatMessage).filter(
-            models.ChatMessage.session_id == chat.id,
-            models.ChatMessage.sender_id != user_id,
-            models.ChatMessage.is_read == 0
-        ).count()
-        resp.unread_count = unread
-        results.append(resp)
+        try:
+            resp = schemas.ChatSessionResponse.model_validate(chat)
+            if chat.product:
+                resp.product_title = chat.product.title
+                resp.product_price = chat.product.price
+                resp.product_image_url = chat.product.image_url
+            
+            # Efficient unread count
+            unread = db.query(models.ChatMessage).filter(
+                models.ChatMessage.session_id == chat.id,
+                models.ChatMessage.sender_id != user_id,
+                models.ChatMessage.is_read == 0
+            ).count()
+            resp.unread_count = unread
+            results.append(resp)
+        except Exception as e:
+            print(f"Error validating chat {chat.id}: {e}")
+            continue # Skip corrupted entries
     return results
 
 
