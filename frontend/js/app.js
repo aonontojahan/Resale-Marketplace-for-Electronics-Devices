@@ -80,7 +80,7 @@ function buildImageCarousel(product, carouselId) {
             <button onclick="carouselPrev('${carouselId}',${imgs.length},event)" style="position:absolute;left:6px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);color:white;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:0.9rem;display:flex;align-items:center;justify-content:center;z-index:5;">‹</button>
             <button onclick="carouselNext('${carouselId}',${imgs.length},event)" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);background:rgba(0,0,0,0.5);color:white;border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;font-size:0.9rem;display:flex;align-items:center;justify-content:center;z-index:5;">›</button>
             <div style="position:absolute;bottom:6px;left:50%;transform:translateX(-50%);display:flex;gap:4px;z-index:5;">
-                ${imgs.map((_, i) => `<span class="carousel-dot" id="dot-${carouselId}-${i}" style="width:6px;height:6px;border-radius:50%;background:${i===0?'white':'rgba(255,255,255,0.5)'};cursor:pointer;" onclick="carouselGoto('${carouselId}',${imgs.length},${i},event)"></span>`).join('')}
+                ${imgs.map((_, i) => `<span class="carousel-dot" id="dot-${carouselId}-${i}" style="width:6px;height:6px;border-radius:50%;background:${i === 0 ? 'white' : 'rgba(255,255,255,0.5)'};cursor:pointer;" onclick="carouselGoto('${carouselId}',${imgs.length},${i},event)"></span>`).join('')}
             </div>
         </div>`;
 }
@@ -1363,10 +1363,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 formData.append('price', document.getElementById('listingPrice').value);
                 formData.append('condition', document.getElementById('listingCondition').value);
                 formData.append('description', document.getElementById('listingDesc').value.trim());
-                
+
                 const qtyInput = document.getElementById('listingQuantity');
                 formData.append('inventory_quantity', qtyInput ? qtyInput.value : 1);
-                
+
                 // Token is sent via Authorization header, NOT in FormData
 
                 // Append ALL selected images (up to 5) with key 'images'

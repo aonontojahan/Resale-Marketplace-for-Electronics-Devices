@@ -85,18 +85,18 @@ const api = {
         let endpoint = "/products";
         const queryParams = new URLSearchParams();
 
-        if (options.page)         queryParams.append('page', options.page);
-        if (options.limit)        queryParams.append('limit', options.limit);
+        if (options.page) queryParams.append('page', options.page);
+        if (options.limit) queryParams.append('limit', options.limit);
         if (options.status && options.status !== 'all') queryParams.append('status', options.status);
         if (options.category && options.category !== 'all') queryParams.append('category', options.category);
-        if (options.seller_id)    queryParams.append('seller_id', options.seller_id);
+        if (options.seller_id) queryParams.append('seller_id', options.seller_id);
         if (options.search_query) queryParams.append('search_query', options.search_query);
 
         const qs = queryParams.toString();
         if (qs) endpoint += `?${qs}`;
         return this.request(endpoint, "GET");
     },
-    
+
     async getProduct(productId) {
         return this.request(`/products/${productId}`, "GET");
     },
