@@ -227,6 +227,7 @@ def create_offer(
         buyer_id=session.buyer_id,
         seller_id=session.seller_id,
         offered_price=offer_in.offered_price,
+        quantity=offer_in.quantity,
         status=models.OfferStatus.PENDING
     )
     db.add(new_offer)
