@@ -57,6 +57,9 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
+# Marketplace Constants
+COMMISSION_RATE = 0.005 # 0.5% Escrow Service Fee
+
 
 # ─── UTILITY ──────────────────────────────────────────────────────────────────
 
@@ -349,6 +352,7 @@ def finalize_payment(
         raise HTTPException(status_code=400, detail="Insufficient wallet balance")
 
     # Move funds
+    offer.quantity = quantity # Save quantity for later release
     current_user.wallet_balance -= final_total
     current_user.escrow_balance += total_cost # we keep the delivery fee separate or handled by platform
     
@@ -377,7 +381,70 @@ def finalize_payment(
     db.add(offer.session)
 
     db.commit()
-    return {"status": "success", "amount_held": total_cost}
+    return {"message": "Payment successful", "final_total": final_total}
+
+@app.post("/escrow/release/{offer_id}")
+def release_payment(
+    offer_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Called by the buyer to release escrowed funds to the seller.
+    Deducts the marketplace commission (0.5%).
+    """
+    offer = db.query(models.Offer).filter(models.Offer.id == offer_id).first()
+    if not offer:
+        raise HTTPException(status_code=404, detail="Offer not found")
+    
+    if current_user.id != offer.buyer_id:
+        raise HTTPException(status_code=403, detail="Only the buyer can release these funds")
+    
+    if offer.status != models.OfferStatus.PAID:
+        raise HTTPException(status_code=400, detail="Funds have not been paid to escrow yet")
+
+    # Calculate values
+    total_amount = offer.offered_price * offer.quantity
+    
+    commission = int(total_amount * COMMISSION_RATE)
+    seller_amount = total_amount - commission
+
+    # Move funds
+    # 1. Deduct from buyer's escrow
+    if current_user.escrow_balance < total_amount:
+        raise HTTPException(status_code=400, detail="Insufficient escrow balance")
+    
+    current_user.escrow_balance -= total_amount
+    
+    # 2. Add to seller's wallet
+    seller = db.query(models.User).filter(models.User.id == offer.seller_id).first()
+    seller.wallet_balance += seller_amount
+    
+    # Update offer status
+    offer.status = "completed"
+    
+    # Record transaction for seller
+    seller_tx = models.WalletTransaction(
+        user_id=seller.id,
+        amount=seller_amount,
+        transaction_type="sale_payout",
+        description=f"Payout for {offer.product.title} (Commission {COMMISSION_RATE*100}% deducted)"
+    )
+    db.add(seller_tx)
+
+    # Record platform commission (optional, for tracking)
+    # In a real system, you'd add this to a platform account.
+
+    # System message
+    system_msg = models.ChatMessage(
+        session_id=offer.session_id,
+        sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1, 
+        text=f"✅ FUNDS RELEASED: ৳{seller_amount:,d} has been moved to the seller's wallet after a {COMMISSION_RATE*100}% service fee."
+    )
+    db.add(system_msg)
+
+    db.commit()
+    return {"message": "Funds released successfully", "seller_received": seller_amount, "commission": commission}
 
 
 @app.get("/users", response_model=List[schemas.UserResponse])
