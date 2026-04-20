@@ -168,6 +168,7 @@ class Offer(Base):
     buyer_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     seller_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     offered_price = Column(Integer, nullable=False)
+    quantity = Column(Integer, default=1, nullable=False)
     status = Column(Enum(OfferStatus), default=OfferStatus.PENDING, nullable=False)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())

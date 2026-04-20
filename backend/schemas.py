@@ -60,6 +60,8 @@ class OfferResponse(OfferBase):
     id: int
     buyer_id: int
     seller_id: int
+    offered_price: int
+    quantity: int = 1
     status: str
     created_at: datetime
     
