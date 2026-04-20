@@ -52,6 +52,7 @@ class OfferBase(BaseModel):
     session_id: int
     product_id: str
     offered_price: int
+    quantity: int = 1
 
 class OfferCreate(OfferBase):
     pass
