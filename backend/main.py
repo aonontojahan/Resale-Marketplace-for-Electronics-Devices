@@ -59,6 +59,7 @@ manager = ConnectionManager()
 
 # Marketplace Constants
 COMMISSION_RATE = 0.005 # 0.5% Escrow Service Fee
+DELIVERY_FEE = 150
 
 
 # ─── UTILITY ──────────────────────────────────────────────────────────────────
@@ -75,6 +76,12 @@ def _build_product_response(product: models.Product, seller: models.User) -> sch
     # Fallback: if no images table yet but legacy image_url exists
     if not resp.image_urls and product.image_url:
         resp.image_urls = [product.image_url]
+    
+    # Check if there is any active dispute for this product
+    from .models import OfferStatus
+    disputed_offers = [o for o in product.offers if o.status == OfferStatus.DISPUTED]
+    resp.is_disputed = len(disputed_offers) > 0
+    
     return resp
 
 
@@ -346,8 +353,7 @@ def finalize_payment(
         raise HTTPException(status_code=404, detail="Product not found")
 
     total_cost = offer.offered_price * quantity
-    delivery_fee = 150 # Fixed example delivery fee
-    final_total = total_cost + delivery_fee
+    final_total = total_cost + DELIVERY_FEE
 
     if current_user.wallet_balance < final_total:
         raise HTTPException(status_code=400, detail="Insufficient wallet balance")
@@ -355,10 +361,15 @@ def finalize_payment(
     # Move funds
     offer.quantity = quantity # Save quantity for later release
     current_user.wallet_balance -= final_total
-    current_user.escrow_balance += total_cost # we keep the delivery fee separate or handled by platform
+    # HOLD FULL MONEY (Price + Delivery) in Escrow
+    current_user.escrow_balance += final_total 
     
     offer.status = models.OfferStatus.PAID
-    product.status = models.ProductStatus.SOLD
+    
+    # Decrement inventory and sync status
+    product.inventory_quantity = max(0, product.inventory_quantity - quantity)
+    if product.inventory_quantity == 0:
+        product.status = models.ProductStatus.SOLD
     
     # Notify chat
     pay_msg = models.ChatMessage(
@@ -405,17 +416,24 @@ def release_payment(
         raise HTTPException(status_code=400, detail="Funds have not been paid to escrow yet")
 
     # Calculate values
-    total_amount = offer.offered_price * offer.quantity
+    total_paid = (offer.offered_price * offer.quantity) + DELIVERY_FEE
     
-    commission = int(total_amount * COMMISSION_RATE)
-    seller_amount = total_amount - commission
+    # Commission is usually on the product price only
+    product_price = offer.offered_price * offer.quantity
+    commission = int(product_price * COMMISSION_RATE)
+    
+    # Seller gets: Product Price - Commission + Delivery Fee (assuming seller handles delivery)
+    # OR Seller gets: Product Price - Commission, and Platform keeps Delivery Fee.
+    # User asked to "hold full money", let's payout the product price - commission to seller.
+    # Usually delivery fee is paid back to seller to cover their shipping cost.
+    seller_amount = (product_price - commission) + DELIVERY_FEE
 
     # Move funds
-    # 1. Deduct from buyer's escrow
-    if current_user.escrow_balance < total_amount:
+    # 1. Deduct full payment from buyer's escrow
+    if current_user.escrow_balance < total_paid:
         raise HTTPException(status_code=400, detail="Insufficient escrow balance")
     
-    current_user.escrow_balance -= total_amount
+    current_user.escrow_balance -= total_paid
     
     # 2. Add to seller's wallet
     seller = db.query(models.User).filter(models.User.id == offer.seller_id).first()
@@ -446,6 +464,147 @@ def release_payment(
 
     db.commit()
     return {"message": "Funds released successfully", "seller_received": seller_amount, "commission": commission}
+
+@app.post("/escrow/dispute/{offer_id}")
+def dispute_transaction(
+    offer_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Called by the buyer if there is an issue with delivery or product.
+    Freezes the transaction for admin review.
+    """
+    offer = db.query(models.Offer).filter(models.Offer.id == offer_id).first()
+    if not offer:
+        raise HTTPException(status_code=404, detail="Offer not found")
+    
+    if current_user.id != offer.buyer_id:
+        raise HTTPException(status_code=403, detail="Only the buyer can raise a dispute")
+    
+    if offer.status != models.OfferStatus.PAID:
+        raise HTTPException(status_code=400, detail="Transaction is not in a payable state")
+
+    offer.status = models.OfferStatus.DISPUTED
+    
+    # Add transaction record for audit trail
+    dispute_tx = models.WalletTransaction(
+        user_id=current_user.id,
+        amount=0, # Money is already in escrow, no balance change but we log the event
+        transaction_type="dispute_open",
+        description=f"⚠️ DISPUTE RAISED: Case opened for {offer.product.title}"
+    )
+    db.add(dispute_tx)
+
+    # Notify chat
+    system_msg = models.ChatMessage(
+        session_id=offer.session_id,
+        sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1, 
+        text=f"⚠️ DISPUTE RAISED: {current_user.full_name} reported a problem. Funds are locked in Escrow until an Admin reviews the case."
+    )
+    db.add(system_msg)
+    
+    db.commit()
+    return {"message": "Dispute raised successfully. Admin will be notified."}
+
+
+# ─── ADMIN DISPUTE RESOLUTION ─────────────────────────────────
+
+@app.post("/admin/disputes/{offer_id}/resolve")
+def resolve_dispute(
+    offer_id: int,
+    resolution: str = Query(..., enum=["payout_seller", "refund_buyer"]),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    ADMIN ONLY: Decides what happens to the locked escrow funds.
+    """
+    if current_user.role != models.UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Only admins can resolve disputes")
+
+    offer = db.query(models.Offer).filter(models.Offer.id == offer_id).first()
+    if not offer or offer.status != models.OfferStatus.DISPUTED:
+        raise HTTPException(status_code=400, detail="Offer is not in dispute")
+
+    buyer = offer.buyer
+    seller = offer.seller
+    total_escrow = (offer.offered_price * offer.quantity) + DELIVERY_FEE
+
+    if resolution == "payout_seller":
+        # Act like a normal release
+        commission = int((offer.offered_price * offer.quantity) * COMMISSION_RATE)
+        seller_payout = (offer.offered_price * offer.quantity) - commission + DELIVERY_FEE
+        
+        buyer.escrow_balance -= total_escrow
+        seller.wallet_balance += seller_payout
+        offer.status = "completed"
+        
+        msg_text = f"⚖️ ADMIN RESOLUTION: Dispute resolved in favor of SELLER. ৳{seller_payout:,d} released to seller wallet."
+
+    else: # refund_buyer
+        # Give money back to buyer's wallet
+        # Safeguard: Deduct only what is actually in escrow for this transaction
+        # If the balance is less than total_escrow (due to previous logic error), deduct only the balance
+        deduct_amount = min(total_escrow, buyer.escrow_balance)
+        buyer.escrow_balance -= deduct_amount
+        buyer.wallet_balance += total_escrow # Still give buyer the full promised refund
+        offer.status = models.OfferStatus.REFUNDED
+        
+        # Add transaction record for refund
+        refund_tx = models.WalletTransaction(
+            user_id=buyer.id,
+            amount=total_escrow,
+            transaction_type="dispute_refund",
+            description=f"⚖️ DISPUTE REFUND: Full refund for {offer.product.title}"
+        )
+        db.add(refund_tx)
+        
+        msg_text = f"⚖️ ADMIN RESOLUTION: Dispute resolved in favor of BUYER. Full refund of ৳{total_escrow:,d} returned to buyer wallet."
+
+    # Notify chat
+    admin_msg = models.ChatMessage(
+        session_id=offer.session_id,
+        sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1,
+        text=msg_text
+    )
+    db.add(admin_msg)
+    db.commit()
+
+    return {"message": f"Dispute resolved via {resolution}", "status": offer.status}
+
+
+@app.get("/admin/disputes")
+def list_disputes(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    ADMIN ONLY: Returns a list of all offers currently in dispute.
+    """
+    if current_user.role != models.UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Only admins can view disputes")
+
+    disputes = db.query(models.Offer).filter(models.Offer.status == models.OfferStatus.DISPUTED).all()
+    
+    # Enrich with product and user data for the frontend
+    results = []
+    for d in disputes:
+        results.append({
+            "id": d.id,
+            "product_title": d.product.title,
+            "product_price": d.product.price,
+            "offered_price": d.offered_price,
+            "quantity": d.quantity,
+            "buyer_name": d.buyer.full_name,
+            "buyer_phone": d.buyer.phone_number,
+            "seller_name": d.seller.full_name,
+            "seller_phone": d.seller.phone_number,
+            "session_id": d.session_id,
+            "status": d.status,
+            "product_image": d.product.image_url if d.product.image_url else (d.product.images[0].image_url if d.product.images else "")
+        })
+    return results
 
 
 @app.get("/users", response_model=List[schemas.UserResponse])
@@ -546,7 +705,8 @@ def get_product(product_id: str, db: Session = Depends(get_db)):
     """Fetch a single product by its ID."""
     product = db.query(models.Product).options(
         joinedload(models.Product.seller),
-        joinedload(models.Product.images)
+        joinedload(models.Product.images),
+        joinedload(models.Product.offers)
     ).filter(models.Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -566,7 +726,8 @@ def get_products(
     """Fetch paginated products."""
     query = db.query(models.Product).options(
         joinedload(models.Product.seller),
-        joinedload(models.Product.images)
+        joinedload(models.Product.images),
+        joinedload(models.Product.offers)
     )
 
     if status is not None and status != "all":
@@ -605,7 +766,8 @@ def update_product_status(
     """Update product status."""
     product = db.query(models.Product).options(
         joinedload(models.Product.seller),
-        joinedload(models.Product.images)
+        joinedload(models.Product.images),
+        joinedload(models.Product.offers)
     ).filter(models.Product.id == product_id).first()
 
     if not product:
@@ -618,11 +780,19 @@ def update_product_status(
 
 
 @app.delete("/products/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_product(product_id: str, db: Session = Depends(get_db)):
-    """Delete a product."""
+def delete_product(
+    product_id: str, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Delete a product. Only owner or admin can delete."""
     product = db.query(models.Product).filter(models.Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
+
+    # Authorization Check
+    if current_user.role != models.UserRole.ADMIN and product.seller_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this product")
 
     db.delete(product)
     db.commit()
@@ -870,6 +1040,19 @@ def create_review(
     product = db.query(models.Product).filter(models.Product.id == review.product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
+
+    # RESTRICTION: Only buyers who completed a purchase for this product can review
+    purchase = db.query(models.Offer).filter(
+        models.Offer.product_id == review.product_id,
+        models.Offer.buyer_id == current_user.id,
+        models.Offer.status == "completed" 
+    ).first()
+
+    if not purchase:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only review a seller after completing a purchase for this item."
+        )
 
     new_review = models.Review(
         reviewer_id=current_user.id,

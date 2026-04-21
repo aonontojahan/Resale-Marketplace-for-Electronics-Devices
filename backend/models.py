@@ -66,7 +66,7 @@ class ChatSession(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    product = relationship("Product")
+    product = relationship("Product", back_populates="chat_sessions")
     buyer = relationship("User", foreign_keys=[buyer_id])
     seller = relationship("User", foreign_keys=[seller_id])
     messages = relationship("ChatMessage", back_populates="session", cascade="all, delete-orphan")
@@ -110,6 +110,9 @@ class Product(Base):
     images = relationship("ProductImage", back_populates="product",
                           cascade="all, delete-orphan",
                           order_by="ProductImage.order")
+    reviews = relationship("Review", back_populates="product", cascade="all, delete-orphan")
+    offers = relationship("Offer", back_populates="product", cascade="all, delete-orphan")
+    chat_sessions = relationship("ChatSession", back_populates="product", cascade="all, delete-orphan")
 
 
 class ProductImage(Base):
@@ -137,7 +140,7 @@ class Review(Base):
 
     reviewer = relationship("User", foreign_keys=[reviewer_id])
     seller = relationship("User", foreign_keys=[seller_id], backref="reviews_received")
-    product = relationship("Product")
+    product = relationship("Product", back_populates="reviews")
 
 
 class WalletTransaction(Base):
@@ -158,6 +161,8 @@ class OfferStatus(str, enum.Enum):
     ACCEPTED = "accepted"
     REJECTED = "rejected"
     PAID = "paid"
+    DISPUTED = "disputed"
+    REFUNDED = "refunded"
 
 class Offer(Base):
     __tablename__ = "offers"
@@ -175,6 +180,6 @@ class Offer(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     session = relationship("ChatSession", back_populates="offers")
-    product = relationship("Product", backref="offers")
+    product = relationship("Product", back_populates="offers")
     buyer = relationship("User", foreign_keys=[buyer_id], backref="offers_made")
     seller = relationship("User", foreign_keys=[seller_id], backref="offers_received")

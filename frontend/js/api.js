@@ -93,8 +93,12 @@ const api = {
         return this.request(`/escrow/pay?offer_id=${offerId}&quantity=${quantity}`, 'POST');
     },
 
-    async releasePayment(offerId) {
-        return this.request(`/escrow/release/${offerId}`, 'POST');
+    async releasePayment(offer_id) {
+        return this.request(`/escrow/release/${offer_id}`, 'POST');
+    },
+
+    async disputePayment(offer_id) {
+        return this.request(`/escrow/dispute/${offer_id}`, 'POST');
     },
 
     // ─── Users ──────────────────────────────────────────────────────────────

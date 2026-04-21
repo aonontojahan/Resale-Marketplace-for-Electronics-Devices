@@ -145,10 +145,12 @@ function renderProductCard(product) {
                     <span style="background: rgba(255,255,255,0.95); color: #0f172a; font-weight: 800; font-size: 0.75rem; padding: 0.4rem 0.8rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); letter-spacing: 0.03em;">${product.condition.toUpperCase()}</span>
                 </div>
                 <div style="position: absolute; top: 12px; right: 12px;">
-                    ${isSold
-            ? `<span style="background: rgba(239, 68, 68, 0.95); color: white; font-weight: 800; font-size: 0.75rem; padding: 0.4rem 0.8rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); letter-spacing: 0.03em;">SOLD</span>`
-            : `<span style="background: rgba(16, 185, 129, 0.95); color: white; font-weight: 800; font-size: 0.75rem; padding: 0.4rem 0.8rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); letter-spacing: 0.03em;">AVAILABLE</span>`
-        }
+                    ${product.is_disputed 
+                        ? `<span style="background: #f43f5e; color: white; font-weight: 800; font-size: 0.75rem; padding: 0.4rem 0.8rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); letter-spacing: 0.03em;">🚨 DISPUTED</span>`
+                        : (product.status === 'sold' || product.inventory_quantity <= 0)
+                            ? `<span style="background: rgba(239, 68, 68, 0.95); color: white; font-weight: 800; font-size: 0.75rem; padding: 0.4rem 0.8rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); letter-spacing: 0.03em;">SOLD</span>`
+                            : `<span style="background: rgba(16, 185, 129, 0.95); color: white; font-weight: 800; font-size: 0.75rem; padding: 0.4rem 0.8rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); letter-spacing: 0.03em;">AVAILABLE</span>`
+                    }
                 </div>
             </div>
             <div class="card-content" style="padding: 1.25rem; display: flex; flex-direction: column; flex: 1;">
@@ -176,7 +178,7 @@ function renderProductCard(product) {
                     ${descHtml}
                 </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: auto;">
-                    ${isSold
+                    ${(product.status === 'sold' || product.inventory_quantity <= 0)
             ? `<button style="background: var(--bg-body); color: var(--text-muted); border: 1px solid var(--border); border-radius: 10px; width: 100%; font-weight: 800; padding: 0.75rem; font-size: 0.85rem; cursor: not-allowed; transition: all 0.2s;" disabled>SOLD OUT</button>`
             : `<button style="background: linear-gradient(135deg, var(--primary), var(--accent-cyan)); color: white; border: none; border-radius: 10px; width: 100%; font-weight: 800; padding: 0.75rem; font-size: 0.85rem; cursor: pointer; box-shadow: 0 4px 12px rgba(99,102,241,0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(99,102,241,0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(99,102,241,0.3)'" onclick="handleBuyClick('${product.id}')" id="buyBtn-${product.id}">Buy with Escrow</button>`
         }
@@ -213,7 +215,12 @@ function renderSellerCard(product) {
                     <span style="background: rgba(255,255,255,0.95); color: #0f172a; font-weight: 800; font-size: 0.75rem; padding: 0.4rem 0.8rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); letter-spacing: 0.03em;">${product.condition.toUpperCase()}</span>
                 </div>
                 <div style="position: absolute; top: 12px; right: 12px;">
-                    <span class="listing-status-badge ${statusCfg.cls}" style="margin: 0; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">${statusCfg.label.toUpperCase()}</span>
+                    ${product.is_disputed 
+                        ? `<span class="listing-status-badge badge-rejected" style="margin: 0; box-shadow: 0 4px 6px rgba(0,0,0,0.1); color:white; background:#ef4444;">🚨 DISPUTED</span>`
+                        : (product.status === 'sold' || product.inventory_quantity <= 0)
+                            ? `<span class="listing-status-badge badge-sold" style="margin: 0; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">🤝 SOLD</span>`
+                            : `<span class="listing-status-badge badge-approved" style="margin: 0; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">✅ AVAILABLE</span>`
+                    }
                 </div>
             </div>
             <div class="card-content">
@@ -229,8 +236,8 @@ function renderSellerCard(product) {
                     ${descHtml}
                 </div>
                 <div style="margin-top:auto; display:flex; gap:0.5rem;">
-                    ${product.status === 'approved'
-            ? `<button class="btn-primary" style="flex:1; padding:0.4rem; font-size:0.8rem; background:linear-gradient(135deg,#10b981,#059669); border:none; border-radius:8px; color:white; font-weight:700; cursor:pointer;">🤝 Mark as Sold</button>`
+                    ${product.status === 'approved' && product.inventory_quantity > 0
+            ? `<button class="btn-primary" style="flex:1; padding:0.4rem; font-size:0.8rem; background:linear-gradient(135deg,#10b981,#059669); border:none; border-radius:8px; color:white; font-weight:700; cursor:pointer;" onclick="markProductAsSold('${product.id}')">🤝 Mark as Sold</button>`
             : product.status === 'sold'
                 ? `<button style="flex:1; padding:0.4rem; font-size:0.8rem; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.2); border-radius:8px; color:#ef4444; font-weight:700; cursor:not-allowed;" disabled>🤝 Sold</button>`
                 : ''
@@ -266,7 +273,12 @@ function renderAdminCard(product) {
             <div class="admin-card-content">
                 <div class="admin-card-header">
                     <div class="admin-card-info">
-                        <span class="listing-status-badge ${statusCfg.cls}">${statusCfg.label}</span>
+                        ${product.is_disputed 
+                            ? `<span class="listing-status-badge badge-rejected" style="color:white; background:#ef4444;">🚨 DISPUTED</span>`
+                            : (product.status === 'sold' || product.inventory_quantity <= 0)
+                                ? `<span class="listing-status-badge badge-sold">🤝 SOLD</span>`
+                                : `<span class="listing-status-badge ${statusCfg.cls}">${statusCfg.label.toUpperCase()}</span>`
+                        }
                         <h4 class="admin-card-title">${product.title}</h4>
                         <p class="admin-card-price">৳${priceFormatted}</p>
                     </div>
@@ -647,6 +659,7 @@ async function loadAdminStats() {
         const approvedEl = document.getElementById('adminStatApproved');
         const pendingEl = document.getElementById('adminStatPending');
         const rejectedEl = document.getElementById('adminStatRejected');
+        const disputesStatEl = document.getElementById('adminStatDisputes');
 
         if (usersEl) usersEl.innerText = stats.pending_sellers || 0;
         if (buyersEl) buyersEl.innerText = stats.total_buyers || 0;
@@ -654,6 +667,10 @@ async function loadAdminStats() {
         if (approvedEl) approvedEl.innerText = stats.approved_listings || 0;
         if (pendingEl) pendingEl.innerText = stats.pending_listings || 0;
         if (rejectedEl) rejectedEl.innerText = stats.rejected_listings || 0;
+
+        // Fetch dispute count
+        const disputes = await window.api.request('/admin/disputes', 'GET');
+        if (disputesStatEl) disputesStatEl.innerText = disputes.length || 0;
     } catch (error) {
         console.error("Failed to load admin stats:", error);
     }
@@ -1542,6 +1559,47 @@ document.addEventListener('DOMContentLoaded', () => {
                         ` : `<div style="font-size: 0.85rem; color: #059669; font-weight: 700; background: #d1fae5; padding: 0.5rem; text-align:center; border-radius:8px;">Ready for Buyer Payment</div>`}
                     </div>
                 `;
+            } else if (msg.text.startsWith("💰 PAYMENT COMPLETED:")) {
+                div.className = "message-system";
+                div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
+
+                div.innerHTML = `
+                    <div style="background: #f0f9ff; border: 1.5px solid #0ea5e9; padding: 1.25rem; border-radius: 16px; border-left: 6px solid #0ea5e9; box-shadow: 0 10px 15px -3px rgba(14,165,233,0.1);">
+                        <div style="font-weight: 800; color: #0ea5e9; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.4rem;">🔐</span> Held in Escrow
+                        </div>
+                        <div style="font-size: 0.95rem; color: #0c4a6e; margin-bottom: 1.25rem;">
+                            The payment is now safely held in Escrow. Once you receive and check the product, please release the funds to the seller.
+                        </div>
+                        ${user.role === 'buyer' ? `
+                        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                            <button class="btn-primary" style="width:100%; background: #0ea5e9; border: none; padding: 0.8rem; color: white; font-weight: 800; border-radius: 10px; cursor: pointer;" onclick="handleReleaseFunds('${activeSessionId}')">Confirm Receipt & Release Funds</button>
+                            <button class="btn-secondary" style="width:100%; background: transparent; border: 1.5px solid #ef4444; padding: 0.6rem; color: #ef4444; font-weight: 700; border-radius: 10px; cursor: pointer;" onclick="handleReportIssue('${activeSessionId}')">⚠ Report a Problem</button>
+                        </div>
+                        ` : `<div style="font-size: 0.85rem; color: #0ea5e9; font-weight: 700; background: #e0f2fe; padding: 0.5rem; text-align:center; border-radius:8px;">Waiting for Buyer to Release Funds</div>`}
+                    </div>
+                `;
+            } else if (msg.text.startsWith("⚠️ DISPUTE RAISED:")) {
+                div.className = "message-system";
+                div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
+                div.innerHTML = `
+                    <div style="background: #fff1f2; border: 1.5px solid #f43f5e; padding: 1.25rem; border-radius: 16px; border-left: 6px solid #f43f5e;">
+                        <div style="font-weight: 800; color: #e11d48; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.4rem;">🚨</span> Dispute Active
+                        </div>
+                        <div style="font-size: 0.9rem; color: #881337;">
+                            A dispute has been raised. Funds are frozen. Our team will review this transaction and contact both parties shortly.
+                        </div>
+                    </div>
+                `;
+            } else if (msg.text.startsWith("✅ FUNDS RELEASED:")) {
+                div.className = "message-system";
+                div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
+                div.innerHTML = `
+                    <div style="background: #f0fdf4; border: 1.5px solid #22c55e; padding: 1rem; border-radius: 12px; color: #15803d; text-align: center; font-size: 0.95rem;">
+                        <span style="font-size: 1.2rem;">🎊</span> <strong>Transaction Completed!</strong> The funds have been released to the seller.
+                    </div>
+                `;
             } else if (msg.text.startsWith("❌ OFFER REJECTED:")) {
                 div.className = "message-system";
                 div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
@@ -2106,6 +2164,50 @@ window.handleProceedToCheckout = async function(sessionId) {
         alert("Redirect failed: " + e.message);
     }
 };
+
+window.handleReleaseFunds = async function(sessionId) {
+    if (!confirm("Confirm Receipt: Are you sure the product is exactly as described? This will release the payment to the seller immediately.")) return;
+
+    try {
+        const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
+        const paidOffer = offersResponses.reverse().find(o => o.status === 'paid');
+        if (!paidOffer) return alert("No paid offer found to release.");
+
+        await window.api.request(`/escrow/release/${paidOffer.id}`, 'POST');
+        
+        // Auto-send follow-up message if possible
+        if (window.currentChatSocket && window.currentChatSocket.readyState === WebSocket.OPEN) {
+            window.currentChatSocket.send("Product received! I've released the payment. Thank you!");
+        }
+        
+        alert("Success! Funds released to seller.");
+        window.location.reload();
+    } catch (e) {
+        alert("Release failed: " + e.message);
+    }
+};
+
+window.handleReportIssue = async function(sessionId) {
+    const reason = prompt("Dispute Report: Please explain the issue (e.g. Seller hasn't shipped, item is broken, etc.):");
+    if (!reason) return;
+
+    try {
+        const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
+        const paidOffer = offersResponses.reverse().find(o => o.status === 'paid');
+        if (!paidOffer) return alert("No active payment found to dispute.");
+
+        await window.api.disputePayment(paidOffer.id);
+        
+        if (window.currentChatSocket && window.currentChatSocket.readyState === WebSocket.OPEN) {
+            window.currentChatSocket.send(`🚨 DISPUTE REASON: ${reason}`);
+        }
+        
+        alert("Dispute raised. The funds are now frozen.");
+        window.location.reload();
+    } catch (e) {
+        alert("Could not raise dispute: " + e.message);
+    }
+};
 window.toggleDescription = toggleDescription;
 
 /**
@@ -2137,22 +2239,48 @@ window.updateGlobalUnreadCount = updateGlobalUnreadCount;
 
 // ─── REVIEW LOGIC ───────────────────────────────────────────────
 
-window.openReviewModal = function (productId) {
+window.openReviewModal = async function (productId) {
     const user = getUser();
     if (!user) {
         alert("Please login to leave a review.");
         window.location.href = "login.html";
         return;
     }
-    const modal = document.getElementById('reviewModal');
-    if (!modal) return;
 
-    document.getElementById('reviewProductId').value = productId;
-    document.getElementById('reviewRating').value = '';
-    document.getElementById('reviewComment').value = '';
+    try {
+        // PRE-CHECK: Only show modal if they have a completed offer
+        // (Backend will also verify this for security)
+        const offers = await window.api.request(`/offers?product_id=${productId}`, 'GET');
+        const hasCompleted = offers.some(o => o.buyer_id === user.id && o.status === 'completed');
+        
+        if (!hasCompleted) {
+            alert("🔒 Access Denied: You can only review a seller after purchasing this product and confirming receipt.");
+            return;
+        }
 
-    modal.classList.add('active');
-    document.body.style.overflow = 'hidden';
+        const modal = document.getElementById('reviewModal');
+        if (!modal) return;
+
+        document.getElementById('reviewProductId').value = productId;
+        document.getElementById('reviewRating').value = '';
+        document.getElementById('reviewComment').value = '';
+
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    } catch (err) {
+        alert("Could not verify purchase status: " + err.message);
+    }
+};
+
+window.markProductAsSold = async function(productId) {
+    if (!confirm("Are you sure you want to mark this item as SOLD? This will set quantity to 0 and hide it from listings.")) return;
+    try {
+        await window.api.request(`/products/${productId}/status`, 'PATCH', { status: 'sold' });
+        alert("Product marked as sold!");
+        location.reload();
+    } catch (err) {
+        alert("Failed to update status: " + err.message);
+    }
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -2189,3 +2317,130 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+// ─── ADMIN DISPUTE HELPERS ───────────────────────────────────────
+
+function setAdminInlineStatus(status, btn) {
+    if (status === 'disputed') {
+        renderAdminDisputes();
+    } else {
+        window.currentAdminInlineStatus = status;
+        renderAdminListings(status);
+        const catFilter = document.getElementById('adminCategoryFilter');
+        if (catFilter) catFilter.style.display = (status === 'approved') ? 'flex' : 'none';
+    }
+
+    // Update active UI tab
+    if (btn && btn.parentElement) {
+        const btns = btn.parentElement.querySelectorAll('.filter-btn');
+        btns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    }
+}
+window.setAdminInlineStatus = setAdminInlineStatus;
+
+async function renderAdminDisputes() {
+    const container = document.getElementById('adminListingsContainer');
+    const empty = document.getElementById('adminEmpty');
+    const catFilter = document.getElementById('adminCategoryFilter');
+    
+    if (catFilter) catFilter.style.display = 'none';
+    if (!container) return;
+
+    container.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:3rem; color:var(--text-muted);">Opening Dispute Center...</div>';
+
+    try {
+        const disputes = await window.api.request('/admin/disputes', 'GET');
+        container.innerHTML = '';
+
+        if (!disputes || disputes.length === 0) {
+            if (empty) {
+                empty.style.display = 'block';
+                const emptyTitle = document.getElementById('adminEmptyTitle');
+                const emptyDesc = document.getElementById('adminEmptyDesc');
+                if (emptyTitle) emptyTitle.innerText = "No Active Disputes";
+                if (emptyDesc) emptyDesc.innerText = "All transactions are currently running smoothly.";
+            }
+            return;
+        }
+
+        if (empty) empty.style.display = 'none';
+
+        const listDiv = document.createElement('div');
+        listDiv.className = 'admin-listings-list';
+        listDiv.style.display = "grid";
+        listDiv.style.gridTemplateColumns = "repeat(auto-fill, minmax(280px, 1fr))";
+        listDiv.style.gap = "1.5rem";
+
+        disputes.forEach(d => {
+            const card = document.createElement('div');
+            card.className = 'product-card';
+            card.style.cssText = "border: 1.5px solid #f43f5e; box-shadow: 0 10px 15px -3px rgba(244,63,94,0.1); display: flex; flex-direction: column;";
+            
+            // Image handling logic
+            const imgSrc = d.product_image;
+            let fullImgSrc = 'img/placeholder.png'; // Default to local placeholder
+            
+            if (imgSrc) {
+                if (imgSrc.startsWith('http')) {
+                    fullImgSrc = imgSrc;
+                } else if (imgSrc.startsWith('/uploads/') || imgSrc.startsWith('uploads/')) {
+                    const cleanPath = imgSrc.startsWith('/') ? imgSrc : '/' + imgSrc;
+                    fullImgSrc = `http://localhost:8000${cleanPath}`;
+                } else {
+                    fullImgSrc = `http://localhost:8000/uploads/${imgSrc}`;
+                }
+            }
+
+            card.innerHTML = `
+                <div class="product-image" style="height: 180px; background: #f1f5f9; position: relative; overflow: hidden;">
+                    <img src="${fullImgSrc}" alt="${d.product_title}" onerror="this.src='img/placeholder.png'" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+                    <span class="badge badge-condition" style="background:#f43f5e; color:white; border:none; top:10px; left:10px; font-weight:800; position: absolute; z-index: 1;">🚨 DISPUTED</span>
+                </div>
+                <div class="product-details" style="padding:1.25rem; flex: 1; display: flex; flex-direction: column;">
+                    <h3 style="font-size:1.1rem; margin-bottom:0.5rem; color:var(--secondary); font-weight: 800;">${d.product_title}</h3>
+                    
+                    <div style="font-size:0.85rem; color:#475569; margin-bottom:1rem; display:flex; flex-direction:column; gap:0.4rem; background:#fff1f2; padding:1rem; border-radius:12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span>👤 Buyer: <strong>${d.buyer_name}</strong></span>
+                            <span style="font-size: 0.75rem; color: #e11d48; font-weight: 600;">📞 ${d.buyer_phone || 'N/A'}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span>🏪 Seller: <strong>${d.seller_name}</strong></span>
+                            <span style="font-size: 0.75rem; color: #e11d48; font-weight: 600;">📞 ${d.seller_phone || 'N/A'}</span>
+                        </div>
+                        <div style="margin-top: 0.5rem; pt-0.5rem; border-top: 1px dashed rgba(225,29,72,0.2); display: flex; justify-content: space-between; align-items: center;">
+                            <span>💰 Total Amount:</span>
+                            <strong style="color:#e11d48; font-size:1.1rem;">৳${(d.offered_price * d.quantity + 150).toLocaleString()}</strong>
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 0.6rem; margin-top: auto;">
+                        <button class="btn-primary" style="background:#10b981; border:none; padding:0.8rem; font-size:0.9rem; font-weight:700; border-radius: 10px; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2);" onclick="handleDisputeVerdict(${d.id}, 'payout_seller')">✔ Payout Seller</button>
+                        <button class="btn-secondary" style="color:#e11d48; border-color:#e11d48; padding:0.8rem; font-size:0.9rem; font-weight:700; background:white; border-radius: 10px;" onclick="handleDisputeVerdict(${d.id}, 'refund_buyer')">↩ Refund Buyer</button>
+                    </div>
+                </div>
+            `;
+            listDiv.appendChild(card);
+        });
+        container.appendChild(listDiv);
+
+    } catch (err) {
+        container.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding:3rem; color:#ef4444;">Failed to load Disputes: ${err.message}</div>`;
+    }
+}
+window.renderAdminDisputes = renderAdminDisputes;
+
+async function handleDisputeVerdict(offerId, verdict) {
+    const actionText = verdict === 'payout_seller' ? 'Release funds to Seller?' : 'Refund the Buyer in full?';
+    if (!confirm(`Are you sure you want to resolve this dispute? \n\nAction: ${actionText}`)) return;
+
+    try {
+        await window.api.request(`/admin/disputes/${offerId}/resolve?resolution=${verdict}`, 'POST');
+        alert("Verdict recorded successfully! The transaction is now settled.");
+        renderAdminDisputes();
+        loadAdminStats();
+    } catch (err) {
+        alert("Failed to resolve dispute: " + err.message);
+    }
+}
+window.handleDisputeVerdict = handleDisputeVerdict;

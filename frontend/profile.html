@@ -105,57 +105,83 @@
           </div>
 
           <!-- Admin Statistics -->
-          <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 2rem;" id="adminStatsGrid">
-            <!-- User Stats Row -->
-            <div class="admin-stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-                <div class="stat-card" style="padding: 1.5rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; display: flex; align-items: center; gap: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); transition: transform 0.2s ease; cursor: pointer;" onclick="renderAdminUsers('pending_sellers')">
-                  <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(239,68,68,0.1); color: #ef4444; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; flex-shrink: 0;">⏳</div>
+          <!-- Admin Statistics -->
+          <div style="margin-bottom: 2.5rem;" id="adminStatsGrid">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem;">
+                
+                <!-- Platform / User Stats -->
+                <div class="stat-card" style="padding: 1.25rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; display: flex; align-items: center; gap: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); transition: all 0.3s ease; cursor: pointer; border-left: 4px solid #3b82f6;" onclick="renderAdminUsers('buyers')">
+                  <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(59,130,246,0.1); color: #3b82f6; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0;">👥</div>
                   <div>
-                    <p style="color: var(--text-muted); font-size: 0.85rem; font-weight: 600; margin: 0 0 0.25rem;">Pending Sellers</p>
-                    <h3 id="adminStatPendingSellers" style="font-size: 1.5rem; font-weight: 700; margin: 0;">-</h3>
+                    <p style="color: var(--text-muted); font-size: 0.75rem; font-weight: 700; margin: 0 0 0.15rem; text-transform: uppercase; letter-spacing: 0.05em;">Total Buyers</p>
+                    <h3 id="adminStatBuyers" style="font-size: 1.6rem; font-weight: 800; margin: 0; color: var(--secondary);">-</h3>
                   </div>
                 </div>
-                <div class="stat-card" style="padding: 1.5rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; display: flex; align-items: center; gap: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); transition: transform 0.2s ease; cursor: pointer;" onclick="renderAdminUsers('buyers')">
-                  <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(59,130,246,0.1); color: #3b82f6; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; flex-shrink: 0;">👥</div>
-                  <div>
-                    <p style="color: var(--text-muted); font-size: 0.85rem; font-weight: 600; margin: 0 0 0.25rem;">Total Buyers</p>
-                    <h3 id="adminStatBuyers" style="font-size: 1.5rem; font-weight: 700; margin: 0;">-</h3>
-                  </div>
-                </div>
-                <div class="stat-card" style="padding: 1.5rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; display: flex; align-items: center; gap: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); transition: transform 0.2s ease; cursor: pointer;" onclick="renderAdminUsers('sellers')">
-                  <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(16,185,129,0.1); color: #10b981; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; flex-shrink: 0;">🏪</div>
-                  <div>
-                    <p style="color: var(--text-muted); font-size: 0.85rem; font-weight: 600; margin: 0 0 0.25rem;">Total Sellers</p>
-                    <h3 id="adminStatSellers" style="font-size: 1.5rem; font-weight: 700; margin: 0;">-</h3>
-                  </div>
-                </div>
-            </div>
 
-            <!-- Product Stats Row -->
-            <div class="admin-stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-                <div class="stat-card" style="padding: 1.5rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; display: flex; align-items: center; gap: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); transition: transform 0.2s ease; cursor: pointer;" onclick="renderAdminListings('approved')">
-                  <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(16,185,129,0.1); color: #10b981; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; flex-shrink: 0;">✅</div>
+                <div class="stat-card" style="padding: 1.25rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; display: flex; align-items: center; gap: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); transition: all 0.3s ease; cursor: pointer; border-left: 4px solid #10b981;" onclick="renderAdminUsers('sellers')">
+                  <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(16,185,129,0.1); color: #10b981; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0;">🏪</div>
                   <div>
-                    <p style="color: var(--text-muted); font-size: 0.85rem; font-weight: 600; margin: 0 0 0.25rem;">Approved Products</p>
-                    <h3 id="adminStatApproved" style="font-size: 1.5rem; font-weight: 700; margin: 0;">-</h3>
+                    <p style="color: var(--text-muted); font-size: 0.75rem; font-weight: 700; margin: 0 0 0.15rem; text-transform: uppercase; letter-spacing: 0.05em;">Total Sellers</p>
+                    <h3 id="adminStatSellers" style="font-size: 1.6rem; font-weight: 800; margin: 0; color: var(--secondary);">-</h3>
                   </div>
                 </div>
-                <div class="stat-card" style="padding: 1.5rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; display: flex; align-items: center; gap: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); transition: transform 0.2s ease; cursor: pointer;" onclick="renderAdminListings('pending')">
-                  <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(245,158,11,0.1); color: #f59e0b; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; flex-shrink: 0;">⏳</div>
+
+                <div class="stat-card" style="padding: 1.25rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; display: flex; align-items: center; gap: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); transition: all 0.3s ease; cursor: pointer; border-left: 4px solid #f97316;" onclick="renderAdminUsers('pending_sellers')">
+                  <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(249,123,22,0.1); color: #f97316; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0;">⏳</div>
                   <div>
-                    <p style="color: var(--text-muted); font-size: 0.85rem; font-weight: 600; margin: 0 0 0.25rem;">Pending Reviews</p>
-                    <h3 id="adminStatPending" style="font-size: 1.5rem; font-weight: 700; margin: 0;">-</h3>
+                    <p style="color: var(--text-muted); font-size: 0.75rem; font-weight: 700; margin: 0 0 0.15rem; text-transform: uppercase; letter-spacing: 0.05em;">Pending Verification</p>
+                    <h3 id="adminStatPendingSellers" style="font-size: 1.6rem; font-weight: 800; margin: 0; color: var(--secondary);">-</h3>
                   </div>
                 </div>
-                <div class="stat-card" style="padding: 1.5rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; display: flex; align-items: center; gap: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); transition: transform 0.2s ease; cursor: pointer;" onclick="renderAdminListings('rejected')">
-                  <div style="width: 48px; height: 48px; border-radius: 12px; background: rgba(239,68,68,0.1); color: #ef4444; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; flex-shrink: 0;">❌</div>
+
+                <!-- Product Stats -->
+                <div class="stat-card" style="padding: 1.25rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; display: flex; align-items: center; gap: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); transition: all 0.3s ease; cursor: pointer; border-left: 4px solid #10b981;" onclick="renderAdminListings('approved')">
+                  <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(16,185,129,0.1); color: #10b981; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0;">✅</div>
                   <div>
-                    <p style="color: var(--text-muted); font-size: 0.85rem; font-weight: 600; margin: 0 0 0.25rem;">Rejected Products</p>
-                    <h3 id="adminStatRejected" style="font-size: 1.5rem; font-weight: 700; margin: 0;">-</h3>
+                    <p style="color: var(--text-muted); font-size: 0.75rem; font-weight: 700; margin: 0 0 0.15rem; text-transform: uppercase; letter-spacing: 0.05em;">Approved</p>
+                    <h3 id="adminStatApproved" style="font-size: 1.6rem; font-weight: 800; margin: 0; color: var(--secondary);">-</h3>
                   </div>
                 </div>
+
+                <div class="stat-card" style="padding: 1.25rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; display: flex; align-items: center; gap: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); transition: all 0.3s ease; cursor: pointer; border-left: 4px solid #f59e0b;" onclick="renderAdminListings('pending')">
+                  <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(245,158,11,0.1); color: #f59e0b; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0;">🔎</div>
+                  <div>
+                    <p style="color: var(--text-muted); font-size: 0.75rem; font-weight: 700; margin: 0 0 0.15rem; text-transform: uppercase; letter-spacing: 0.05em;">Under Review</p>
+                    <h3 id="adminStatPending" style="font-size: 1.6rem; font-weight: 800; margin: 0; color: var(--secondary);">-</h3>
+                  </div>
+                </div>
+
+                <div class="stat-card" style="padding: 1.25rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; display: flex; align-items: center; gap: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); transition: all 0.3s ease; cursor: pointer; border-left: 4px solid #ef4444;" onclick="renderAdminListings('rejected')">
+                  <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(239,68,68,0.1); color: #ef4444; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0;">❌</div>
+                  <div>
+                    <p style="color: var(--text-muted); font-size: 0.75rem; font-weight: 700; margin: 0 0 0.15rem; text-transform: uppercase; letter-spacing: 0.05em;">Rejected</p>
+                    <h3 id="adminStatRejected" style="font-size: 1.6rem; font-weight: 800; margin: 0; color: var(--secondary);">-</h3>
+                  </div>
+                </div>
+
+                <!-- High Priority Disputes Card -->
+                <div class="stat-card" style="padding: 1.25rem; background: #fff1f2; border: 2px solid #f43f5e; border-radius: 16px; display: flex; align-items: center; gap: 1rem; box-shadow: 0 10px 15px -3px rgba(244,63,94,0.1); transition: all 0.3s ease; cursor: pointer; grid-column: span 1;" onclick="renderAdminDisputes()">
+                  <div style="width: 44px; height: 44px; border-radius: 12px; background: #f43f5e; color: white; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; flex-shrink: 0; animation: pulse-error 2s infinite;">🚨</div>
+                  <div>
+                    <p style="color: #e11d48; font-size: 0.75rem; font-weight: 800; margin: 0 0 0.15rem; text-transform: uppercase; letter-spacing: 0.05em;">Active Disputes</p>
+                    <h3 id="adminStatDisputes" style="font-size: 1.8rem; font-weight: 900; margin: 0; color: #9f1239;">-</h3>
+                  </div>
+                </div>
+                
             </div>
           </div>
+
+          <style>
+            @keyframes pulse-error {
+              0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.4); }
+              70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(244, 63, 94, 0); }
+              100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); }
+            }
+            .stat-card:hover {
+              transform: translateY(-4px);
+              box-shadow: 0 12px 20px -5px rgba(0,0,0,0.1) !important;
+            }
+          </style>
 
           <!-- Category Filter for Admin (Visible when Approved is selected) -->
           <div class="listings-filter" id="adminCategoryFilter" style="margin-bottom:1.5rem; display:none;">
