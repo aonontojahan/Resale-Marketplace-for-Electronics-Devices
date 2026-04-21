@@ -135,6 +135,7 @@ class ProductResponse(BaseModel):
     sellerEmail: Optional[str] = None
     sellerRating: float = 0.0
     sellerTotalReviews: int = 0
+    is_disputed: bool = False
     created_at: datetime
     updated_at: Optional[datetime] = None
 

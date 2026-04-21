@@ -113,7 +113,7 @@
             </div>
             <div style="display: flex; justify-content: space-between; font-size: 0.95rem; margin-bottom: 1.5rem;">
               <span style="color: var(--text-muted);">Delivery Fee</span>
-              <span style="font-weight: 600;">৳<span id="coDeliveryFee">70</span></span>
+              <span style="font-weight: 600;">৳<span id="coDeliveryFee">150</span></span>
             </div>
 
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
@@ -345,7 +345,7 @@
           const totalEl = document.getElementById('coTotal');
           input.max = maxQty;
 
-          const deliveryFee = 70;
+          const deliveryFee = 150;
 
           const updateTotal = () => {
             document.getElementById('coQtyText').innerText = currentQty;
@@ -459,12 +459,18 @@
             } else if (tx.transaction_type === 'escrow_hold') {
               icon = '🔒';
               color = '#f59e0b'; // Amber
+            } else if (tx.transaction_type === 'dispute_open') {
+              icon = '⚠️';
+              color = '#f43f5e'; // Rose
+            } else if (tx.transaction_type === 'dispute_refund') {
+              icon = '⚖️';
+              color = '#8b5cf6'; // Violet
             } else if (tx.amount < 0) {
               icon = '➖';
               color = '#ef4444'; // Red
             }
 
-            const sign = tx.amount > 0 ? '+' : '';
+            const sign = tx.amount > 0 ? '+' : (tx.amount < 0 ? '-' : '');
 
             return `
                 <div class="transaction-item" style="display: flex; align-items: center; gap: 1rem; padding: 1.25rem; transition: background 0.2s;">
