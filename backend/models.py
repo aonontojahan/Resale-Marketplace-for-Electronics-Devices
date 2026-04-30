@@ -167,6 +167,9 @@ class OfferStatus(str, enum.Enum):
     PAID = "paid"
     DISPUTED = "disputed"
     REFUNDED = "refunded"
+    DELIVERED = "delivered"
+    COMPLETED = "completed"
+    AUTO_COMPLETED = "auto_completed"
 
 class Offer(Base):
     __tablename__ = "offers"

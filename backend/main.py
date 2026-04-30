@@ -383,6 +383,14 @@ def finalize_payment(
     )
     db.add(pay_msg)
     
+    # Notify seller explicitly
+    seller_notify_msg = models.ChatMessage(
+        session_id=offer.session_id,
+        sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1,
+        text=f"📢 ORDER ALERT: The buyer has made the payment. Please prepare the item for delivery and mark it as DELIVERED once shipped."
+    )
+    db.add(seller_notify_msg)
+    
     # Add transaction record
     new_tx = models.WalletTransaction(
         user_id=current_user.id,
@@ -398,6 +406,42 @@ def finalize_payment(
 
     db.commit()
     return {"message": "Payment successful", "final_total": final_total}
+
+@app.post("/escrow/deliver/{offer_id}")
+def deliver_order(
+    offer_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Called by the seller to mark the order as DELIVERED.
+    """
+    offer = db.query(models.Offer).filter(models.Offer.id == offer_id).first()
+    if not offer:
+        raise HTTPException(status_code=404, detail="Offer not found")
+    
+    if current_user.id != offer.seller_id:
+        raise HTTPException(status_code=403, detail="Only the seller can mark this order as delivered")
+    
+    if offer.status != models.OfferStatus.PAID:
+        raise HTTPException(status_code=400, detail="Order must be PAID before it can be delivered")
+
+    offer.status = models.OfferStatus.DELIVERED
+    
+    # System message
+    system_msg = models.ChatMessage(
+        session_id=offer.session_id,
+        sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1, 
+        text="📦 ORDER DELIVERED: The seller has marked the order as delivered. Buyer, please confirm delivery to release funds to the seller. Funds will auto-release in 3 days if no action is taken."
+    )
+    db.add(system_msg)
+
+    # Touch session
+    offer.session.updated_at = func.now()
+    db.add(offer.session)
+
+    db.commit()
+    return {"message": "Order marked as delivered", "status": offer.status}
 
 @app.post("/escrow/release/{offer_id}")
 def release_payment(
@@ -416,8 +460,8 @@ def release_payment(
     if current_user.id != offer.buyer_id:
         raise HTTPException(status_code=403, detail="Only the buyer can release these funds")
     
-    if offer.status != models.OfferStatus.PAID:
-        raise HTTPException(status_code=400, detail="Funds have not been paid to escrow yet")
+    if offer.status not in (models.OfferStatus.PAID, models.OfferStatus.DELIVERED):
+        raise HTTPException(status_code=400, detail="Funds cannot be released at this state")
 
     # Calculate values
     total_paid = (offer.offered_price * offer.quantity) + DELIVERY_FEE
@@ -444,7 +488,7 @@ def release_payment(
     seller.wallet_balance += seller_amount
     
     # Update offer status
-    offer.status = "completed"
+    offer.status = models.OfferStatus.COMPLETED
     
     # Record transaction for seller
     seller_tx = models.WalletTransaction(
@@ -486,8 +530,8 @@ def dispute_transaction(
     if current_user.id != offer.buyer_id:
         raise HTTPException(status_code=403, detail="Only the buyer can raise a dispute")
     
-    if offer.status != models.OfferStatus.PAID:
-        raise HTTPException(status_code=400, detail="Transaction is not in a payable state")
+    if offer.status not in (models.OfferStatus.PAID, models.OfferStatus.DELIVERED):
+        raise HTTPException(status_code=400, detail="Transaction is not in a payable or delivered state")
 
     offer.status = models.OfferStatus.DISPUTED
     
@@ -542,7 +586,7 @@ def resolve_dispute(
         
         buyer.escrow_balance -= total_escrow
         seller.wallet_balance += seller_payout
-        offer.status = "completed"
+        offer.status = models.OfferStatus.COMPLETED
         
         msg_text = f"⚖️ ADMIN RESOLUTION: Dispute resolved in favor of SELLER. ৳{seller_payout:,d} released to seller wallet."
 
@@ -609,6 +653,65 @@ def list_disputes(
             "product_image": d.product.image_url if d.product.image_url else (d.product.images[0].image_url if d.product.images else "")
         })
     return results
+
+
+@app.post("/admin/cron/auto-release")
+def auto_release_escrow(db: Session = Depends(get_db)):
+    """
+    Automated job endpoint to release funds for DELIVERED orders 
+    that have been waiting for > 3 days.
+    (In a real system, this could be triggered by a celery beat or a cron cronjob)
+    """
+    cutoff_time = datetime.now(timezone.utc) - timedelta(days=3)
+    
+    # Find offers delivered more than 3 days ago
+    stale_offers = db.query(models.Offer).filter(
+        models.Offer.status == models.OfferStatus.DELIVERED,
+        models.Offer.updated_at <= cutoff_time
+    ).all()
+    
+    released_count = 0
+    for offer in stale_offers:
+        buyer = offer.buyer
+        seller = offer.seller
+        
+        total_paid = (offer.offered_price * offer.quantity) + DELIVERY_FEE
+        product_price = offer.offered_price * offer.quantity
+        commission = int(product_price * COMMISSION_RATE)
+        seller_amount = (product_price - commission) + DELIVERY_FEE
+        
+        # Move funds
+        if buyer.escrow_balance >= total_paid:
+            buyer.escrow_balance -= total_paid
+            seller.wallet_balance += seller_amount
+            
+            offer.status = models.OfferStatus.AUTO_COMPLETED
+            
+            # Record transaction
+            seller_tx = models.WalletTransaction(
+                user_id=seller.id,
+                amount=seller_amount,
+                transaction_type="auto_sale_payout",
+                description=f"Auto-release Payout for {offer.product.title}"
+            )
+            db.add(seller_tx)
+            
+            # Notify chat
+            system_msg = models.ChatMessage(
+                session_id=offer.session_id,
+                sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1,
+                text=f"⏰ AUTO-RELEASE: 3 days have passed since delivery. ৳{seller_amount:,d} automatically released to the seller."
+            )
+            db.add(system_msg)
+            
+            # Touch session
+            offer.session.updated_at = func.now()
+            db.add(offer.session)
+            
+            released_count += 1
+            
+    db.commit()
+    return {"message": "Auto-release complete", "released_count": released_count}
 
 
 @app.get("/users", response_model=List[schemas.UserResponse])
