@@ -1092,13 +1092,17 @@ async function loginUser(email, password, role) {
     }
 }
 
-async function signupUser(name, phone, email, password, role) {
+async function signupUser(name, phone, email, password, role, address_region, address_city, address_area, address_full) {
     const signupData = {
         full_name: name,
         phone_number: phone,
         email: email,
         password: password,
-        role: role
+        role: role,
+        address_region: address_region,
+        address_city: address_city,
+        address_area: address_area,
+        address_full: address_full
     };
 
     try {
@@ -1459,7 +1463,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const email = document.getElementById('email').value;
             const pass = document.getElementById('password').value;
             const role = document.getElementById('selectedRole').value;
-            signupUser(name, phone, email, pass, role);
+            
+            const address_region = document.getElementById('address_region') ? document.getElementById('address_region').value : null;
+            const address_city = document.getElementById('address_city') ? document.getElementById('address_city').value : null;
+            const address_area = document.getElementById('address_area') ? document.getElementById('address_area').value : null;
+            const address_full = document.getElementById('address_full') ? document.getElementById('address_full').value : null;
+            
+            signupUser(name, phone, email, pass, role, address_region, address_city, address_area, address_full);
         });
     }
 

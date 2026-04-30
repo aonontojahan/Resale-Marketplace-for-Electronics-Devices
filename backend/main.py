@@ -111,6 +111,10 @@ def signup(user: schemas.UserCreate, db: Session = Depends(get_db)):
         role=user.role,
         phone_number=user.phone_number,
         account_status=account_status,
+        address_region=user.address_region,
+        address_city=user.address_city,
+        address_area=user.address_area,
+        address_full=user.address_full
     )
     db.add(new_user)
     db.commit()
