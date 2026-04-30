@@ -2298,24 +2298,42 @@ window.handleReleaseFunds = async function (sessionId) {
 };
 
 window.handleReportIssue = async function (sessionId) {
-    const reason = prompt("Dispute Report: Please explain the issue (e.g. Seller hasn't shipped, item is broken, etc.):");
-    if (!reason) return;
-
     try {
+        const chats = await window.api.getUserChats(getUser().id);
+        const chat = chats.find(c => c.id.toString() === sessionId);
+        if (!chat) return alert("Chat session not found.");
+
         const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
         const activeOffer = offersResponses.reverse().find(o => ['paid', 'processing', 'shipped', 'delivered'].includes(o.status));
         if (!activeOffer) return alert("No active payment found to dispute.");
 
-        await window.api.disputePayment(activeOffer.id);
+        const modal = document.getElementById('disputeModal');
+        document.getElementById('disputeProductName').innerText = chat.product_title;
+        document.getElementById('disputeAmount').innerText = `Tk. ${parseInt(activeOffer.offered_price, 10)}`;
+        document.getElementById('disputeReason').value = '';
 
-        if (window.currentChatSocket && window.currentChatSocket.readyState === WebSocket.OPEN) {
-            window.currentChatSocket.send(`🚨 DISPUTE REASON: ${reason}`);
-        }
+        modal.style.display = 'flex';
 
-        alert("Dispute raised. The funds are now frozen.");
-        window.location.reload();
+        document.getElementById('modalSubmitDispute').onclick = async () => {
+            const reason = document.getElementById('disputeReason').value;
+            if (!reason || reason.length < 10) return alert("Please provide a detailed reason (min 10 characters).");
+
+            try {
+                await window.api.disputePayment(activeOffer.id);
+                modal.style.display = 'none';
+
+                if (window.currentChatSocket && window.currentChatSocket.readyState === WebSocket.OPEN) {
+                    window.currentChatSocket.send(`🚨 DISPUTE REASON: ${reason}`);
+                }
+
+                alert("Dispute raised. The funds are now frozen.");
+                window.location.reload();
+            } catch (e) {
+                alert(e.message);
+            }
+        };
     } catch (e) {
-        alert("Could not raise dispute: " + e.message);
+        alert(e.message);
     }
 };
 

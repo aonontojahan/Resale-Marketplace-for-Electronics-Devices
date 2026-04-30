@@ -132,14 +132,51 @@
     </div>
   </div>
 
+  <!-- Dispute Modal -->
+  <div id="disputeModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(8px);">
+    <div style="background: white; width: 450px; border-radius: 20px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); animation: modalFadeUp 0.3s ease-out;">
+      <div style="background: #ef4444; padding: 1.25rem; color: white; text-align: center;">
+        <h3 style="margin: 0; font-size: 1.25rem; font-weight: 800; letter-spacing: 0.5px;">Dispute Resolution</h3>
+      </div>
+
+      <div style="padding: 1.5rem 2rem;">
+        <div style="display: grid; gap: 1.25rem;">
+          <div>
+            <label style="display: block; font-size: 0.8rem; font-weight: 700; color: #64748b; margin-bottom: 0.3rem;">Disputed Item:</label>
+            <p id="disputeProductName" style="margin: 0; font-size: 1rem; font-weight: 700; color: #1e293b;"></p>
+          </div>
+          <div>
+            <label style="display: block; font-size: 0.8rem; font-weight: 700; color: #64748b; margin-bottom: 0.3rem;">Locked Amount:</label>
+            <p id="disputeAmount" style="margin: 0; font-size: 1.1rem; font-weight: 800; color: #ef4444;"></p>
+          </div>
+          
+          <div>
+            <label style="display: block; font-size: 0.85rem; font-weight: 800; color: #334155; margin-bottom: 0.5rem;">Reason for Dispute *</label>
+            <textarea id="disputeReason" rows="4" style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 0.95rem; resize: none; font-family: inherit;" placeholder="Please explain the issue in detail (e.g., item not as described, damaged, etc.)"></textarea>
+          </div>
+        </div>
+
+        <div style="margin-top: 2rem; display: flex; gap: 1rem;">
+          <button style="flex: 1; padding: 0.8rem; border-radius: 10px; font-weight: 700; background: #f1f5f9; color: #475569; border: none; cursor: pointer;" onclick="document.getElementById('disputeModal').style.display='none'">Go Back</button>
+          <button id="modalSubmitDispute" style="flex: 2; padding: 0.8rem; border-radius: 10px; font-weight: 800; background: #ef4444; color: white; border: none; cursor: pointer; transition: background 0.2s;">
+            Raise Formal Dispute
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <style>
     @keyframes modalFadeUp {
       from { opacity: 0; transform: translateY(15px); }
       to { opacity: 1; transform: translateY(0); }
     }
-    #shipCourierName:focus, #shipTrackingNumber:focus, #shipDate:focus {
+    #shipCourierName:focus, #shipTrackingNumber:focus, #shipDate:focus, #disputeReason:focus {
       outline: none;
       border-color: #6366f1;
+    }
+    #disputeReason:focus {
+      border-color: #ef4444;
     }
   </style>
 
