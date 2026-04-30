@@ -215,6 +215,18 @@ def get_user_transactions(
     ).order_by(models.WalletTransaction.created_at.desc()).all()
 
 
+@app.delete("/wallet/transactions/clear")
+def clear_user_transactions(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Permanently delete all transaction history for the user."""
+    db.query(models.WalletTransaction).filter(
+        models.WalletTransaction.user_id == current_user.id
+    ).delete()
+    db.commit()
+    return {"message": "Transaction history cleared successfully."}
+
 # ─── Offers & Negotiation ──────────────────────────────────────────
 
 @app.post("/offers", response_model=schemas.OfferResponse)
@@ -574,6 +586,15 @@ def release_payment(
     )
     db.add(seller_tx)
 
+    # Record for Buyer (Escrow release)
+    buyer_tx = models.WalletTransaction(
+        user_id=current_user.id,
+        amount=-total_paid,
+        transaction_type="escrow_release",
+        description=f"Payment released to seller for {offer.product.title}"
+    )
+    db.add(buyer_tx)
+
     # Record platform commission (optional, for tracking)
     # In a real system, you'd add this to a platform account.
 
@@ -669,6 +690,28 @@ def resolve_dispute(
         
         msg_text = f"⚖️ ADMIN RESOLUTION: Dispute resolved in favor of SELLER. ৳{seller_payout:,d} released to seller wallet."
 
+        # Record for Seller
+        seller_tx = models.WalletTransaction(
+            user_id=seller.id,
+            amount=seller_payout,
+            transaction_type="sale_payout",
+            description=f"⚖️ ADMIN RELEASE: Funds released for {offer.product.title} after dispute."
+        )
+        # Record for Buyer
+        buyer_tx = models.WalletTransaction(
+            user_id=buyer.id,
+            amount=-total_escrow,
+            transaction_type="escrow_release",
+            description=f"⚖️ ADMIN RELEASE: Escrow released to seller for {offer.product.title}"
+        )
+        db.add(seller_tx)
+        db.add(buyer_tx)
+
+    elif resolution == "refund_full":
+        # Give money back to buyer's wallet (including delivery fee)
+        deduct_amount = min(total_escrow, buyer.escrow_balance)
+        buyer.escrow_balance -= deduct_amount
+        buyer.wallet_balance += total_escrow 
         offer.status = models.OfferStatus.REFUNDED
         
         # Reset product status back to available
@@ -677,6 +720,15 @@ def resolve_dispute(
             offer.product.stock += offer.quantity
             
         msg_text = f"⚖️ ADMIN RESOLUTION: Dispute resolved with FULL REFUND. ৳{total_escrow:,d} returned to buyer wallet. Product has been re-listed."
+
+        # Record for Buyer
+        refund_tx = models.WalletTransaction(
+            user_id=buyer.id,
+            amount=total_escrow,
+            transaction_type="refund",
+            description=f"⚖️ ADMIN REFUND: Full refund for {offer.product.title}"
+        )
+        db.add(refund_tx)
 
     else: # refund_partial
         # Refund Product Price to buyer, give Delivery Fee to seller
@@ -699,16 +751,22 @@ def resolve_dispute(
 
         msg_text = f"⚖️ ADMIN RESOLUTION: Dispute resolved with PARTIAL REFUND. ৳{product_price_total:,d} returned to buyer. ৳{DELIVERY_FEE:,d} released to seller to cover shipping. Product has been re-listed."
         
-        # Add transaction record for refund
-        refund_tx = models.WalletTransaction(
+        # Record for Buyer
+        buyer_tx = models.WalletTransaction(
             user_id=buyer.id,
-            amount=total_escrow,
-            transaction_type="dispute_refund",
-            description=f"⚖️ DISPUTE REFUND: Full refund for {offer.product.title}"
+            amount=product_price_total,
+            transaction_type="refund",
+            description=f"⚖️ ADMIN REFUND: Partial refund for {offer.product.title}"
         )
-        db.add(refund_tx)
-        
-        msg_text = f"⚖️ ADMIN RESOLUTION: Dispute resolved in favor of BUYER. Full refund of ৳{total_escrow:,d} returned to buyer wallet."
+        # Record for Seller
+        seller_tx = models.WalletTransaction(
+            user_id=seller.id,
+            amount=DELIVERY_FEE,
+            transaction_type="shipping_payout",
+            description=f"⚖️ ADMIN PAYOUT: Delivery fee released for {offer.product.title}"
+        )
+        db.add(buyer_tx)
+        db.add(seller_tx)
 
     # Notify chat
     admin_msg = models.ChatMessage(

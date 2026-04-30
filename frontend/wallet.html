@@ -157,7 +157,12 @@
       </div>
 
       <div class="recent-transactions">
-        <div class="transactions-header">Recent Transactions</div>
+        <div class="transactions-header" style="display: flex; justify-content: space-between; align-items: center;">
+          Recent Transactions
+          <button onclick="clearTransactionHistory()" style="background: transparent; border: 1px solid var(--border); color: var(--text-muted); padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 4px;" onmouseover="this.style.color='#ef4444'; this.style.borderColor='#ef4444'" onmouseout="this.style.color='var(--text-muted)'; this.style.borderColor='var(--border)'">
+            <span>🗑️</span> Clear History
+          </button>
+        </div>
         <div id="transactionsList">
           <p style="color: var(--text-muted); font-size: 0.9rem;">Loading transactions...</p>
         </div>

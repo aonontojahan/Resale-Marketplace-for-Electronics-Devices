@@ -2639,6 +2639,23 @@ window.handleMarkDelivered = async function (sessionId) {
         alert(e.message);
     }
 };
+window.clearTransactionHistory = async function() {
+    if (!confirm("Are you sure you want to permanently clear your transaction history? This cannot be undone.")) return;
+    
+    try {
+        await window.api.request('/wallet/transactions/clear', 'DELETE');
+        alert("History cleared successfully.");
+        // Refresh the wallet view to show empty state
+        if (typeof loadWalletData === 'function') {
+            loadWalletData();
+        } else {
+            window.location.reload();
+        }
+    } catch (e) {
+        alert("Failed to clear history: " + e.message);
+    }
+};
+
 window.toggleDescription = toggleDescription;
 
 window.openReviewFromChat = function() {
