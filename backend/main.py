@@ -407,6 +407,83 @@ def finalize_payment(
     db.commit()
     return {"message": "Payment successful", "final_total": final_total}
 
+@app.post("/escrow/process/{offer_id}")
+def process_order(
+    offer_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Called by the seller to mark the order as PROCESSING (preparing the item).
+    """
+    offer = db.query(models.Offer).filter(models.Offer.id == offer_id).first()
+    if not offer:
+        raise HTTPException(status_code=404, detail="Offer not found")
+    
+    if current_user.id != offer.seller_id:
+        raise HTTPException(status_code=403, detail="Only the seller can update this order")
+    
+    if offer.status != models.OfferStatus.PAID:
+        raise HTTPException(status_code=400, detail="Invalid transition: Order must be PAID to start processing")
+
+    offer.status = models.OfferStatus.PROCESSING
+    
+    # System message
+    system_msg = models.ChatMessage(
+        session_id=offer.session_id,
+        sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1, 
+        text="⚙️ ORDER PROCESSING: The seller is now preparing your item for shipment."
+    )
+    db.add(system_msg)
+
+    offer.session.updated_at = func.now()
+    db.add(offer.session)
+
+    db.commit()
+    return {"message": "Order marked as processing", "status": offer.status}
+
+@app.post("/escrow/ship/{offer_id}")
+def ship_order(
+    offer_id: int,
+    tracking_info: str = Query(None, description="Optional tracking info or courier name"),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Called by the seller to mark the order as SHIPPED (item dispatched).
+    """
+    offer = db.query(models.Offer).filter(models.Offer.id == offer_id).first()
+    if not offer:
+        raise HTTPException(status_code=404, detail="Offer not found")
+    
+    if current_user.id != offer.seller_id:
+        raise HTTPException(status_code=403, detail="Only the seller can update this order")
+    
+    if offer.status != models.OfferStatus.PROCESSING:
+        raise HTTPException(status_code=400, detail="Invalid transition: Order must be PROCESSING to be marked as shipped")
+
+    offer.status = models.OfferStatus.SHIPPED
+    if tracking_info:
+        offer.tracking_info = tracking_info
+    
+    msg_text = "🚚 ORDER SHIPPED: The item has been handed over to the courier."
+    if tracking_info:
+        msg_text += f" Tracking Info: {tracking_info}"
+        
+    # System message
+    system_msg = models.ChatMessage(
+        session_id=offer.session_id,
+        sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1, 
+        text=msg_text
+    )
+    db.add(system_msg)
+
+    offer.session.updated_at = func.now()
+    db.add(offer.session)
+
+    db.commit()
+    return {"message": "Order marked as shipped", "status": offer.status, "tracking_info": offer.tracking_info}
+
 @app.post("/escrow/deliver/{offer_id}")
 def deliver_order(
     offer_id: int,
@@ -423,8 +500,8 @@ def deliver_order(
     if current_user.id != offer.seller_id:
         raise HTTPException(status_code=403, detail="Only the seller can mark this order as delivered")
     
-    if offer.status != models.OfferStatus.PAID:
-        raise HTTPException(status_code=400, detail="Order must be PAID before it can be delivered")
+    if offer.status != models.OfferStatus.SHIPPED:
+        raise HTTPException(status_code=400, detail="Invalid transition: Order must be SHIPPED before it can be delivered")
 
     offer.status = models.OfferStatus.DELIVERED
     
@@ -460,7 +537,7 @@ def release_payment(
     if current_user.id != offer.buyer_id:
         raise HTTPException(status_code=403, detail="Only the buyer can release these funds")
     
-    if offer.status not in (models.OfferStatus.PAID, models.OfferStatus.DELIVERED):
+    if offer.status not in (models.OfferStatus.PAID, models.OfferStatus.PROCESSING, models.OfferStatus.SHIPPED, models.OfferStatus.DELIVERED):
         raise HTTPException(status_code=400, detail="Funds cannot be released at this state")
 
     # Calculate values
@@ -530,7 +607,7 @@ def dispute_transaction(
     if current_user.id != offer.buyer_id:
         raise HTTPException(status_code=403, detail="Only the buyer can raise a dispute")
     
-    if offer.status not in (models.OfferStatus.PAID, models.OfferStatus.DELIVERED):
+    if offer.status not in (models.OfferStatus.PAID, models.OfferStatus.PROCESSING, models.OfferStatus.SHIPPED, models.OfferStatus.DELIVERED):
         raise HTTPException(status_code=400, detail="Transaction is not in a payable or delivered state")
 
     offer.status = models.OfferStatus.DISPUTED

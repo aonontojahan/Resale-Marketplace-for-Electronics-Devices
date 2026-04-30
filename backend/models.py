@@ -165,6 +165,8 @@ class OfferStatus(str, enum.Enum):
     ACCEPTED = "accepted"
     REJECTED = "rejected"
     PAID = "paid"
+    PROCESSING = "processing"
+    SHIPPED = "shipped"
     DISPUTED = "disputed"
     REFUNDED = "refunded"
     DELIVERED = "delivered"
@@ -182,6 +184,7 @@ class Offer(Base):
     offered_price = Column(Integer, nullable=False)
     quantity = Column(Integer, default=1, nullable=False)
     status = Column(Enum(OfferStatus), default=OfferStatus.PENDING, nullable=False)
+    tracking_info = Column(String, nullable=True)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

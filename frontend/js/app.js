@@ -1589,6 +1589,73 @@ document.addEventListener('DOMContentLoaded', () => {
                         ` : `<div style="font-size: 0.85rem; color: #0ea5e9; font-weight: 700; background: #e0f2fe; padding: 0.5rem; text-align:center; border-radius:8px;">Waiting for Buyer to Release Funds</div>`}
                     </div>
                 `;
+            } else if (msg.text.startsWith("📢 ORDER ALERT:")) {
+                div.className = "message-system";
+                div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
+
+                div.innerHTML = `
+                    <div style="background: #fffbeb; border: 1.5px solid #f59e0b; padding: 1.25rem; border-radius: 16px; border-left: 6px solid #f59e0b; box-shadow: 0 10px 15px -3px rgba(245,158,11,0.1);">
+                        <div style="font-weight: 800; color: #d97706; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.4rem;">📢</span> Action Required: Ship Item
+                        </div>
+                        <div style="font-size: 0.95rem; color: #92400e; margin-bottom: 1.25rem;">
+                            The buyer has made the payment. Please prepare the item and update the shipping status.
+                        </div>
+                        ${user.role === 'seller' ? `
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                            <button style="flex:1; background: #f59e0b; color: white; padding: 0.6rem; border-radius: 8px; font-weight: 700; border: none; cursor: pointer;" onclick="handleMarkProcessing('${activeSessionId}')">Mark Processing</button>
+                            <button style="flex:1; background: #10b981; color: white; padding: 0.6rem; border-radius: 8px; font-weight: 700; border: none; cursor: pointer;" onclick="handleMarkShipped('${activeSessionId}')">Mark Shipped</button>
+                        </div>
+                        ` : `<div style="font-size: 0.85rem; color: #d97706; font-weight: 700; background: #fef3c7; padding: 0.5rem; text-align:center; border-radius:8px;">Waiting for Seller to Ship</div>`}
+                    </div>
+                `;
+            } else if (msg.text.startsWith("⚙️ ORDER PROCESSING:")) {
+                div.className = "message-system";
+                div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
+                div.innerHTML = `
+                    <div style="background: #fdf4ff; border: 1.5px solid #d946ef; padding: 1.25rem; border-radius: 16px; border-left: 6px solid #d946ef;">
+                        <div style="font-weight: 800; color: #c026d3; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.4rem;">⚙️</span> Order Processing
+                        </div>
+                        <div style="font-size: 0.9rem; color: #86198f;">
+                            The seller is currently preparing the item for shipment.
+                        </div>
+                    </div>
+                `;
+            } else if (msg.text.startsWith("🚚 ORDER SHIPPED:")) {
+                div.className = "message-system";
+                div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
+                const trackMatch = msg.text.match(/Tracking Info:\s*(.+)$/);
+                const trackStr = trackMatch ? `<div style="margin-top: 0.5rem; font-weight:600;">Track: ${trackMatch[1]}</div>` : '';
+                div.innerHTML = `
+                    <div style="background: #e0e7ff; border: 1.5px solid #6366f1; padding: 1.25rem; border-radius: 16px; border-left: 6px solid #6366f1;">
+                        <div style="font-weight: 800; color: #4f46e5; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.4rem;">🚚</span> Order Shipped
+                        </div>
+                        <div style="font-size: 0.9rem; color: #3730a3;">
+                            The item has been handed over to the courier.
+                            ${trackStr}
+                        </div>
+                        ${user.role === 'seller' ? `
+                        <div style="margin-top: 1rem; text-align: center;">
+                            <button style="background: #4f46e5; color: white; padding: 0.6rem 1rem; border-radius: 8px; font-weight: 700; border: none; cursor: pointer;" onclick="handleMarkDelivered('${activeSessionId}')">Mark as Delivered</button>
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+            } else if (msg.text.startsWith("📦 ORDER DELIVERED:")) {
+                div.className = "message-system";
+                div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
+                div.innerHTML = `
+                    <div style="background: #f0fdf4; border: 1.5px solid #22c55e; padding: 1.25rem; border-radius: 16px; border-left: 6px solid #22c55e;">
+                        <div style="font-weight: 800; color: #16a34a; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.4rem;">📦</span> Order Delivered
+                        </div>
+                        <div style="font-size: 0.9rem; color: #14532d;">
+                            The seller has marked the order as delivered. Buyer, please confirm delivery to release funds to the seller.
+                        </div>
+                    </div>
+                `;
             } else if (msg.text.startsWith("⚠️ DISPUTE RAISED:")) {
                 div.className = "message-system";
                 div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
@@ -2180,10 +2247,10 @@ window.handleReleaseFunds = async function(sessionId) {
 
     try {
         const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
-        const paidOffer = offersResponses.reverse().find(o => o.status === 'paid');
-        if (!paidOffer) return alert("No paid offer found to release.");
+        const activeOffer = offersResponses.reverse().find(o => ['paid', 'processing', 'shipped', 'delivered'].includes(o.status));
+        if (!activeOffer) return alert("No active paid offer found to release.");
 
-        await window.api.request(`/escrow/release/${paidOffer.id}`, 'POST');
+        await window.api.request(`/escrow/release/${activeOffer.id}`, 'POST');
         
         // Auto-send follow-up message if possible
         if (window.currentChatSocket && window.currentChatSocket.readyState === WebSocket.OPEN) {
@@ -2203,10 +2270,10 @@ window.handleReportIssue = async function(sessionId) {
 
     try {
         const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
-        const paidOffer = offersResponses.reverse().find(o => o.status === 'paid');
-        if (!paidOffer) return alert("No active payment found to dispute.");
+        const activeOffer = offersResponses.reverse().find(o => ['paid', 'processing', 'shipped', 'delivered'].includes(o.status));
+        if (!activeOffer) return alert("No active payment found to dispute.");
 
-        await window.api.disputePayment(paidOffer.id);
+        await window.api.disputePayment(activeOffer.id);
         
         if (window.currentChatSocket && window.currentChatSocket.readyState === WebSocket.OPEN) {
             window.currentChatSocket.send(`🚨 DISPUTE REASON: ${reason}`);
@@ -2216,6 +2283,56 @@ window.handleReportIssue = async function(sessionId) {
         window.location.reload();
     } catch (e) {
         alert("Could not raise dispute: " + e.message);
+    }
+};
+
+window.handleMarkProcessing = async function(sessionId) {
+    try {
+        const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
+        const activeOffer = offersResponses.reverse().find(o => o.status === 'paid');
+        if (!activeOffer) return alert("No paid offer found.");
+        
+        await window.api.request(`/escrow/process/${activeOffer.id}`, 'POST');
+        if (window.currentChatSocket && window.currentChatSocket.readyState === WebSocket.OPEN) {
+            window.currentChatSocket.send('Processing order...');
+        }
+    } catch(e) {
+        alert(e.message);
+    }
+};
+
+window.handleMarkShipped = async function(sessionId) {
+    try {
+        const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
+        const activeOffer = offersResponses.reverse().find(o => o.status === 'processing');
+        if (!activeOffer) return alert("Order must be PROCESSING to ship.");
+        
+        const t = prompt('Enter Tracking Info (optional):');
+        if (t === null) return;
+        
+        const endpoint = t ? `/escrow/ship/${activeOffer.id}?tracking_info=` + encodeURIComponent(t) : `/escrow/ship/${activeOffer.id}`;
+        await window.api.request(endpoint, 'POST');
+        
+        if (window.currentChatSocket && window.currentChatSocket.readyState === WebSocket.OPEN) {
+            window.currentChatSocket.send('Item shipped!');
+        }
+    } catch(e) {
+        alert(e.message);
+    }
+};
+
+window.handleMarkDelivered = async function(sessionId) {
+    try {
+        const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
+        const activeOffer = offersResponses.reverse().find(o => o.status === 'shipped');
+        if (!activeOffer) return alert("Order must be SHIPPED to be delivered.");
+        
+        await window.api.request(`/escrow/deliver/${activeOffer.id}`, 'POST');
+        if (window.currentChatSocket && window.currentChatSocket.readyState === WebSocket.OPEN) {
+            window.currentChatSocket.send('Item delivered!');
+        }
+    } catch(e) {
+        alert(e.message);
     }
 };
 window.toggleDescription = toggleDescription;
