@@ -185,6 +185,7 @@ class Offer(Base):
     quantity = Column(Integer, default=1, nullable=False)
     status = Column(Enum(OfferStatus), default=OfferStatus.PENDING, nullable=False)
     tracking_info = Column(String, nullable=True)
+    dispute_reason = Column(String, nullable=True)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

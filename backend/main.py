@@ -609,6 +609,7 @@ def dispute_transaction(
         raise HTTPException(status_code=400, detail="Transaction is not in a payable or delivered state")
 
     offer.status = models.OfferStatus.DISPUTED
+    offer.dispute_reason = reason
     
     # Add transaction record for audit trail
     dispute_tx = models.WalletTransaction(
@@ -636,7 +637,7 @@ def dispute_transaction(
 @app.post("/admin/disputes/{offer_id}/resolve")
 def resolve_dispute(
     offer_id: int,
-    resolution: str = Query(..., enum=["payout_seller", "refund_buyer"]),
+    resolution: str = Query(..., enum=["payout_seller", "refund_full", "refund_partial"]),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
@@ -665,14 +666,28 @@ def resolve_dispute(
         
         msg_text = f"⚖️ ADMIN RESOLUTION: Dispute resolved in favor of SELLER. ৳{seller_payout:,d} released to seller wallet."
 
-    else: # refund_buyer
-        # Give money back to buyer's wallet
-        # Safeguard: Deduct only what is actually in escrow for this transaction
-        # If the balance is less than total_escrow (due to previous logic error), deduct only the balance
+    elif resolution == "refund_full":
+        # Give money back to buyer's wallet (including delivery fee)
         deduct_amount = min(total_escrow, buyer.escrow_balance)
         buyer.escrow_balance -= deduct_amount
-        buyer.wallet_balance += total_escrow # Still give buyer the full promised refund
+        buyer.wallet_balance += total_escrow 
         offer.status = models.OfferStatus.REFUNDED
+        msg_text = f"⚖️ ADMIN RESOLUTION: Dispute resolved with FULL REFUND. ৳{total_escrow:,d} returned to buyer wallet."
+
+    else: # refund_partial
+        # Refund Product Price to buyer, give Delivery Fee to seller
+        product_price_total = (offer.offered_price * offer.quantity)
+        
+        # Deduct total escrow from frozen
+        deduct_amount = min(total_escrow, buyer.escrow_balance)
+        buyer.escrow_balance -= deduct_amount
+        
+        # Split the funds
+        buyer.wallet_balance += product_price_total
+        seller.wallet_balance += DELIVERY_FEE
+        
+        offer.status = models.OfferStatus.REFUNDED # Mark as refunded (but it was a split)
+        msg_text = f"⚖️ ADMIN RESOLUTION: Dispute resolved with PARTIAL REFUND. ৳{product_price_total:,d} returned to buyer. ৳{DELIVERY_FEE:,d} released to seller to cover shipping."
         
         # Add transaction record for refund
         refund_tx = models.WalletTransaction(
@@ -725,6 +740,7 @@ def list_disputes(
             "seller_phone": d.seller.phone_number,
             "session_id": d.session_id,
             "status": d.status,
+            "dispute_reason": d.dispute_reason,
             "product_image": d.product.image_url if d.product.image_url else (d.product.images[0].image_url if d.product.images else "")
         })
     return results

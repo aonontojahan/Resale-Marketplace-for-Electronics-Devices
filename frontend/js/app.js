@@ -2758,6 +2758,11 @@ async function renderAdminDisputes() {
                             <strong style="color:#e11d48; font-size:1.1rem;">৳${(d.offered_price * d.quantity + 150).toLocaleString()}</strong>
                         </div>
                     </div>
+
+                    <div style="margin-bottom: 1rem; background: #fff1f2; padding: 0.75rem; border-radius: 8px; border-left: 4px solid #f43f5e;">
+                        <p style="margin: 0 0 0.25rem 0; font-size: 0.7rem; color: #94a3b8; font-weight: 700; text-transform: uppercase;">Dispute Reason:</p>
+                        <p style="margin: 0; font-size: 0.85rem; color: #881337; font-weight: 600; line-height: 1.4;">${d.dispute_reason || 'No reason provided.'}</p>
+                    </div>
                     
                     <div style="display: flex; flex-direction: column; gap: 0.6rem; margin-top: auto;">
                         <button class="btn-primary" style="background:#10b981; border:none; padding:0.8rem; font-size:0.9rem; font-weight:700; border-radius: 10px; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2);" onclick="handleDisputeVerdict(${d.id}, 'payout_seller')">✔ Payout Seller</button>
@@ -2776,7 +2781,20 @@ async function renderAdminDisputes() {
 window.renderAdminDisputes = renderAdminDisputes;
 
 async function handleDisputeVerdict(offerId, verdict) {
-    const actionText = verdict === 'payout_seller' ? 'Release funds to Seller?' : 'Refund the Buyer in full?';
+    if (verdict === 'refund_buyer') {
+        window.activeDisputeIdForRefund = offerId;
+        const modal = document.getElementById('adminRefundModal');
+        if (modal) {
+            modal.style.display = 'flex';
+        } else {
+            // Fallback if modal not found
+            if (!confirm("Are you sure you want to refund the buyer in full?")) return;
+            submitRefundVerdict('refund_full');
+        }
+        return;
+    }
+
+    const actionText = verdict === 'payout_seller' ? 'Release funds to Seller?' : 'Process this action?';
     if (!confirm(`Are you sure you want to resolve this dispute? \n\nAction: ${actionText}`)) return;
 
     try {
@@ -2789,3 +2807,18 @@ async function handleDisputeVerdict(offerId, verdict) {
     }
 }
 window.handleDisputeVerdict = handleDisputeVerdict;
+
+window.submitRefundVerdict = async function(resolution) {
+    const offerId = window.activeDisputeIdForRefund;
+    const modal = document.getElementById('adminRefundModal');
+    
+    try {
+        await window.api.request(`/admin/disputes/${offerId}/resolve?resolution=${resolution}`, 'POST');
+        if (modal) modal.style.display = 'none';
+        alert("Verdict recorded successfully! The transaction is now settled.");
+        renderAdminDisputes();
+        loadAdminStats();
+    } catch (err) {
+        alert("Failed to resolve dispute: " + err.message);
+    }
+};

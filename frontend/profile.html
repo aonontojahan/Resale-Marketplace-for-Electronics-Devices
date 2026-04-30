@@ -302,6 +302,44 @@
       </form>
     </div>
   </div>
+  
+  <!-- ====== ADMIN REFUND CONFIG MODAL ====== -->
+  <div id="adminRefundModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(8px);">
+    <div style="background: white; width: 450px; border-radius: 20px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); animation: modalFadeUp 0.3s ease-out;">
+      <div style="background: #1e293b; padding: 1.25rem; color: white; text-align: center;">
+        <h3 style="margin: 0; font-size: 1.25rem; font-weight: 800; letter-spacing: 0.5px;">Refund Configuration</h3>
+      </div>
+
+      <div style="padding: 2rem;">
+        <p style="margin: 0 0 1.5rem 0; color: #64748b; font-size: 0.95rem; line-height: 1.5; text-align: center;">
+          Select how the funds should be distributed back to the buyer.
+        </p>
+
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+          <!-- Full Refund Option -->
+          <div style="border: 2px solid #e2e8f0; padding: 1rem; border-radius: 12px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='#10b981'" onmouseout="this.style.borderColor='#e2e8f0'" onclick="submitRefundVerdict('refund_full')">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+              <span style="font-weight: 800; color: #1e293b;">Full Refund</span>
+              <span style="background: #dcfce7; color: #10b981; font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; font-weight: 800;">RECOMENDED</span>
+            </div>
+            <p style="margin: 0; font-size: 0.85rem; color: #64748b;">Buyer gets 100% back (Price + Shipping). Use if seller sent a bad product.</p>
+          </div>
+
+          <!-- Partial Refund Option -->
+          <div style="border: 2px solid #e2e8f0; padding: 1rem; border-radius: 12px; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='#3b82f6'" onmouseout="this.style.borderColor='#e2e8f0'" onclick="submitRefundVerdict('refund_partial')">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+              <span style="font-weight: 800; color: #1e293b;">Deduct Shipping</span>
+            </div>
+            <p style="margin: 0; font-size: 0.85rem; color: #64748b;">Buyer gets Product Price back. Seller gets Shipping Fee (Tk. 150) to cover costs.</p>
+          </div>
+        </div>
+
+        <div style="margin-top: 1.5rem;">
+          <button style="width: 100%; padding: 0.75rem; border-radius: 10px; font-weight: 700; background: #f1f5f9; color: #475569; border: none; cursor: pointer;" onclick="document.getElementById('adminRefundModal').style.display='none'">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- ====== FOOTER ====== -->
   <footer class="site-footer">
