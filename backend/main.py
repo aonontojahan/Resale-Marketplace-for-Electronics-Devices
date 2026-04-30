@@ -466,9 +466,7 @@ def ship_order(
     if tracking_info:
         offer.tracking_info = tracking_info
     
-    msg_text = "🚚 ORDER SHIPPED: The item has been handed over to the courier."
-    if tracking_info:
-        msg_text += f" Tracking Info: {tracking_info}"
+    msg_text = "🚚 ORDER SHIPPED:\n" + (tracking_info if tracking_info else "The item has been handed over to the courier.")
         
     # System message
     system_msg = models.ChatMessage(
