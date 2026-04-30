@@ -591,6 +591,7 @@ def release_payment(
 @app.post("/escrow/dispute/{offer_id}")
 def dispute_transaction(
     offer_id: int,
+    reason: str = None,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
@@ -621,10 +622,12 @@ def dispute_transaction(
     db.add(dispute_tx)
 
     # Notify chat
+    msg_text = f"⚠️ DISPUTE RAISED: {reason}" if reason else f"⚠️ DISPUTE RAISED: {current_user.full_name} reported a problem. Funds are locked in Escrow until an Admin reviews the case."
+    
     system_msg = models.ChatMessage(
         session_id=offer.session_id,
         sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1, 
-        text=f"⚠️ DISPUTE RAISED: {current_user.full_name} reported a problem. Funds are locked in Escrow until an Admin reviews the case."
+        text=msg_text
     )
     db.add(system_msg)
     
@@ -666,13 +669,14 @@ def resolve_dispute(
         
         msg_text = f"⚖️ ADMIN RESOLUTION: Dispute resolved in favor of SELLER. ৳{seller_payout:,d} released to seller wallet."
 
-    elif resolution == "refund_full":
-        # Give money back to buyer's wallet (including delivery fee)
-        deduct_amount = min(total_escrow, buyer.escrow_balance)
-        buyer.escrow_balance -= deduct_amount
-        buyer.wallet_balance += total_escrow 
         offer.status = models.OfferStatus.REFUNDED
-        msg_text = f"⚖️ ADMIN RESOLUTION: Dispute resolved with FULL REFUND. ৳{total_escrow:,d} returned to buyer wallet."
+        
+        # Reset product status back to available
+        if offer.product:
+            offer.product.status = "available"
+            offer.product.stock += offer.quantity
+            
+        msg_text = f"⚖️ ADMIN RESOLUTION: Dispute resolved with FULL REFUND. ৳{total_escrow:,d} returned to buyer wallet. Product has been re-listed."
 
     else: # refund_partial
         # Refund Product Price to buyer, give Delivery Fee to seller
@@ -687,7 +691,13 @@ def resolve_dispute(
         seller.wallet_balance += DELIVERY_FEE
         
         offer.status = models.OfferStatus.REFUNDED # Mark as refunded (but it was a split)
-        msg_text = f"⚖️ ADMIN RESOLUTION: Dispute resolved with PARTIAL REFUND. ৳{product_price_total:,d} returned to buyer. ৳{DELIVERY_FEE:,d} released to seller to cover shipping."
+        
+        # Reset product status back to available
+        if offer.product:
+            offer.product.status = "available"
+            offer.product.stock += offer.quantity
+
+        msg_text = f"⚖️ ADMIN RESOLUTION: Dispute resolved with PARTIAL REFUND. ৳{product_price_total:,d} returned to buyer. ৳{DELIVERY_FEE:,d} released to seller to cover shipping. Product has been re-listed."
         
         # Add transaction record for refund
         refund_tx = models.WalletTransaction(
@@ -1239,17 +1249,21 @@ def create_review(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    # RESTRICTION: Only buyers who completed a purchase for this product can review
+    # RESTRICTION: Only buyers who have a processed transaction (completed or refunded) can review
     purchase = db.query(models.Offer).filter(
         models.Offer.product_id == review.product_id,
         models.Offer.buyer_id == current_user.id,
-        models.Offer.status == "completed" 
+        models.Offer.status.in_([
+            models.OfferStatus.COMPLETED, 
+            models.OfferStatus.AUTO_COMPLETED, 
+            models.OfferStatus.REFUNDED
+        ])
     ).first()
 
     if not purchase:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only review a seller after completing a purchase for this item."
+            detail="You can only review a seller after a transaction has been completed or resolved."
         )
 
     new_review = models.Review(

@@ -1725,6 +1725,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div style="background: #f0fdf4; border-radius: 12px; padding: 1.25rem; text-align: center;">
                             <p style="margin: 0; font-size: 1rem; color: #166534; font-weight: 700; line-height: 1.4;">${details}</p>
                         </div>
+                        
+                        ${user.role === 'buyer' ? `
+                        <div style="margin-top: 1rem;">
+                            <button class="btn-primary" style="width: 100%; background: #10b981; border: none; padding: 0.7rem; border-radius: 10px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;" onclick="openReviewFromChat()">
+                                ⭐ Rate the Seller
+                            </button>
+                        </div>
+                        ` : ''}
+
                         <div style="margin-top: 1rem; font-size: 0.8rem; color: #64748b; text-align: center; font-style: italic;">
                             Transaction successful. Thank you for using ReSale!
                         </div>
@@ -1742,11 +1751,19 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span style="font-size: 0.65rem; background: #f1f5f9; color: #475569; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; font-weight: 800;">Resolved</span>
                         </div>
                         
-                        <div style="background: #f8fafc; border-radius: 12px; padding: 1.25rem; text-align: center; border: 1px dashed #cbd5e1;">
+                        <div style="background: #f8fafc; border-radius: 12px; padding: 1.25rem; text-align: center; border: 1px dashed #cbd5e1; margin-bottom: 1rem;">
                             <p style="margin: 0; font-size: 1rem; color: #1e293b; font-weight: 700; line-height: 1.5;">${resDetails}</p>
                         </div>
 
-                        <div style="margin-top: 1rem; font-size: 0.8rem; color: #64748b; text-align: center;">
+                        ${user.role === 'buyer' ? `
+                        <div style="margin-top: 0.5rem; margin-bottom: 1rem;">
+                            <button class="btn-primary" style="width: 100%; background: #1e293b; border: none; padding: 0.7rem; border-radius: 10px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;" onclick="openReviewFromChat()">
+                                ⭐ Rate your Experience
+                            </button>
+                        </div>
+                        ` : ''}
+
+                        <div style="font-size: 0.8rem; color: #64748b; text-align: center;">
                             This decision is final and has been applied to both wallets.
                         </div>
                     </div>
@@ -1769,6 +1786,7 @@ document.addEventListener('DOMContentLoaded', () => {
         function initActiveChat(chat) {
             if (!chat) return;
             activeSessionId = chat.id.toString();
+            window.currentChatProductId = chat.product_id;
             console.log(`[Chat] Initializing session: ${activeSessionId}`);
 
             const otherParty = user.role === 'buyer' ? chat.seller : chat.buyer;
@@ -2317,24 +2335,35 @@ window.handleProceedToCheckout = async function (sessionId) {
 };
 
 window.handleReleaseFunds = async function (sessionId) {
-    if (!confirm("Confirm Receipt: Are you sure the product is exactly as described? This will release the payment to the seller immediately.")) return;
-
     try {
         const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
         const activeOffer = offersResponses.reverse().find(o => ['paid', 'processing', 'shipped', 'delivered'].includes(o.status));
         if (!activeOffer) return alert("No active paid offer found to release.");
 
-        await window.api.request(`/escrow/release/${activeOffer.id}`, 'POST');
+        const modal = document.getElementById('releaseModal');
+        const price = parseInt(activeOffer.offered_price, 10);
+        document.getElementById('releaseItemPrice').innerText = `Tk. ${price.toLocaleString()}`;
+        document.getElementById('releaseTotal').innerText = `Tk. ${(price + 150).toLocaleString()}`;
+        
+        modal.style.display = 'flex';
 
-        // Auto-send follow-up message if possible
-        if (window.currentChatSocket && window.currentChatSocket.readyState === WebSocket.OPEN) {
-            window.currentChatSocket.send("Product received! I've released the payment. Thank you!");
-        }
+        document.getElementById('modalConfirmRelease').onclick = async () => {
+            try {
+                await window.api.request(`/escrow/release/${activeOffer.id}`, 'POST');
+                modal.style.display = 'none';
 
-        alert("Success! Funds released to seller.");
-        window.location.reload();
+                if (window.currentChatSocket && window.currentChatSocket.readyState === WebSocket.OPEN) {
+                    window.currentChatSocket.send("Product received! I've released the payment. Thank you!");
+                }
+
+                alert("Success! Funds released to seller.");
+                window.location.reload();
+            } catch (e) {
+                alert("Release failed: " + e.message);
+            }
+        };
     } catch (e) {
-        alert("Release failed: " + e.message);
+        alert("Could not load offer: " + e.message);
     }
 };
 
@@ -2461,20 +2490,17 @@ window.handleDownloadReceipt = function (sessionId, data) {
     doc.setFontSize(28);
     doc.setTextColor(31, 41, 55);
 
-    // Centering "RESALE MARKETPLACE"
     const title = "RESALE MARKETPLACE";
     const pageWidth = doc.internal.pageSize.getWidth();
     doc.text(title, pageWidth / 2, 30, { align: "center" });
 
     doc.setDrawColor(226, 232, 240);
-    doc.setLineWidth(0.5);
     doc.line(20, 38, 190, 38);
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     doc.setTextColor(100, 116, 139);
 
-    // Stable Receipt Number based on Order ID
     const receiptId = (data['OrderID'] || '0').toString().padStart(5, '0');
     doc.text(`RECEIPT NO: RS-${receiptId}`, 20, 45);
     doc.text(`ISSUED DATE: ${new Date().toLocaleDateString().toUpperCase()}`, 145, 45);
@@ -2498,12 +2524,9 @@ window.handleDownloadReceipt = function (sessionId, data) {
     doc.text(`Name: ${data['Buyer'] || 'N/A'}`, 110, 75);
     doc.text(`Phone: ${data['BuyerPhone'] || 'N/A'}`, 110, 82);
 
-    // Section 2: Shipping Information
+    // Section 2: Logistics
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.setTextColor(31, 41, 55);
     doc.text("LOGISTICS INFORMATION", 20, 115);
-
     let y = 125;
     const shipDetails = [
         ["COURIER SERVICE:", data['Courier'] || 'N/A'],
@@ -2521,53 +2544,57 @@ window.handleDownloadReceipt = function (sessionId, data) {
         y += 8;
     });
 
-    // Section 3: Product & Payment (The Table)
+    // Section 3: Table
     y += 10;
-    doc.setFillColor(99, 102, 241);
+    doc.setFillColor(30, 41, 59);
     doc.rect(20, y, 170, 10, 'F');
     doc.setFont("helvetica", "bold");
     doc.setTextColor(255, 255, 255);
-    doc.text("PRODUCT DESCRIPTION", 25, y + 7);
+    doc.text("DESCRIPTION", 25, y + 7);
     doc.text("QTY", 140, y + 7);
-    doc.text("PRICE", 165, y + 7);
+    doc.text("SUBTOTAL", 165, y + 7);
 
-    y += 20;
+    y += 18;
     doc.setFont("helvetica", "bold");
     doc.setTextColor(31, 41, 55);
-    doc.setFontSize(11);
-    
-    const tablePrice = parseInt(data['Price'] || '0', 10).toString();
-    
     doc.text(data['Product'] || 'Electronic Device', 25, y);
-    doc.text(data['Quantity'] || '1', 142, y);
-    doc.text(`Tk. ${tablePrice}`, 165, y);
+    doc.text((data['Quantity'] || 1).toString(), 142, y);
+    
+    const rawPrice = (data['Price'] || '0').toString().replace(/^0+/, '');
+    const priceInt = parseInt(rawPrice, 10);
+    doc.text(`Tk. ${priceInt.toLocaleString()}`, 165, y);
 
-    // Total Amount
-    y += 15;
-    doc.setDrawColor(99, 102, 241);
-    doc.setLineWidth(0.5);
-    doc.line(135, y, 190, y);
+    y += 12;
+    doc.setDrawColor(226, 232, 240);
+    doc.line(20, y, 190, y);
 
     y += 10;
-    doc.setFontSize(14);
-    doc.text("TOTAL PAID:", 135, y);
-    doc.setTextColor(99, 102, 241);
-    const finalPriceVal = parseInt(data['Price'] || '0', 10).toString();
-    doc.text(`Tk. ${finalPriceVal}`, 168, y);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 116, 139);
+    doc.text("DELIVERY CHARGE", 25, y);
+    doc.text("1", 142, y);
+    doc.text("Tk. 150", 165, y);
 
-    // Footer (Centered)
-    const footerY = 275;
+    y += 15;
+    doc.setFillColor(248, 250, 252);
+    doc.rect(130, y, 60, 12, 'F');
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.setTextColor(31, 41, 55);
+    doc.text("TOTAL:", 135, y + 8);
+    
+    const totalAmount = priceInt + 150;
+    doc.setTextColor(79, 70, 229);
+    doc.text(`Tk. ${totalAmount.toLocaleString()}`, 155, y + 8);
+
+    y = 265;
     doc.setFont("helvetica", "italic");
     doc.setFontSize(9);
     doc.setTextColor(148, 163, 184);
-
-    const footerLine1 = "This is a system-generated receipt for the ReSale Escrow Transaction.";
-    const footerLine2 = "Funds are held in escrow until buyer confirms delivery.";
-
-    doc.text(footerLine1, pageWidth / 2, footerY, { align: "center" });
-    doc.text(footerLine2, pageWidth / 2, footerY + 5, { align: "center" });
-
-    doc.save(`Receipt_${data['Tracking'] || 'Shipment'}.pdf`);
+    doc.text("This is a system-generated receipt for the ReSale Escrow Transaction.", pageWidth / 2, y, { align: "center" });
+    doc.text("Funds are held in escrow until buyer confirms delivery.", pageWidth / 2, y + 5, { align: "center" });
+    
+    doc.save(`ReSale_Receipt_RS-${receiptId}.pdf`);
 };
 
 window.handleMarkDelivered = async function (sessionId) {
@@ -2585,6 +2612,25 @@ window.handleMarkDelivered = async function (sessionId) {
     }
 };
 window.toggleDescription = toggleDescription;
+
+window.openReviewFromChat = function() {
+    const productId = window.currentChatProductId;
+    if (!productId) {
+        alert("Product information missing. Please try again.");
+        return;
+    }
+    
+    const modal = document.getElementById('reviewModal');
+    if (modal) {
+        document.getElementById('reviewProductId').value = productId;
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    } else {
+        // If they are in chat.html, we might need to redirect to profile.html or handle it differently
+        // But the user has the reviewModal in profile.html
+        alert("Please go to your profile dashboard to leave a review.");
+    }
+};
 
 /**
  * Updates the unread message badge on the sidebar Messages link.
