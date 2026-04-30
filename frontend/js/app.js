@@ -1768,6 +1768,34 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     </div>
                 `;
+            } else if (msg.text.startsWith("🌟 REVIEW SUBMITTED:")) {
+                div.className = "message-system";
+                div.style.cssText = "align-self: center; width: 85%; margin: 1.5rem 0;";
+                
+                // Parse out the rating and comment from the text
+                const lines = msg.text.split('\n');
+                const ratingLine = lines[1] || "Rating: ⭐⭐⭐⭐⭐";
+                const commentLine = lines.slice(2).join('\n').replace('Comment: ', '');
+
+                div.innerHTML = `
+                    <div style="background: white; border: 1px solid #fde68a; padding: 1.5rem; border-radius: 20px; border-top: 6px solid #fbbf24; box-shadow: 0 10px 15px -3px rgba(251, 191, 36, 0.1);">
+                        <div style="font-weight: 800; color: #1e293b; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between;">
+                            <span style="display: flex; align-items: center; gap: 0.5rem;"><span style="font-size: 1.4rem;">🌟</span> Feedback Received</span>
+                            <span style="font-size: 0.65rem; background: #fef3c7; color: #b45309; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; font-weight: 800;">Verified Purchase</span>
+                        </div>
+                        
+                        <div style="text-align: center; margin-bottom: 1rem;">
+                            <div style="font-size: 1.25rem; margin-bottom: 0.5rem;">${ratingLine.replace('Rating: ', '')}</div>
+                            <div style="font-style: italic; color: #475569; font-size: 0.95rem; line-height: 1.5; padding: 0 0.5rem;">
+                                "${commentLine || 'No comment provided.'}"
+                            </div>
+                        </div>
+
+                        <div style="border-top: 1px solid #fef3c7; pt-0.75rem; margin-top: 1rem; font-size: 0.75rem; color: #94a3b8; text-align: center;">
+                            This review is now visible on the seller's public profile.
+                        </div>
+                    </div>
+                `;
             } else if (msg.text.startsWith("❌ OFFER REJECTED:")) {
                 div.className = "message-system";
                 div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";

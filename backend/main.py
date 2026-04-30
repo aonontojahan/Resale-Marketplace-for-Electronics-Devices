@@ -1274,6 +1274,18 @@ def create_review(
         comment=review.comment
     )
     db.add(new_review)
+    
+    # Add system message to chat to notify both parties
+    stars = "⭐" * review.rating
+    msg_text = f"🌟 REVIEW SUBMITTED:\nRating: {stars} ({review.rating}/5)\nComment: {review.comment}"
+    
+    review_msg = models.ChatMessage(
+        session_id=purchase.session_id,
+        sender_id=1, # System User
+        text=msg_text
+    )
+    db.add(review_msg)
+    
     db.commit()
     db.refresh(new_review)
     return new_review
