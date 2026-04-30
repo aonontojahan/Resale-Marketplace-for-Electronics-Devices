@@ -1692,13 +1692,23 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (msg.text.startsWith("⚠️ DISPUTE RAISED:")) {
                 div.className = "message-system";
                 div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
+                const rawReason = msg.text.replace("⚠️ DISPUTE RAISED:", "").trim();
+                const displayReason = rawReason || "No specific reason provided.";
+                
                 div.innerHTML = `
-                    <div style="background: #fff1f2; border: 1.5px solid #f43f5e; padding: 1.25rem; border-radius: 16px; border-left: 6px solid #f43f5e;">
-                        <div style="font-weight: 800; color: #e11d48; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
-                            <span style="font-size: 1.4rem;">🚨</span> Dispute Active
+                    <div style="background: white; border: 1px solid #fee2e2; padding: 1.5rem; border-radius: 20px; border-top: 6px solid #ef4444; box-shadow: 0 10px 15px -3px rgba(239, 68, 68, 0.05);">
+                        <div style="font-weight: 800; color: #1e293b; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between;">
+                            <span style="display: flex; align-items: center; gap: 0.5rem;"><span style="font-size: 1.4rem;">🚨</span> Dispute Raised</span>
+                            <span style="font-size: 0.65rem; background: #fee2e2; color: #ef4444; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; font-weight: 800;">Frozen</span>
                         </div>
-                        <div style="font-size: 0.9rem; color: #881337;">
-                            A dispute has been raised. Funds are frozen. Our team will review this transaction and contact both parties shortly.
+                        
+                        <div style="background: #fff1f2; border-radius: 12px; padding: 1rem; margin-bottom: 1rem; border-left: 4px solid #f43f5e;">
+                            <p style="margin: 0 0 0.4rem 0; color: #94a3b8; font-size: 0.7rem; font-weight: 700; text-transform: uppercase;">Stated Reason</p>
+                            <p style="margin: 0; font-size: 0.95rem; color: #881337; font-weight: 600; line-height: 1.4;">"${displayReason}"</p>
+                        </div>
+
+                        <div style="font-size: 0.8rem; color: #64748b; text-align: center; font-style: italic;">
+                            Funds are locked in Escrow. An administrator will review this case shortly.
                         </div>
                     </div>
                 `;
@@ -2319,11 +2329,11 @@ window.handleReportIssue = async function (sessionId) {
             if (!reason || reason.length < 10) return alert("Please provide a detailed reason (min 10 characters).");
 
             try {
-                await window.api.disputePayment(activeOffer.id);
+                await window.api.disputePayment(activeOffer.id, reason);
                 modal.style.display = 'none';
 
                 if (window.currentChatSocket && window.currentChatSocket.readyState === WebSocket.OPEN) {
-                    window.currentChatSocket.send(`🚨 DISPUTE REASON: ${reason}`);
+                    window.currentChatSocket.send('Dispute raised!');
                 }
 
                 alert("Dispute raised. The funds are now frozen.");
