@@ -1714,10 +1714,41 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             } else if (msg.text.startsWith("✅ FUNDS RELEASED:")) {
                 div.className = "message-system";
-                div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
+                div.style.cssText = "align-self: center; width: 85%; margin: 1.5rem 0;";
+                const details = msg.text.replace("✅ FUNDS RELEASED:", "").trim();
                 div.innerHTML = `
-                    <div style="background: #f0fdf4; border: 1.5px solid #22c55e; padding: 1rem; border-radius: 12px; color: #15803d; text-align: center; font-size: 0.95rem;">
-                        <span style="font-size: 1.2rem;">🎊</span> <strong>Transaction Completed!</strong> The funds have been released to the seller.
+                    <div style="background: white; border: 1px solid #d1fae5; padding: 1.5rem; border-radius: 20px; border-top: 6px solid #10b981; box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.05);">
+                        <div style="font-weight: 800; color: #1e293b; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between;">
+                            <span style="display: flex; align-items: center; gap: 0.5rem;"><span style="font-size: 1.4rem;">💰</span> Funds Released</span>
+                            <span style="font-size: 0.65rem; background: #d1fae5; color: #059669; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; font-weight: 800;">Completed</span>
+                        </div>
+                        <div style="background: #f0fdf4; border-radius: 12px; padding: 1.25rem; text-align: center;">
+                            <p style="margin: 0; font-size: 1rem; color: #166534; font-weight: 700; line-height: 1.4;">${details}</p>
+                        </div>
+                        <div style="margin-top: 1rem; font-size: 0.8rem; color: #64748b; text-align: center; font-style: italic;">
+                            Transaction successful. Thank you for using ReSale!
+                        </div>
+                    </div>
+                `;
+            } else if (msg.text.startsWith("⚖️ ADMIN RESOLUTION:")) {
+                div.className = "message-system";
+                div.style.cssText = "align-self: center; width: 85%; margin: 1.5rem 0;";
+                const resDetails = msg.text.replace("⚖️ ADMIN RESOLUTION:", "").trim();
+                
+                div.innerHTML = `
+                    <div style="background: white; border: 1px solid #e2e8f0; padding: 1.5rem; border-radius: 20px; border-top: 6px solid #0f172a; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05);">
+                        <div style="font-weight: 800; color: #1e293b; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between;">
+                            <span style="display: flex; align-items: center; gap: 0.5rem;"><span style="font-size: 1.4rem;">⚖️</span> Admin Verdict</span>
+                            <span style="font-size: 0.65rem; background: #f1f5f9; color: #475569; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; font-weight: 800;">Resolved</span>
+                        </div>
+                        
+                        <div style="background: #f8fafc; border-radius: 12px; padding: 1.25rem; text-align: center; border: 1px dashed #cbd5e1;">
+                            <p style="margin: 0; font-size: 1rem; color: #1e293b; font-weight: 700; line-height: 1.5;">${resDetails}</p>
+                        </div>
+
+                        <div style="margin-top: 1rem; font-size: 0.8rem; color: #64748b; text-align: center;">
+                            This decision is final and has been applied to both wallets.
+                        </div>
                     </div>
                 `;
             } else if (msg.text.startsWith("❌ OFFER REJECTED:")) {
