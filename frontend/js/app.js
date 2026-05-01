@@ -2030,9 +2030,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         console.log("[Chat] Received message:", msg);
 
                         if (String(msg.session_id) === String(activeSessionId)) {
-                            appendMessage(msg);
                             // Smart scroll: only auto-scroll if user is already near the bottom
+                            // Calculate BEFORE appending so huge cards don't break the math
                             const isNearBottom = chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight < 120;
+                            
+                            appendMessage(msg);
+                            
                             if (isNearBottom) {
                                 setTimeout(() => { chatBox.scrollTop = chatBox.scrollHeight; }, 50);
                             }
@@ -2475,13 +2478,25 @@ window.openOfferModal = function (sessionId, productId) {
 };
 
 window.handleCardAccept = async function (btn, sessionId) {
-    if (btn) btn.closest('.offer-actions').innerHTML = '<div style="color:#10b981; font-weight:700; text-align:center; flex:1;">Accepting...</div>';
-    await window.handleAcceptOffer(sessionId);
+    const actionsDiv = btn ? btn.closest('.offer-actions') : null;
+    if (actionsDiv) actionsDiv.innerHTML = '<div style="color:#10b981; font-weight:700; text-align:center; flex:1;">Accepting...</div>';
+    try {
+        await window.handleAcceptOffer(sessionId);
+        if (actionsDiv) actionsDiv.innerHTML = '<div style="color:#10b981; font-weight:700; text-align:center; flex:1;">Accepted</div>';
+    } catch (e) {
+        if (actionsDiv) actionsDiv.innerHTML = '<div style="color:#ef4444; font-weight:700; text-align:center; flex:1;">Error</div>';
+    }
 };
 
 window.handleCardReject = async function (btn, sessionId) {
-    if (btn) btn.closest('.offer-actions').innerHTML = '<div style="color:#ef4444; font-weight:700; text-align:center; flex:1;">Declining...</div>';
-    await window.handleRejectOffer(sessionId);
+    const actionsDiv = btn ? btn.closest('.offer-actions') : null;
+    if (actionsDiv) actionsDiv.innerHTML = '<div style="color:#ef4444; font-weight:700; text-align:center; flex:1;">Declining...</div>';
+    try {
+        await window.handleRejectOffer(sessionId);
+        if (actionsDiv) actionsDiv.innerHTML = '<div style="color:#ef4444; font-weight:700; text-align:center; flex:1;">Declined</div>';
+    } catch (e) {
+        if (actionsDiv) actionsDiv.innerHTML = '<div style="color:#ef4444; font-weight:700; text-align:center; flex:1;">Error</div>';
+    }
 };
 
 window.handleAcceptOffer = async function (sessionId) {
