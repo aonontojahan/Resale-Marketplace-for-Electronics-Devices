@@ -1621,6 +1621,25 @@ document.addEventListener('DOMContentLoaded', () => {
                         ` : `<div style="font-size: 0.85rem; color: #059669; font-weight: 700; background: #d1fae5; padding: 0.5rem; text-align:center; border-radius:8px;">Ready for Buyer Payment</div>`}
                     </div>
                 `;
+            } else if (msg.text.startsWith("❌ OFFER DECLINED:") || msg.text.startsWith("❌ OFFER REJECTED:")) {
+                div.className = "message-system";
+                div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
+
+                div.innerHTML = `
+                    <div style="background: #fff1f2; border: 1.5px solid #f43f5e; padding: 1.25rem; border-radius: 16px; border-left: 6px solid #f43f5e; box-shadow: 0 10px 15px -3px rgba(244,63,94,0.1);">
+                        <div style="font-weight: 800; color: #e11d48; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.4rem;">❌</span> Offer Declined
+                        </div>
+                        <div style="background: #fff5f5; border-radius: 12px; padding: 1rem; margin-bottom: 1.25rem; border-left: 4px solid #f43f5e;">
+                            <p style="margin: 0; font-size: 0.95rem; color: #9f1239; line-height: 1.5;">
+                                The seller has declined your current offer. You can try sending a better offer to reach an agreement.
+                            </p>
+                        </div>
+                        ${user.role === 'buyer' ? `
+                        <button class="btn-primary" style="width:100%; background: #f43f5e; border: none; padding: 0.8rem; color: white; font-weight: 800; border-radius: 10px; cursor: pointer;" onclick="openOfferModal('${activeSessionId}', '${window.currentChatProductId}')">Make a Better Offer</button>
+                        ` : `<div style="font-size: 0.85rem; color: #e11d48; font-weight: 700; background: #ffe4e6; padding: 0.5rem; text-align:center; border-radius:8px;">Offer Rejected</div>`}
+                    </div>
+                `;
             } else if (msg.text.startsWith("💰 PAYMENT COMPLETED:")) {
                 div.className = "message-system";
                 div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
@@ -2441,10 +2460,7 @@ window.handleAcceptOffer = async function (sessionId) {
 
         await window.api.acceptOffer(pendingOffer.id);
 
-        // Auto-send follow-up message
-        if (window.currentChatSocket && window.currentChatSocket.readyState === WebSocket.OPEN) {
-            window.currentChatSocket.send("Your offer price is accepted. Payment for buy this product");
-        }
+        // The backend automatically sends the "Offer Accepted" message, so we don't need to send it manually here.
         alert("Offer accepted!");
     } catch (e) {
         alert("Failed: " + e.message);
@@ -2460,10 +2476,7 @@ window.handleRejectOffer = async function (sessionId) {
 
         await window.api.rejectOffer(pendingOffer.id);
 
-        // Auto-send follow-up message
-        if (window.currentChatSocket && window.currentChatSocket.readyState === WebSocket.OPEN) {
-            window.currentChatSocket.send("Offer a better price");
-        }
+        // The backend automatically sends the "Offer Rejected" message, so we don't need to send it manually here.
         alert("Offer rejected.");
     } catch (e) {
         alert("Failed: " + e.message);
@@ -2539,10 +2552,6 @@ window.handleReportIssue = async function (sessionId) {
                 await window.api.disputePayment(activeOffer.id, reason);
                 modal.style.display = 'none';
 
-                if (window.currentChatSocket && window.currentChatSocket.readyState === WebSocket.OPEN) {
-                    window.currentChatSocket.send('Dispute raised!');
-                }
-
                 alert("Dispute raised. The funds are now frozen.");
                 window.location.reload();
             } catch (e) {
@@ -2561,9 +2570,7 @@ window.handleMarkProcessing = async function (sessionId) {
         if (!activeOffer) return alert("No paid offer found.");
 
         await window.api.request(`/escrow/process/${activeOffer.id}`, 'POST');
-        if (window.currentChatSocket && window.currentChatSocket.readyState === WebSocket.OPEN) {
-            window.currentChatSocket.send('Processing order...');
-        }
+        // Backend auto-sends the ⚙️ ORDER PROCESSING card — no manual send needed.
     } catch (e) {
         alert(e.message);
     }
@@ -2610,10 +2617,7 @@ window.handleMarkShipped = async function (sessionId) {
 
                 await window.api.request(`/escrow/ship/${activeOffer.id}?tracking_info=` + encodeURIComponent(trackingStr), 'POST');
                 modal.style.display = 'none';
-
-                if (window.currentChatSocket && window.currentChatSocket.readyState === WebSocket.OPEN) {
-                    window.currentChatSocket.send('Item shipped!');
-                }
+                // Backend auto-sends the 🚚 ORDER SHIPPED card — no manual send needed.
             } catch (e) {
                 alert(e.message);
             }
