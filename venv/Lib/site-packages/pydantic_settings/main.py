@@ -22,6 +22,7 @@ from .sources import (
     ENV_FILE_SENTINEL,
     CliSettingsSource,
     DefaultSettingsSource,
+    DotenvFiltering,
     DotEnvSettingsSource,
     DotenvType,
     EnvPrefixTarget,
@@ -49,6 +50,7 @@ class SettingsConfigDict(ConfigDict, total=False):
     env_prefix_target: EnvPrefixTarget
     env_file: DotenvType | None
     env_file_encoding: str | None
+    dotenv_filtering: DotenvFiltering | None
     env_ignore_empty: bool
     env_nested_delimiter: str | None
     env_nested_max_split: int | None
@@ -172,6 +174,9 @@ class BaseSettings(BaseModel):
             Defaults to `None`.
     """
 
+    # Note: when adding new parameters, make sure to use `object` instead of `Any` to avoid issues with the Mypy plugin
+    # when used with `--disallow-any-explicit`. If `Any` needs to be used as a generic parameter for variance (e.g. in `_build_sources`),
+    # make sure to update the Pydantic Mypy plugin accordingly.
     def __init__(
         __pydantic_self__,
         _case_sensitive: bool | None = None,
@@ -272,7 +277,7 @@ class BaseSettings(BaseModel):
         _nested_model_default_partial_update: bool | None = None,
         _env_prefix: str | None = None,
         _env_prefix_target: EnvPrefixTarget | None = None,
-        _env_file: DotenvType | None = None,
+        _env_file: DotenvType | None = ENV_FILE_SENTINEL,
         _env_file_encoding: str | None = None,
         _env_ignore_empty: bool | None = None,
         _env_nested_delimiter: str | None = None,
@@ -787,8 +792,7 @@ class CliApp:
 
         subcommand_cls = cast(type[BaseModel], type(subcommand))
         subcommand_arg = cli_settings_source._parser_map[subcommand_dest][subcommand_cls]
-        subcommand_alias = subcommand_arg.subcommand_alias(subcommand_cls)
-        subcommand_dest = f'{subcommand_dest.split(":")[0]}{subcommand_alias}.:subcommand'
+        subcommand_dest = f'{subcommand_arg.dest}.:subcommand'
         subcommand_parser = subcommand_arg.parser
         CliApp._subcommand_stack[id(subcommand)] = (cli_settings_source, subcommand_parser, subcommand_dest)
         try:

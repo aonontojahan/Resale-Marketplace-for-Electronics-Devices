@@ -12,7 +12,9 @@ from pydantic import BaseModel, Json, RootModel, Secret
 from pydantic._internal._utils import is_model_class
 from pydantic.dataclasses import is_pydantic_dataclass
 from pydantic.fields import FieldInfo
+from pydantic.types import Strict
 from typing_inspection import typing_objects
+from typing_inspection.introspection import is_union_origin
 
 from ..exceptions import SettingsError
 from ..utils import _lenient_issubclass
@@ -132,7 +134,32 @@ def _annotation_is_complex_inner(annotation: type[Any] | None) -> bool:
 
 def _union_is_complex(annotation: type[Any] | None, metadata: list[Any]) -> bool:
     """Check if a union type contains any complex types."""
-    return any(_annotation_is_complex(arg, metadata) for arg in get_args(annotation))
+    for arg in get_args(annotation):
+        if _annotation_is_complex(arg, metadata):
+            return True
+        # _annotation_is_complex doesn't handle bare Union types, so when an arg
+        # is Annotated[Union[X, Y], ...], stripping Annotated yields a bare Union
+        # that _annotation_is_complex can't evaluate.  Recurse into it, but only
+        # if the Annotated metadata doesn't suppress complexity (e.g. Json).
+        inner = _strip_annotated(arg)
+        if inner is not arg:
+            _, *inner_meta = get_args(arg)
+            if any(isinstance(md, Json) for md in inner_meta):  # type: ignore[misc]
+                continue
+        if is_union_origin(get_origin(inner)):
+            if _union_is_complex(inner, metadata):
+                return True
+    return False
+
+
+def _union_has_strict_types(annotation: type[Any] | None) -> bool:
+    """Check if a union type contains any strict-annotated types."""
+    for arg in get_args(annotation):
+        if typing_objects.is_annotated(get_origin(arg)):
+            _, *meta = get_args(arg)
+            if any(isinstance(m, Strict) for m in meta):
+                return True
+    return False
 
 
 def _annotation_contains_types(
@@ -203,6 +230,20 @@ def _annotation_enum_name_to_val(annotation: type[Any] | None, name: Any) -> Any
     return None
 
 
+def _literal_has_numeric_enum(annotation: type[Any] | None) -> bool:
+    """Check if annotation is a Literal type containing numeric Enum members (IntEnum, (int, Enum), (float, Enum))."""
+    if typing_objects.is_literal(get_origin(annotation)):
+        return any(isinstance(arg, (int, float)) and isinstance(arg, Enum) for arg in get_args(annotation))
+    # Handle Annotated wrapping, e.g. Annotated[Literal[IntEnum.member], Field(...)]
+    if typing_objects.is_annotated(get_origin(annotation)):
+        inner = get_args(annotation)[0]
+        return _literal_has_numeric_enum(inner)
+    # Handle Union/Optional wrapping, e.g. Optional[Literal[IntEnum.member]]
+    if is_union_origin(get_origin(annotation)):
+        return any(_literal_has_numeric_enum(arg) for arg in get_args(annotation))
+    return False
+
+
 def _get_model_fields(model_cls: type[Any]) -> dict[str, Any]:
     """Get fields from a pydantic model or dataclass."""
 
@@ -218,6 +259,7 @@ def _get_alias_names(
     field_info: Any,
     alias_path_args: dict[str, int | None] | None = None,
     case_sensitive: bool = True,
+    populate_by_name: bool = False,
 ) -> tuple[tuple[str, ...], bool]:
     """Get alias names for a field, handling alias paths and case sensitivity."""
     from pydantic import AliasChoices, AliasPath
@@ -253,6 +295,9 @@ def _get_alias_names(
                 )
             if not alias_names and is_alias_path_only:
                 alias_names.append(name)
+        if populate_by_name and field_name not in alias_names:
+            alias_names.append(field_name)
+            is_alias_path_only = False
     if not case_sensitive:
         alias_names = [alias_name.lower() for alias_name in alias_names]
     return tuple(dict.fromkeys(alias_names)), is_alias_path_only
@@ -275,9 +320,11 @@ __all__ = [
     '_get_env_var_key',
     '_get_model_fields',
     '_is_function',
+    '_literal_has_numeric_enum',
     '_parse_env_none_str',
     '_resolve_type_alias',
     '_strip_annotated',
+    '_union_has_strict_types',
     '_union_is_complex',
     'parse_env_vars',
 ]
