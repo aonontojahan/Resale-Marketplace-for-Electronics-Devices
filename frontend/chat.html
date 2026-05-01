@@ -7,6 +7,7 @@
   <title>Messages | ReSale</title>
   <link rel="stylesheet" href="css/style.css">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 
 <body>
@@ -64,13 +65,170 @@
   </main>
 
   <!-- Negotiation Modal -->
+  <!-- Shipping Modal -->
+  <div id="shippingModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(8px);">
+    <div style="background: white; width: 500px; border-radius: 20px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); animation: modalFadeUp 0.3s ease-out;">
+      <!-- Modal Header -->
+      <div style="background: #6366f1; padding: 1.25rem; color: white; text-align: center;">
+        <h3 style="margin: 0; font-size: 1.25rem; font-weight: 800; letter-spacing: 0.5px;">Shipping Dispatch</h3>
+      </div>
+
+      <div style="padding: 1.5rem 2rem; max-height: 80vh; overflow-y: auto;">
+        <div style="display: grid; gap: 1rem;">
+          <!-- Seller Information -->
+          <div>
+            <label style="display: block; font-size: 0.8rem; font-weight: 700; color: #64748b; margin-bottom: 0.3rem;">Seller Name:</label>
+            <input type="text" id="shipSellerName" readonly style="width: 100%; padding: 0.6rem 0.8rem; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; font-size: 0.9rem; color: #1e293b; font-weight: 600;">
+          </div>
+          <div>
+            <label style="display: block; font-size: 0.8rem; font-weight: 700; color: #64748b; margin-bottom: 0.3rem;">Seller contact number: <span style="font-weight: normal; font-size: 0.7rem; color: #94a3b8;">(Editable)</span></label>
+            <input type="text" id="shipSellerPhone" style="width: 100%; padding: 0.6rem 0.8rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.9rem; color: #1e293b; font-weight: 600;" placeholder="Enter seller number">
+          </div>
+
+          <!-- Product Information -->
+          <div>
+            <label style="display: block; font-size: 0.8rem; font-weight: 700; color: #64748b; margin-bottom: 0.3rem;">Product Name:</label>
+            <input type="text" id="shipProductName" readonly style="width: 100%; padding: 0.6rem 0.8rem; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; font-size: 0.9rem; color: #1e293b; font-weight: 600;">
+          </div>
+          <div>
+            <label style="display: block; font-size: 0.8rem; font-weight: 700; color: #64748b; margin-bottom: 0.3rem;">Product Price:</label>
+            <input type="text" id="shipProductPrice" readonly style="width: 100%; padding: 0.6rem 0.8rem; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; font-size: 0.9rem; color: #1e293b; font-weight: 600;">
+          </div>
+          <input type="hidden" id="shipProductQty">
+
+          <!-- Buyer Information -->
+          <div>
+            <label style="display: block; font-size: 0.8rem; font-weight: 700; color: #64748b; margin-bottom: 0.3rem;">buyer name:</label>
+            <input type="text" id="shipBuyerName" readonly style="width: 100%; padding: 0.6rem 0.8rem; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; font-size: 0.9rem; color: #1e293b; font-weight: 600;">
+          </div>
+          <div>
+            <label style="display: block; font-size: 0.8rem; font-weight: 700; color: #64748b; margin-bottom: 0.3rem;">Buyer number: <span style="font-weight: normal; font-size: 0.7rem; color: #94a3b8;">(Editable)</span></label>
+            <input type="text" id="shipBuyerPhone" style="width: 100%; padding: 0.6rem 0.8rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 0.9rem; color: #1e293b; font-weight: 600;" placeholder="Enter buyer number">
+          </div>
+
+          <!-- Shipping Inputs -->
+          <div style="margin-top: 0.5rem;">
+            <label style="display: block; font-size: 0.85rem; font-weight: 800; color: #334155; margin-bottom: 0.4rem;">Courier Service Name</label>
+            <input type="text" id="shipCourierName" style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 0.95rem;" placeholder="Enter courier name">
+          </div>
+          <div>
+            <label style="display: block; font-size: 0.85rem; font-weight: 800; color: #334155; margin-bottom: 0.4rem;">Tracking ID / AWB Number</label>
+            <input type="text" id="shipTrackingNumber" style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 0.95rem;" placeholder="Enter tracking ID">
+          </div>
+          <div>
+            <label style="display: block; font-size: 0.85rem; font-weight: 800; color: #334155; margin-bottom: 0.4rem;">Date of Dispatch</label>
+            <input type="date" id="shipDate" style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 0.95rem;">
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div style="margin-top: 2rem; display: flex; gap: 1rem;">
+          <button style="flex: 1; padding: 0.8rem; border-radius: 10px; font-weight: 700; background: #f1f5f9; color: #475569; border: none; cursor: pointer;" onclick="document.getElementById('shippingModal').style.display='none'">Cancel</button>
+          <button id="modalSubmitShipping" style="flex: 2; padding: 0.8rem; border-radius: 10px; font-weight: 800; background: #6366f1; color: white; border: none; cursor: pointer; transition: background 0.2s;">
+            Mark as Shipped
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dispute Modal -->
+  <div id="disputeModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(8px);">
+    <div style="background: white; width: 450px; border-radius: 20px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); animation: modalFadeUp 0.3s ease-out;">
+      <div style="background: #ef4444; padding: 1.25rem; color: white; text-align: center;">
+        <h3 style="margin: 0; font-size: 1.25rem; font-weight: 800; letter-spacing: 0.5px;">Dispute Resolution</h3>
+      </div>
+
+      <div style="padding: 1.5rem 2rem;">
+        <div style="display: grid; gap: 1.25rem;">
+          <div>
+            <label style="display: block; font-size: 0.8rem; font-weight: 700; color: #64748b; margin-bottom: 0.3rem;">Disputed Item:</label>
+            <p id="disputeProductName" style="margin: 0; font-size: 1rem; font-weight: 700; color: #1e293b;"></p>
+          </div>
+          <div>
+            <label style="display: block; font-size: 0.8rem; font-weight: 700; color: #64748b; margin-bottom: 0.3rem;">Locked Amount:</label>
+            <p id="disputeAmount" style="margin: 0; font-size: 1.1rem; font-weight: 800; color: #ef4444;"></p>
+          </div>
+          
+          <div>
+            <label style="display: block; font-size: 0.85rem; font-weight: 800; color: #334155; margin-bottom: 0.5rem;">Reason for Dispute *</label>
+            <textarea id="disputeReason" rows="4" style="width: 100%; padding: 0.75rem; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 0.95rem; resize: none; font-family: inherit;" placeholder="Please explain the issue in detail (e.g., item not as described, damaged, etc.)"></textarea>
+          </div>
+        </div>
+
+        <div style="margin-top: 2rem; display: flex; gap: 1rem;">
+          <button style="flex: 1; padding: 0.8rem; border-radius: 10px; font-weight: 700; background: #f1f5f9; color: #475569; border: none; cursor: pointer;" onclick="document.getElementById('disputeModal').style.display='none'">Go Back</button>
+          <button id="modalSubmitDispute" style="flex: 2; padding: 0.8rem; border-radius: 10px; font-weight: 800; background: #ef4444; color: white; border: none; cursor: pointer; transition: background 0.2s;">
+            Raise Formal Dispute
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== RELEASE FUNDS CONFIRMATION MODAL ====== -->
+  <div id="releaseModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(8px);">
+    <div style="background: white; width: 420px; border-radius: 24px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); animation: modalFadeUp 0.3s ease-out;">
+      <div style="background: #10b981; padding: 1.5rem; color: white; text-align: center;">
+        <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">🔓</div>
+        <h3 style="margin: 0; font-size: 1.4rem; font-weight: 800; letter-spacing: 0.5px;">Release Payment</h3>
+      </div>
+
+      <div style="padding: 2rem;">
+        <div style="background: #f0fdf4; border: 1px dashed #10b981; border-radius: 16px; padding: 1.25rem; margin-bottom: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.9rem; color: #475569;">
+            <span>Item Price:</span>
+            <span id="releaseItemPrice" style="font-weight: 700; color: #1e293b;"></span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 0.75rem; font-size: 0.9rem; color: #475569;">
+            <span>Delivery Fee:</span>
+            <span style="font-weight: 700; color: #1e293b;">Tk. 150</span>
+          </div>
+          <div style="border-top: 1px solid #d1fae5; padding-top: 0.75rem; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-weight: 800; color: #1e293b;">Total Released:</span>
+            <span id="releaseTotal" style="font-size: 1.25rem; font-weight: 900; color: #10b981;"></span>
+          </div>
+        </div>
+
+        <div style="background: #fff7ed; border-left: 4px solid #f97316; padding: 1rem; border-radius: 8px; margin-bottom: 2rem;">
+          <p style="margin: 0; font-size: 0.85rem; color: #9a3412; font-weight: 600; line-height: 1.4;">
+            ⚠️ <strong>Attention:</strong> By confirming, you acknowledge receipt of the item. This action is <strong>irreversible</strong> and the funds will be sent to the seller immediately.
+          </p>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+          <button id="modalConfirmRelease" style="width: 100%; padding: 1rem; border-radius: 12px; font-weight: 800; font-size: 1rem; background: #10b981; color: white; border: none; cursor: pointer; box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.2);">
+            Confirm & Release Funds
+          </button>
+          <button style="width: 100%; padding: 0.75rem; border-radius: 12px; font-weight: 700; background: transparent; color: #64748b; border: 1px solid #e2e8f0; cursor: pointer;" onclick="document.getElementById('releaseModal').style.display='none'">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    @keyframes modalFadeUp {
+      from { opacity: 0; transform: translateY(15px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    #shipCourierName:focus, #shipTrackingNumber:focus, #shipDate:focus, #disputeReason:focus {
+      outline: none;
+      border-color: #6366f1;
+    }
+    #disputeReason:focus {
+      border-color: #ef4444;
+    }
+  </style>
+
   <div id="offerModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
     <div style="background: white; padding: 2rem; border-radius: 16px; width: 400px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);">
       <h3 style="margin-top: 0; color: var(--primary); display: flex; align-items: center; gap: 0.5rem;">🤝 Negotiate Price</h3>
       <p style="font-size: 0.9rem; color: #64748b; margin-bottom: 1.5rem;">Enter your suggested price for this item. The seller must accept it before you can check out.</p>
       
       <div style="margin-bottom: 1.5rem;">
-        <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 0.5rem;">Offer Price (৳)</label>
+        <label style="display: block; font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 0.5rem;">Offer Price (Tk.)</label>
         <input type="number" id="modalOfferInput" style="width: 100%; padding: 0.75rem; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 1rem; font-weight: 600;" placeholder="e.g. 5000">
       </div>
 

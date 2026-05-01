@@ -26,6 +26,10 @@ class User(Base):
 
     # Common Fields
     phone_number = Column(String, nullable=True)
+    address_region = Column(String, nullable=True)
+    address_city = Column(String, nullable=True)
+    address_area = Column(String, nullable=True)
+    address_full = Column(String, nullable=True)
 
     # Store user creation and update time
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -161,8 +165,13 @@ class OfferStatus(str, enum.Enum):
     ACCEPTED = "accepted"
     REJECTED = "rejected"
     PAID = "paid"
+    PROCESSING = "processing"
+    SHIPPED = "shipped"
     DISPUTED = "disputed"
     REFUNDED = "refunded"
+    DELIVERED = "delivered"
+    COMPLETED = "completed"
+    AUTO_COMPLETED = "auto_completed"
 
 class Offer(Base):
     __tablename__ = "offers"
@@ -175,6 +184,8 @@ class Offer(Base):
     offered_price = Column(Integer, nullable=False)
     quantity = Column(Integer, default=1, nullable=False)
     status = Column(Enum(OfferStatus), default=OfferStatus.PENDING, nullable=False)
+    tracking_info = Column(String, nullable=True)
+    dispute_reason = Column(String, nullable=True)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

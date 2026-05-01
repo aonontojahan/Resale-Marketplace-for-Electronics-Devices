@@ -111,6 +111,10 @@ def signup(user: schemas.UserCreate, db: Session = Depends(get_db)):
         role=user.role,
         phone_number=user.phone_number,
         account_status=account_status,
+        address_region=user.address_region,
+        address_city=user.address_city,
+        address_area=user.address_area,
+        address_full=user.address_full
     )
     db.add(new_user)
     db.commit()
@@ -211,6 +215,18 @@ def get_user_transactions(
     ).order_by(models.WalletTransaction.created_at.desc()).all()
 
 
+@app.delete("/wallet/transactions/clear")
+def clear_user_transactions(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Permanently delete all transaction history for the user."""
+    db.query(models.WalletTransaction).filter(
+        models.WalletTransaction.user_id == current_user.id
+    ).delete()
+    db.commit()
+    return {"message": "Transaction history cleared successfully."}
+
 # ─── Offers & Negotiation ──────────────────────────────────────────
 
 @app.post("/offers", response_model=schemas.OfferResponse)
@@ -243,7 +259,7 @@ def create_offer(
     system_msg = models.ChatMessage(
         session_id=offer_in.session_id,
         sender_id=session.buyer_id,
-        text=f"📢 OFFER MADE: {current_user.full_name} offered ৳{offer_in.offered_price:,d} for this item."
+        text=f"📢 OFFER MADE: {current_user.full_name} offered Tk.{offer_in.offered_price:,d} for this item."
     )
     db.add(system_msg)
     
@@ -291,7 +307,7 @@ def accept_offer(
     system_msg = models.ChatMessage(
         session_id=offer.session_id,
         sender_id=offer.seller_id,
-        text=f"✅ OFFER ACCEPTED: {current_user.full_name} has accepted the offer of ৳{offer.offered_price:,d}!"
+        text=f"✅ OFFER ACCEPTED: {current_user.full_name} has accepted the offer of Tk.{offer.offered_price:,d}!"
     )
     db.add(system_msg)
     
@@ -322,7 +338,7 @@ def reject_offer(
     system_msg = models.ChatMessage(
         session_id=offer.session_id,
         sender_id=offer.seller_id,
-        text=f"❌ OFFER REJECTED: The seller has declined the offer of ৳{offer.offered_price:,d}."
+        text=f"❌ OFFER REJECTED: The seller has declined the offer of Tk.{offer.offered_price:,d}."
     )
     db.add(system_msg)
     
@@ -375,9 +391,17 @@ def finalize_payment(
     pay_msg = models.ChatMessage(
         session_id=offer.session_id,
         sender_id=offer.buyer_id,
-        text=f"💰 PAYMENT COMPLETED: ৳{final_total:,d} moved to escrow via SecurePay."
+        text=f"💰 PAYMENT COMPLETED: Tk.{final_total:,d} moved to escrow via SecurePay."
     )
     db.add(pay_msg)
+    
+    # Notify seller explicitly
+    seller_notify_msg = models.ChatMessage(
+        session_id=offer.session_id,
+        sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1,
+        text=f"📢 ORDER ALERT: The buyer has made the payment. Please prepare the item for delivery and mark it as DELIVERED once shipped."
+    )
+    db.add(seller_notify_msg)
     
     # Add transaction record
     new_tx = models.WalletTransaction(
@@ -394,6 +418,117 @@ def finalize_payment(
 
     db.commit()
     return {"message": "Payment successful", "final_total": final_total}
+
+@app.post("/escrow/process/{offer_id}")
+def process_order(
+    offer_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Called by the seller to mark the order as PROCESSING (preparing the item).
+    """
+    offer = db.query(models.Offer).filter(models.Offer.id == offer_id).first()
+    if not offer:
+        raise HTTPException(status_code=404, detail="Offer not found")
+    
+    if current_user.id != offer.seller_id:
+        raise HTTPException(status_code=403, detail="Only the seller can update this order")
+    
+    if offer.status != models.OfferStatus.PAID:
+        raise HTTPException(status_code=400, detail="Invalid transition: Order must be PAID to start processing")
+
+    offer.status = models.OfferStatus.PROCESSING
+    
+    # System message
+    system_msg = models.ChatMessage(
+        session_id=offer.session_id,
+        sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1, 
+        text="⚙️ ORDER PROCESSING: The seller is now preparing your item for shipment."
+    )
+    db.add(system_msg)
+
+    offer.session.updated_at = func.now()
+    db.add(offer.session)
+
+    db.commit()
+    return {"message": "Order marked as processing", "status": offer.status}
+
+@app.post("/escrow/ship/{offer_id}")
+def ship_order(
+    offer_id: int,
+    tracking_info: str = Query(None, description="Optional tracking info or courier name"),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Called by the seller to mark the order as SHIPPED (item dispatched).
+    """
+    offer = db.query(models.Offer).filter(models.Offer.id == offer_id).first()
+    if not offer:
+        raise HTTPException(status_code=404, detail="Offer not found")
+    
+    if current_user.id != offer.seller_id:
+        raise HTTPException(status_code=403, detail="Only the seller can update this order")
+    
+    if offer.status != models.OfferStatus.PROCESSING:
+        raise HTTPException(status_code=400, detail="Invalid transition: Order must be PROCESSING to be marked as shipped")
+
+    offer.status = models.OfferStatus.SHIPPED
+    if tracking_info:
+        offer.tracking_info = tracking_info
+    
+    msg_text = "🚚 ORDER SHIPPED:\n" + (tracking_info if tracking_info else "The item has been handed over to the courier.")
+        
+    # System message
+    system_msg = models.ChatMessage(
+        session_id=offer.session_id,
+        sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1, 
+        text=msg_text
+    )
+    db.add(system_msg)
+
+    offer.session.updated_at = func.now()
+    db.add(offer.session)
+
+    db.commit()
+    return {"message": "Order marked as shipped", "status": offer.status, "tracking_info": offer.tracking_info}
+
+@app.post("/escrow/deliver/{offer_id}")
+def deliver_order(
+    offer_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Called by the seller to mark the order as DELIVERED.
+    """
+    offer = db.query(models.Offer).filter(models.Offer.id == offer_id).first()
+    if not offer:
+        raise HTTPException(status_code=404, detail="Offer not found")
+    
+    if current_user.id != offer.seller_id:
+        raise HTTPException(status_code=403, detail="Only the seller can mark this order as delivered")
+    
+    if offer.status != models.OfferStatus.SHIPPED:
+        raise HTTPException(status_code=400, detail="Invalid transition: Order must be SHIPPED before it can be delivered")
+
+    offer.status = models.OfferStatus.DELIVERED
+    
+    # System message
+    system_msg = models.ChatMessage(
+        session_id=offer.session_id,
+        sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1, 
+        text="📦 ORDER DELIVERED: The seller has marked the order as delivered. Buyer, please confirm delivery to release funds to the seller. Funds will auto-release in 3 days if no action is taken."
+    )
+    db.add(system_msg)
+
+    # Touch session
+    offer.session.updated_at = func.now()
+    db.add(offer.session)
+
+    db.commit()
+    return {"message": "Order marked as delivered", "status": offer.status}
 
 @app.post("/escrow/release/{offer_id}")
 def release_payment(
@@ -412,8 +547,8 @@ def release_payment(
     if current_user.id != offer.buyer_id:
         raise HTTPException(status_code=403, detail="Only the buyer can release these funds")
     
-    if offer.status != models.OfferStatus.PAID:
-        raise HTTPException(status_code=400, detail="Funds have not been paid to escrow yet")
+    if offer.status not in (models.OfferStatus.PAID, models.OfferStatus.PROCESSING, models.OfferStatus.SHIPPED, models.OfferStatus.DELIVERED):
+        raise HTTPException(status_code=400, detail="Funds cannot be released at this state")
 
     # Calculate values
     total_paid = (offer.offered_price * offer.quantity) + DELIVERY_FEE
@@ -440,7 +575,7 @@ def release_payment(
     seller.wallet_balance += seller_amount
     
     # Update offer status
-    offer.status = "completed"
+    offer.status = models.OfferStatus.COMPLETED
     
     # Record transaction for seller
     seller_tx = models.WalletTransaction(
@@ -451,16 +586,42 @@ def release_payment(
     )
     db.add(seller_tx)
 
-    # Record platform commission (optional, for tracking)
-    # In a real system, you'd add this to a platform account.
+    # Record for Buyer (Escrow release)
+    buyer_tx = models.WalletTransaction(
+        user_id=current_user.id,
+        amount=-total_paid,
+        transaction_type="escrow_release",
+        description=f"Payment released to seller for {offer.product.title}"
+    )
+    db.add(buyer_tx)
+
+    # Record platform commission
+    admin = db.query(models.User).filter(models.User.role == models.UserRole.ADMIN).first()
+    if admin and commission > 0:
+        admin.wallet_balance += commission
+        platform_tx = models.WalletTransaction(
+            user_id=admin.id,
+            amount=commission,
+            transaction_type="platform_revenue",
+            description=f"Commission earned from {offer.product.title} (Sale ID: {offer.id})"
+        )
+        db.add(platform_tx)
 
     # System message
     system_msg = models.ChatMessage(
         session_id=offer.session_id,
         sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1, 
-        text=f"✅ FUNDS RELEASED: ৳{seller_amount:,d} has been moved to the seller's wallet after a {COMMISSION_RATE*100}% service fee."
+        text=f"✅ FUNDS RELEASED: Tk.{seller_amount:,d} has been moved to the seller's wallet after a {COMMISSION_RATE*100}% service fee."
     )
     db.add(system_msg)
+
+    # Trigger Review Prompt for Buyer (Dynamic Card in Chat)
+    review_prompt = models.ChatMessage(
+        session_id=offer.session_id,
+        sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1,
+        text=f"[REVIEW_PROMPT]:{offer.product_id}:{offer.product.title}"
+    )
+    db.add(review_prompt)
 
     db.commit()
     return {"message": "Funds released successfully", "seller_received": seller_amount, "commission": commission}
@@ -468,6 +629,7 @@ def release_payment(
 @app.post("/escrow/dispute/{offer_id}")
 def dispute_transaction(
     offer_id: int,
+    reason: str = None,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
@@ -482,10 +644,11 @@ def dispute_transaction(
     if current_user.id != offer.buyer_id:
         raise HTTPException(status_code=403, detail="Only the buyer can raise a dispute")
     
-    if offer.status != models.OfferStatus.PAID:
-        raise HTTPException(status_code=400, detail="Transaction is not in a payable state")
+    if offer.status not in (models.OfferStatus.PAID, models.OfferStatus.PROCESSING, models.OfferStatus.SHIPPED, models.OfferStatus.DELIVERED):
+        raise HTTPException(status_code=400, detail="Transaction is not in a payable or delivered state")
 
     offer.status = models.OfferStatus.DISPUTED
+    offer.dispute_reason = reason
     
     # Add transaction record for audit trail
     dispute_tx = models.WalletTransaction(
@@ -497,10 +660,12 @@ def dispute_transaction(
     db.add(dispute_tx)
 
     # Notify chat
+    msg_text = f"⚠️ DISPUTE RAISED: {reason}" if reason else f"⚠️ DISPUTE RAISED: {current_user.full_name} reported a problem. Funds are locked in Escrow until an Admin reviews the case."
+    
     system_msg = models.ChatMessage(
         session_id=offer.session_id,
         sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1, 
-        text=f"⚠️ DISPUTE RAISED: {current_user.full_name} reported a problem. Funds are locked in Escrow until an Admin reviews the case."
+        text=msg_text
     )
     db.add(system_msg)
     
@@ -513,7 +678,7 @@ def dispute_transaction(
 @app.post("/admin/disputes/{offer_id}/resolve")
 def resolve_dispute(
     offer_id: int,
-    resolution: str = Query(..., enum=["payout_seller", "refund_buyer"]),
+    resolution: str = Query(..., enum=["payout_seller", "refund_full", "refund_partial"]),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
@@ -538,29 +703,99 @@ def resolve_dispute(
         
         buyer.escrow_balance -= total_escrow
         seller.wallet_balance += seller_payout
-        offer.status = "completed"
+        offer.status = models.OfferStatus.COMPLETED
         
-        msg_text = f"⚖️ ADMIN RESOLUTION: Dispute resolved in favor of SELLER. ৳{seller_payout:,d} released to seller wallet."
+        msg_text = f"⚖️ ADMIN RESOLUTION: Dispute resolved in favor of SELLER. Tk.{seller_payout:,d} released to seller wallet."
 
-    else: # refund_buyer
-        # Give money back to buyer's wallet
-        # Safeguard: Deduct only what is actually in escrow for this transaction
-        # If the balance is less than total_escrow (due to previous logic error), deduct only the balance
+        # Record for Seller
+        seller_tx = models.WalletTransaction(
+            user_id=seller.id,
+            amount=seller_payout,
+            transaction_type="sale_payout",
+            description=f"⚖️ ADMIN RELEASE: Funds released for {offer.product.title} after dispute."
+        )
+        # Record for Buyer
+        buyer_tx = models.WalletTransaction(
+            user_id=buyer.id,
+            amount=-total_escrow,
+            transaction_type="escrow_release",
+            description=f"⚖️ ADMIN RELEASE: Escrow released to seller for {offer.product.title}"
+        )
+        # Record platform commission
+        admin = db.query(models.User).filter(models.User.role == models.UserRole.ADMIN).first()
+        if admin and commission > 0:
+            admin.wallet_balance += commission
+            platform_tx = models.WalletTransaction(
+                user_id=admin.id,
+                amount=commission,
+                transaction_type="platform_revenue",
+                description=f"⚖️ ADMIN DISPUTE: Commission from {offer.product.title}"
+            )
+            db.add(platform_tx)
+
+        db.add(seller_tx)
+        db.add(buyer_tx)
+
+    elif resolution == "refund_full":
+        # Give money back to buyer's wallet (including delivery fee)
         deduct_amount = min(total_escrow, buyer.escrow_balance)
         buyer.escrow_balance -= deduct_amount
-        buyer.wallet_balance += total_escrow # Still give buyer the full promised refund
+        buyer.wallet_balance += total_escrow 
         offer.status = models.OfferStatus.REFUNDED
         
-        # Add transaction record for refund
+        # Reset product status back to available
+        if offer.product:
+            offer.product.status = "available"
+            offer.product.stock += offer.quantity
+            
+        msg_text = f"⚖️ ADMIN RESOLUTION: Dispute resolved with FULL REFUND. Tk.{total_escrow:,d} returned to buyer wallet. Product has been re-listed."
+
+        # Record for Buyer
         refund_tx = models.WalletTransaction(
             user_id=buyer.id,
             amount=total_escrow,
-            transaction_type="dispute_refund",
-            description=f"⚖️ DISPUTE REFUND: Full refund for {offer.product.title}"
+            transaction_type="refund",
+            description=f"⚖️ ADMIN REFUND: Full refund for {offer.product.title}"
         )
         db.add(refund_tx)
+
+    else: # refund_partial
+        # Refund Product Price to buyer, give Delivery Fee to seller
+        product_price_total = (offer.offered_price * offer.quantity)
         
-        msg_text = f"⚖️ ADMIN RESOLUTION: Dispute resolved in favor of BUYER. Full refund of ৳{total_escrow:,d} returned to buyer wallet."
+        # Deduct total escrow from frozen
+        deduct_amount = min(total_escrow, buyer.escrow_balance)
+        buyer.escrow_balance -= deduct_amount
+        
+        # Split the funds
+        buyer.wallet_balance += product_price_total
+        seller.wallet_balance += DELIVERY_FEE
+        
+        offer.status = models.OfferStatus.REFUNDED # Mark as refunded (but it was a split)
+        
+        # Reset product status back to available
+        if offer.product:
+            offer.product.status = "available"
+            offer.product.stock += offer.quantity
+
+        msg_text = f"⚖️ ADMIN RESOLUTION: Dispute resolved with PARTIAL REFUND. Tk.{product_price_total:,d} returned to buyer. Tk.{DELIVERY_FEE:,d} released to seller to cover shipping. Product has been re-listed."
+        
+        # Record for Buyer
+        buyer_tx = models.WalletTransaction(
+            user_id=buyer.id,
+            amount=product_price_total,
+            transaction_type="refund",
+            description=f"⚖️ ADMIN REFUND: Partial refund for {offer.product.title}"
+        )
+        # Record for Seller
+        seller_tx = models.WalletTransaction(
+            user_id=seller.id,
+            amount=DELIVERY_FEE,
+            transaction_type="shipping_payout",
+            description=f"⚖️ ADMIN PAYOUT: Delivery fee released for {offer.product.title}"
+        )
+        db.add(buyer_tx)
+        db.add(seller_tx)
 
     # Notify chat
     admin_msg = models.ChatMessage(
@@ -569,6 +804,15 @@ def resolve_dispute(
         text=msg_text
     )
     db.add(admin_msg)
+
+    # Trigger Review Prompt for Buyer (Dynamic Card in Chat - After Dispute)
+    review_prompt = models.ChatMessage(
+        session_id=offer.session_id,
+        sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1,
+        text=f"[REVIEW_PROMPT]:{offer.product_id}:{offer.product.title}"
+    )
+    db.add(review_prompt)
+
     db.commit()
 
     return {"message": f"Dispute resolved via {resolution}", "status": offer.status}
@@ -602,9 +846,81 @@ def list_disputes(
             "seller_phone": d.seller.phone_number,
             "session_id": d.session_id,
             "status": d.status,
+            "dispute_reason": d.dispute_reason,
             "product_image": d.product.image_url if d.product.image_url else (d.product.images[0].image_url if d.product.images else "")
         })
     return results
+
+
+@app.post("/admin/cron/auto-release")
+def auto_release_escrow(db: Session = Depends(get_db)):
+    """
+    Automated job endpoint to release funds for DELIVERED orders 
+    that have been waiting for > 3 days.
+    (In a real system, this could be triggered by a celery beat or a cron cronjob)
+    """
+    cutoff_time = datetime.now(timezone.utc) - timedelta(days=3)
+    
+    # Find offers delivered more than 3 days ago
+    stale_offers = db.query(models.Offer).filter(
+        models.Offer.status == models.OfferStatus.DELIVERED,
+        models.Offer.updated_at <= cutoff_time
+    ).all()
+    
+    released_count = 0
+    for offer in stale_offers:
+        buyer = offer.buyer
+        seller = offer.seller
+        
+        total_paid = (offer.offered_price * offer.quantity) + DELIVERY_FEE
+        product_price = offer.offered_price * offer.quantity
+        commission = int(product_price * COMMISSION_RATE)
+        seller_amount = (product_price - commission) + DELIVERY_FEE
+        
+        # Move funds
+        if buyer.escrow_balance >= total_paid:
+            buyer.escrow_balance -= total_paid
+            seller.wallet_balance += seller_amount
+            
+            offer.status = models.OfferStatus.AUTO_COMPLETED
+            
+            # Record transaction
+            seller_tx = models.WalletTransaction(
+                user_id=seller.id,
+                amount=seller_amount,
+                transaction_type="auto_sale_payout",
+                description=f"Auto-release Payout for {offer.product.title}"
+            )
+            db.add(seller_tx)
+            
+            # Notify chat
+            system_msg = models.ChatMessage(
+                session_id=offer.session_id,
+                sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1,
+                text=f"⏰ AUTO-RELEASE: 3 days have passed since delivery. Tk.{seller_amount:,d} automatically released to the seller."
+            )
+            db.add(system_msg)
+            
+            # Touch session
+            offer.session.updated_at = func.now()
+            db.add(offer.session)
+            
+            # Record platform commission
+            admin = db.query(models.User).filter(models.User.role == models.UserRole.ADMIN).first()
+            if admin and commission > 0:
+                admin.wallet_balance += commission
+                platform_tx = models.WalletTransaction(
+                    user_id=admin.id,
+                    amount=commission,
+                    transaction_type="platform_revenue",
+                    description=f"⏰ AUTO-RELEASE: Commission from {offer.product.title}"
+                )
+                db.add(platform_tx)
+            
+            released_count += 1
+            
+    db.commit()
+    return {"message": "Auto-release complete", "released_count": released_count}
 
 
 @app.get("/users", response_model=List[schemas.UserResponse])
@@ -851,6 +1167,12 @@ def get_platform_stats(db: Session = Depends(get_db)):
         models.User.account_status == "pending_verification"
     ).count()
 
+    # Revenue Calculation
+    completed_offers = db.query(models.Offer).filter(
+        models.Offer.status.in_([models.OfferStatus.COMPLETED, models.OfferStatus.AUTO_COMPLETED])
+    ).all()
+    total_commission = sum(int(o.offered_price * o.quantity * COMMISSION_RATE) for o in completed_offers)
+
     return {
         "total_users":       total_users,
         "total_buyers":      total_buyers,
@@ -862,7 +1184,7 @@ def get_platform_stats(db: Session = Depends(get_db)):
         "approved_products": approved_products,
         "rejected_products": rejected_products,
         "pending_sellers":   pending_sellers,
-        # Keep old keys for backward-compatibility with frontend stats
+        "platform_revenue":  total_commission,
         "total_listings":    total_products,
         "pending_listings":  pending_products,
         "approved_listings": approved_products,
@@ -1041,17 +1363,21 @@ def create_review(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    # RESTRICTION: Only buyers who completed a purchase for this product can review
+    # RESTRICTION: Only buyers who have a processed transaction (completed or refunded) can review
     purchase = db.query(models.Offer).filter(
         models.Offer.product_id == review.product_id,
         models.Offer.buyer_id == current_user.id,
-        models.Offer.status == "completed" 
+        models.Offer.status.in_([
+            models.OfferStatus.COMPLETED, 
+            models.OfferStatus.AUTO_COMPLETED, 
+            models.OfferStatus.REFUNDED
+        ])
     ).first()
 
     if not purchase:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only review a seller after completing a purchase for this item."
+            detail="You can only review a seller after a transaction has been completed or resolved."
         )
 
     new_review = models.Review(
@@ -1062,6 +1388,34 @@ def create_review(
         comment=review.comment
     )
     db.add(new_review)
+    
+    # Add system message to chat to notify both parties
+    msg_text = f"⭐ Buyer left a {review.rating}-star review: \"{review.comment}\""
+    
+    review_msg = models.ChatMessage(
+        session_id=purchase.session_id,
+        sender_id=1, # System User
+        text=msg_text
+    )
+    db.add(review_msg)
+    
     db.commit()
     db.refresh(new_review)
     return new_review
+
+@app.get("/reviews/seller/{seller_id}")
+def get_seller_reviews(seller_id: int, db: Session = Depends(get_db)):
+    """Fetch all reviews received by a seller."""
+    reviews = db.query(models.Review).filter(models.Review.seller_id == seller_id).order_by(models.Review.created_at.desc()).all()
+    results = []
+    for r in reviews:
+        results.append({
+            "id": r.id,
+            "rating": r.rating,
+            "comment": r.comment,
+            "created_at": r.created_at,
+            "buyer_name": r.reviewer.full_name if r.reviewer else "Anonymous Buyer",
+            "product_title": r.product.title if r.product else "Deleted Product"
+        })
+    return results
+

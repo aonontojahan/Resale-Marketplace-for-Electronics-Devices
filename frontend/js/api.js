@@ -97,8 +97,10 @@ const api = {
         return this.request(`/escrow/release/${offer_id}`, 'POST');
     },
 
-    async disputePayment(offer_id) {
-        return this.request(`/escrow/dispute/${offer_id}`, 'POST');
+    async disputePayment(offer_id, reason = null) {
+        let url = `/escrow/dispute/${offer_id}`;
+        if (reason) url += `?reason=${encodeURIComponent(reason)}`;
+        return this.request(url, 'POST');
     },
 
     // ─── Users ──────────────────────────────────────────────────────────────

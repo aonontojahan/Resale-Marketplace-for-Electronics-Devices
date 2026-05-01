@@ -145,12 +145,12 @@ function renderProductCard(product) {
                     <span style="background: rgba(255,255,255,0.95); color: #0f172a; font-weight: 800; font-size: 0.75rem; padding: 0.4rem 0.8rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); letter-spacing: 0.03em;">${product.condition.toUpperCase()}</span>
                 </div>
                 <div style="position: absolute; top: 12px; right: 12px;">
-                    ${product.is_disputed 
-                        ? `<span style="background: #f43f5e; color: white; font-weight: 800; font-size: 0.75rem; padding: 0.4rem 0.8rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); letter-spacing: 0.03em;">🚨 DISPUTED</span>`
-                        : (product.status === 'sold' || product.inventory_quantity <= 0)
-                            ? `<span style="background: rgba(239, 68, 68, 0.95); color: white; font-weight: 800; font-size: 0.75rem; padding: 0.4rem 0.8rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); letter-spacing: 0.03em;">SOLD</span>`
-                            : `<span style="background: rgba(16, 185, 129, 0.95); color: white; font-weight: 800; font-size: 0.75rem; padding: 0.4rem 0.8rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); letter-spacing: 0.03em;">AVAILABLE</span>`
-                    }
+                    ${product.is_disputed
+            ? `<span style="background: #f43f5e; color: white; font-weight: 800; font-size: 0.75rem; padding: 0.4rem 0.8rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); letter-spacing: 0.03em;">🚨 DISPUTED</span>`
+            : (product.status === 'sold' || product.inventory_quantity <= 0)
+                ? `<span style="background: rgba(239, 68, 68, 0.95); color: white; font-weight: 800; font-size: 0.75rem; padding: 0.4rem 0.8rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); letter-spacing: 0.03em;">SOLD</span>`
+                : `<span style="background: rgba(16, 185, 129, 0.95); color: white; font-weight: 800; font-size: 0.75rem; padding: 0.4rem 0.8rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); letter-spacing: 0.03em;">AVAILABLE</span>`
+        }
                 </div>
             </div>
             <div class="card-content" style="padding: 1.25rem; display: flex; flex-direction: column; flex: 1;">
@@ -158,7 +158,7 @@ function renderProductCard(product) {
                     <h3 class="card-title" style="margin: 0; font-size: 1.15rem; font-weight: 800; line-height: 1.3; color: var(--text-primary); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${product.title}</h3>
                 </div>
                 <div style="display: flex; align-items: baseline; gap: 0.5rem; margin-bottom: 0.75rem;">
-                    <p class="card-price" style="margin: 0; font-size: 1.6rem; font-weight: 900; background: linear-gradient(135deg, var(--primary), var(--accent-cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">৳${priceFormatted}</p>
+                    <p class="card-price" style="margin: 0; font-size: 1.6rem; font-weight: 900; background: linear-gradient(135deg, var(--primary), var(--accent-cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Tk.${priceFormatted}</p>
                 </div>
                 <div style="display: flex; gap: 0.4rem; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; margin-bottom: 0.75rem; align-items: center;">
                     <span style="font-size: 0.72rem; background: rgba(99,102,241,0.08); color: var(--primary); font-weight: 700; padding: 0.35rem 0.4rem; border-radius: 6px; border: 1px solid rgba(99,102,241,0.2); white-space: nowrap;">${CATEGORY_EMOJIS[product.category] || '📦'} ${product.category}</span>
@@ -184,7 +184,7 @@ function renderProductCard(product) {
         }
                     <button style="background: transparent; color: var(--primary); border: 2px solid var(--primary); border-radius: 10px; text-align: center; font-weight: 800; width: 100%; padding: 0.65rem; font-size: 0.85rem; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='var(--primary)'; this.style.color='white'" onmouseout="this.style.background='transparent'; this.style.color='var(--primary)'" onclick="handleMessageClick('${product.id}', '${product.seller_id}')" id="msgBtn-${product.id}">Message</button>
                 </div>
-                <button style="width: 100%; padding: 0.5rem; border-radius: 8px; text-align: center; font-weight: 600; font-size: 0.8rem; border: none; background: transparent; color: var(--text-muted); margin-top: 0.5rem; cursor: pointer; transition: color 0.2s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'" onclick="openReviewModal('${product.id}')" id="revBtn-${product.id}">⭐️ Leave a Review</button>
+
             </div>
         </div>`;
 }
@@ -215,18 +215,18 @@ function renderSellerCard(product) {
                     <span style="background: rgba(255,255,255,0.95); color: #0f172a; font-weight: 800; font-size: 0.75rem; padding: 0.4rem 0.8rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); letter-spacing: 0.03em;">${product.condition.toUpperCase()}</span>
                 </div>
                 <div style="position: absolute; top: 12px; right: 12px;">
-                    ${product.is_disputed 
-                        ? `<span class="listing-status-badge badge-rejected" style="margin: 0; box-shadow: 0 4px 6px rgba(0,0,0,0.1); color:white; background:#ef4444;">🚨 DISPUTED</span>`
-                        : (product.status === 'sold' || product.inventory_quantity <= 0)
-                            ? `<span class="listing-status-badge badge-sold" style="margin: 0; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">🤝 SOLD</span>`
-                            : `<span class="listing-status-badge badge-approved" style="margin: 0; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">✅ AVAILABLE</span>`
-                    }
+                    ${product.is_disputed
+            ? `<span class="listing-status-badge badge-rejected" style="margin: 0; box-shadow: 0 4px 6px rgba(0,0,0,0.1); color:white; background:#ef4444;">🚨 DISPUTED</span>`
+            : (product.status === 'sold' || product.inventory_quantity <= 0)
+                ? `<span class="listing-status-badge badge-sold" style="margin: 0; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">🤝 SOLD</span>`
+                : `<span class="listing-status-badge badge-approved" style="margin: 0; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">✅ AVAILABLE</span>`
+        }
                 </div>
             </div>
             <div class="card-content">
                 <h4 class="card-title" style="font-size:1.05rem; margin: 0.5rem 0; line-height: 1.3;">${product.title}</h4>
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <p class="card-price" style="font-size:1.05rem; margin-bottom: 0;">৳${priceFormatted}</p>
+                    <p class="card-price" style="font-size:1.05rem; margin-bottom: 0;">Tk.${priceFormatted}</p>
                     <span style="font-size: 0.75rem; background: rgba(16,185,129,0.1); color: #10b981; font-weight: bold; padding: 0.25rem 0.6rem; border-radius: 4px; border: 1px solid rgba(16,185,129,0.2); white-space: nowrap;">Qty: ${product.inventory_quantity || 1}</span>
                 </div>
                 <div style="margin-top: 0.4rem;">
@@ -273,14 +273,14 @@ function renderAdminCard(product) {
             <div class="admin-card-content">
                 <div class="admin-card-header">
                     <div class="admin-card-info">
-                        ${product.is_disputed 
-                            ? `<span class="listing-status-badge badge-rejected" style="color:white; background:#ef4444;">🚨 DISPUTED</span>`
-                            : (product.status === 'sold' || product.inventory_quantity <= 0)
-                                ? `<span class="listing-status-badge badge-sold">🤝 SOLD</span>`
-                                : `<span class="listing-status-badge ${statusCfg.cls}">${statusCfg.label.toUpperCase()}</span>`
-                        }
+                        ${product.is_disputed
+            ? `<span class="listing-status-badge badge-rejected" style="color:white; background:#ef4444;">🚨 DISPUTED</span>`
+            : (product.status === 'sold' || product.inventory_quantity <= 0)
+                ? `<span class="listing-status-badge badge-sold">🤝 SOLD</span>`
+                : `<span class="listing-status-badge ${statusCfg.cls}">${statusCfg.label.toUpperCase()}</span>`
+        }
                         <h4 class="admin-card-title">${product.title}</h4>
-                        <p class="admin-card-price">৳${priceFormatted}</p>
+                        <p class="admin-card-price">Tk.${priceFormatted}</p>
                     </div>
                     <div class="admin-card-badges">
                         <span class="badge badge-condition" style="background: rgba(16,185,129,0.1); color: #10b981; border: 1px solid rgba(16,185,129,0.2);">Qty: ${product.inventory_quantity || 1}</span>
@@ -671,6 +671,10 @@ async function loadAdminStats() {
         // Fetch dispute count
         const disputes = await window.api.request('/admin/disputes', 'GET');
         if (disputesStatEl) disputesStatEl.innerText = disputes.length || 0;
+
+        // Populate Platform Revenue
+        const revenueEl = document.getElementById('adminStatRevenue');
+        if (revenueEl) revenueEl.innerText = `Tk.${(stats.platform_revenue || 0).toLocaleString('en-IN')}`;
     } catch (error) {
         console.error("Failed to load admin stats:", error);
     }
@@ -1092,13 +1096,17 @@ async function loginUser(email, password, role) {
     }
 }
 
-async function signupUser(name, phone, email, password, role) {
+async function signupUser(name, phone, email, password, role, address_region, address_city, address_area, address_full) {
     const signupData = {
         full_name: name,
         phone_number: phone,
         email: email,
         password: password,
-        role: role
+        role: role,
+        address_region: address_region,
+        address_city: address_city,
+        address_area: address_area,
+        address_full: address_full
     };
 
     try {
@@ -1239,12 +1247,16 @@ document.addEventListener('DOMContentLoaded', () => {
         // Hide wallet/messages for admin
         const walletMenu = document.querySelector('.profile-menu-item[href="wallet.html"]');
         const chatMenu = document.querySelector('.profile-menu-item[href="chat.html"]');
+        const platformWalletMenu = document.getElementById('menuPlatformWallet');
+
         if (role === 'admin') {
             if (walletMenu) walletMenu.style.display = 'none';
             if (chatMenu) chatMenu.style.display = 'none';
+            if (platformWalletMenu) platformWalletMenu.style.display = 'block';
         } else {
             if (walletMenu) walletMenu.style.display = 'flex';
             if (chatMenu) chatMenu.style.display = 'flex';
+            if (platformWalletMenu) platformWalletMenu.style.display = 'none';
         }
 
         // Show the correct view
@@ -1254,11 +1266,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Seller status tabs
             const tabs = document.querySelectorAll('#sellerStatusTabs .status-tab');
+            const listingsGrid = document.getElementById('sellerListingsGrid');
+            const reviewsContainer = document.getElementById('sellerReviewsContainer');
+            const emptyState = document.getElementById('sellerEmpty');
+
             tabs.forEach(tab => {
-                tab.addEventListener('click', () => {
+                tab.addEventListener('click', async () => {
                     tabs.forEach(t => t.classList.remove('active'));
                     tab.classList.add('active');
-                    renderSellerListings(tab.dataset.status);
+
+                    const status = tab.dataset.status;
+                    if (status === 'reviews') {
+                        if (listingsGrid) listingsGrid.style.display = 'none';
+                        if (emptyState) emptyState.style.display = 'none';
+                        if (reviewsContainer) {
+                            reviewsContainer.style.display = 'block';
+                            renderSellerReviews();
+                        }
+                    } else {
+                        if (reviewsContainer) reviewsContainer.style.display = 'none';
+                        if (listingsGrid) listingsGrid.style.display = 'grid';
+                        renderSellerListings(status);
+                    }
                 });
             });
 
@@ -1296,6 +1325,29 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
             });
+
+            // Handle Dashboard vs Platform Wallet switching
+            const menuListings = document.getElementById('menuListings');
+            const platformWalletView = document.getElementById('platformWalletView');
+
+            if (menuListings && platformWalletMenu) {
+                menuListings.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    menuListings.classList.add('active');
+                    platformWalletMenu.classList.remove('active');
+                    adminView.style.display = 'block';
+                    platformWalletView.style.display = 'none';
+                });
+
+                platformWalletMenu.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    platformWalletMenu.classList.add('active');
+                    menuListings.classList.remove('active');
+                    adminView.style.display = 'none';
+                    platformWalletView.style.display = 'block';
+                    renderPlatformWallet();
+                });
+            }
         }
     }
 
@@ -1459,7 +1511,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const email = document.getElementById('email').value;
             const pass = document.getElementById('password').value;
             const role = document.getElementById('selectedRole').value;
-            signupUser(name, phone, email, pass, role);
+
+            const address_region = document.getElementById('address_region') ? document.getElementById('address_region').value : null;
+            const address_city = document.getElementById('address_city') ? document.getElementById('address_city').value : null;
+            const address_area = document.getElementById('address_area') ? document.getElementById('address_area').value : null;
+            const address_full = document.getElementById('address_full') ? document.getElementById('address_full').value : null;
+
+            signupUser(name, phone, email, pass, role, address_region, address_city, address_area, address_full);
         });
     }
 
@@ -1520,8 +1578,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (msg.text && msg.text.startsWith("📢 OFFER MADE:")) {
                 div.className = "message-system offer-card-container";
                 div.style.cssText = "align-self: center; width: 85%; margin: 1.5rem 0;";
-                
-                const priceMatch = msg.text.match(/৳([\d,]+)/);
+
+                const priceMatch = msg.text.match(/Tk.([\d,]+)/);
                 const priceLabel = priceMatch ? priceMatch[1] : 'N/A';
 
                 div.innerHTML = `
@@ -1530,8 +1588,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span style="display:flex; align-items:center; gap:0.5rem;"><span style="font-size: 1.4rem;">🤝</span> Negotiation Offer</span>
                             <span style="font-size:0.7rem; background: #e0e7ff; padding: 2px 8px; border-radius:10px; margin-left:auto;">ACTIVE</span>
                         </div>
-                        <div style="font-size: 0.95rem; color: #334155; margin-bottom: 1.25rem; line-height: 1.5;">
-                            A new offer of <strong style="color:var(--primary); font-size:1.1rem;">৳${priceLabel}</strong> was placed for this product.
+                        <div style="background: var(--bg-body); border-radius: 12px; padding: 1rem; margin-bottom: 1rem; border-left: 4px solid var(--primary);">
+                            <p style="margin: 0; font-size: 0.95rem; color: #334155; line-height: 1.5;">
+                                A new offer of <strong style="color:var(--primary); font-size:1.1rem;">Tk.${priceLabel}</strong> was placed for this product.
+                            </p>
                         </div>
                         ${user.role === 'seller' ? `
                         <div class="offer-actions" style="display: flex; gap: 0.75rem;">
@@ -1543,7 +1603,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (msg.text.startsWith("✅ OFFER ACCEPTED:")) {
                 div.className = "message-system";
                 div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
-                const priceMatch = msg.text.match(/৳([\d,]+)/);
+                const priceMatch = msg.text.match(/Tk.([\d,]+)/);
                 const priceLabel = priceMatch ? priceMatch[1] : 'N/A';
 
                 div.innerHTML = `
@@ -1551,8 +1611,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div style="font-weight: 800; color: #10b981; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
                             <span style="font-size: 1.4rem;">🎉</span> Price Agreed!
                         </div>
-                        <div style="font-size: 0.95rem; color: #064e3b; margin-bottom: 1.25rem;">
-                            Seller accepted <strong>৳${priceLabel}</strong>. You can now finish the purchase.
+                        <div style="background: #f0fdf4; border-radius: 12px; padding: 1rem; margin-bottom: 1.25rem; border-left: 4px solid #10b981;">
+                            <p style="margin: 0; font-size: 0.95rem; color: #064e3b; line-height: 1.5;">
+                                Seller accepted <strong>Tk.${priceLabel}</strong>. You can now finish the purchase.
+                            </p>
                         </div>
                         ${user.role === 'buyer' ? `
                         <button class="btn-primary" style="width:100%; background: #10b981; border: none; padding: 0.8rem; color: white; font-weight: 800; border-radius: 10px; cursor: pointer; transition: transform 0.2s;" onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'" onclick="handleProceedToCheckout('${activeSessionId}')">Complete Purchase Now</button>
@@ -1568,44 +1630,297 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div style="font-weight: 800; color: #0ea5e9; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
                             <span style="font-size: 1.4rem;">🔐</span> Held in Escrow
                         </div>
-                        <div style="font-size: 0.95rem; color: #0c4a6e; margin-bottom: 1.25rem;">
-                            The payment is now safely held in Escrow. Once you receive and check the product, please release the funds to the seller.
+                        <div style="background: #e0f2fe; border-radius: 12px; padding: 1rem; margin-bottom: 1.25rem; border-left: 4px solid #0ea5e9;">
+                            <p style="margin: 0; font-size: 0.95rem; color: #0c4a6e; line-height: 1.5;">
+                                The payment is now safely held in Escrow. Once you receive and check the product, please release the funds to the seller.
+                            </p>
+                        </div>
+                        ${user.role === 'buyer' ? `
+                        <div style="font-size: 0.85rem; color: #0ea5e9; font-weight: 700; background: #e0f2fe; padding: 0.5rem; text-align:center; border-radius:8px;">Payment Secured in Escrow</div>
+                        ` : `<div style="font-size: 0.85rem; color: #0ea5e9; font-weight: 700; background: #e0f2fe; padding: 0.5rem; text-align:center; border-radius:8px;">Buyer has Paid</div>`}
+                    </div>
+                `;
+            } else if (msg.text.startsWith("📢 ORDER ALERT:")) {
+                div.className = "message-system";
+                div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
+
+                div.innerHTML = `
+                    <div style="background: #fffbeb; border: 1.5px solid #f59e0b; padding: 1.25rem; border-radius: 16px; border-left: 6px solid #f59e0b; box-shadow: 0 10px 15px -3px rgba(245,158,11,0.1);">
+                        <div style="font-weight: 800; color: #d97706; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.4rem;">📢</span> Action Required: Ship Item
+                        </div>
+                        <div style="background: #fffbeb; border-radius: 12px; padding: 1rem; margin-bottom: 1.25rem; border-left: 4px solid #f59e0b;">
+                            <p style="margin: 0; font-size: 0.95rem; color: #92400e; line-height: 1.5;">
+                                The buyer has made the payment. Please prepare the item and update the shipping status.
+                            </p>
+                        </div>
+                        ${user.role === 'seller' ? `
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                            <button style="flex:1; background: #f59e0b; color: white; padding: 0.6rem; border-radius: 8px; font-weight: 700; border: none; cursor: pointer;" onclick="handleMarkProcessing('${activeSessionId}')">Mark Processing</button>
+                        </div>
+                        ` : `<div style="font-size: 0.85rem; color: #d97706; font-weight: 700; background: #fef3c7; padding: 0.5rem; text-align:center; border-radius:8px;">Waiting for Seller to Ship</div>`}
+                    </div>
+                `;
+            } else if (msg.text.startsWith("⚙️ ORDER PROCESSING:")) {
+                div.className = "message-system";
+                div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
+                div.innerHTML = `
+                    <div style="background: #fdf4ff; border: 1.5px solid #d946ef; padding: 1.25rem; border-radius: 16px; border-left: 6px solid #d946ef;">
+                        <div style="font-weight: 800; color: #c026d3; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.4rem;">⚙️</span> Order Processing
+                        </div>
+                        <div style="background: #fdf4ff; border-radius: 12px; padding: 1rem; margin-bottom: 1rem; border-left: 4px solid #d946ef;">
+                            <p style="margin: 0; font-size: 0.95rem; color: #86198f; line-height: 1.5;">
+                                The seller is currently preparing the item for shipment.
+                            </p>
+                        </div>
+                        ${user.role === 'seller' ? `
+                        <div style="margin-top: 1rem;">
+                            <button style="width:100%; background: #d946ef; color: white; padding: 0.6rem; border-radius: 8px; font-weight: 700; border: none; cursor: pointer;" onclick="handleMarkShipped('${activeSessionId}')">Mark as Shipped</button>
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+            } else if (msg.text.startsWith("🚚 ORDER SHIPPED:")) {
+                div.className = "message-system";
+                div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
+
+                // Parse tracking data from the message
+                const data = {};
+                msg.text.split('\n').forEach(line => {
+                    if (line.includes(': ')) {
+                        const [k, v] = line.split(': ');
+                        data[k.trim()] = v.trim();
+                    }
+                });
+
+                div.innerHTML = `
+                    <div style="background: white; border: 1px solid #e2e8f0; padding: 1.5rem; border-radius: 20px; border-top: 6px solid #6366f1; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05);">
+                        <div style="font-weight: 800; color: #1e293b; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between;">
+                            <span style="display: flex; align-items: center; gap: 0.5rem;"><span style="font-size: 1.4rem;">🚚</span> Order Dispatched</span>
+                            <span style="font-size: 0.65rem; background: #eef2ff; color: #6366f1; padding: 4px 10px; border-radius: 20px; text-transform: uppercase;">In Transit</span>
+                        </div>
+                        <div style="font-size: 0.85rem; color: #475569; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; padding: 1rem; background: #f8fafc; border-radius: 12px; margin-bottom: 1.25rem;">
+                            <div>
+                                <p style="margin: 0; color: #94a3b8; font-size: 0.7rem; font-weight: 700; text-transform: uppercase;">Courier</p>
+                                <p style="margin: 0.2rem 0 0 0; font-weight: 700; color: #1e293b;">${data['Courier'] || 'N/A'}</p>
+                            </div>
+                            <div>
+                                <p style="margin: 0; color: #94a3b8; font-size: 0.7rem; font-weight: 700; text-transform: uppercase;">Tracking ID</p>
+                                <p style="margin: 0.2rem 0 0 0; font-weight: 700; color: #1e293b; font-family: monospace;">${data['Tracking'] || 'N/A'}</p>
+                            </div>
+                            <div style="grid-column: span 2;">
+                                <p style="margin: 0; color: #94a3b8; font-size: 0.7rem; font-weight: 700; text-transform: uppercase;">Dispatch Date</p>
+                                <p style="margin: 0.2rem 0 0 0; font-weight: 700; color: #1e293b;">${data['Date'] || 'N/A'}</p>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                            <button style="background: #1e293b; color: white; border: none; padding: 0.75rem; border-radius: 10px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem; transition: all 0.2s;" onmouseover="this.style.background='#334155'" onmouseout="this.style.background='#1e293b'" onclick="handleDownloadReceipt('${activeSessionId}', ${JSON.stringify(data).replace(/"/g, '&quot;')})">
+                                📥 Download Official Receipt
+                            </button>
+                            
+                            ${user.role === 'seller' ? `
+                            <button style="background: #6366f1; color: white; padding: 0.75rem; border-radius: 10px; font-weight: 700; border: none; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(99,102,241,0.2);" onclick="handleMarkDelivered('${activeSessionId}')">
+                                Mark as Delivered
+                            </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            } else if (msg.text.startsWith("📦 ORDER DELIVERED:")) {
+                div.className = "message-system";
+                div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
+                div.innerHTML = `
+                    <div style="background: #f0fdf4; border: 1.5px solid #22c55e; padding: 1.25rem; border-radius: 16px; border-left: 6px solid #22c55e;">
+                        <div style="font-weight: 800; color: #16a34a; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 1.4rem;">📦</span> Order Delivered
+                        </div>
+                        <div style="background: #f0fdf4; border-radius: 12px; padding: 1rem; margin-bottom: 1.25rem; border-left: 4px solid #22c55e;">
+                            <p style="margin: 0; font-size: 0.95rem; color: #14532d; line-height: 1.5;">
+                                The seller has marked the order as delivered. Please check the product and release payment.
+                            </p>
                         </div>
                         ${user.role === 'buyer' ? `
                         <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                            <button class="btn-primary" style="width:100%; background: #0ea5e9; border: none; padding: 0.8rem; color: white; font-weight: 800; border-radius: 10px; cursor: pointer;" onclick="handleReleaseFunds('${activeSessionId}')">Confirm Receipt & Release Funds</button>
+                            <button class="btn-primary" style="width:100%; background: #22c55e; border: none; padding: 0.8rem; color: white; font-weight: 800; border-radius: 10px; cursor: pointer;" onclick="handleReleaseFunds('${activeSessionId}')">Confirm Receipt & Release Funds</button>
                             <button class="btn-secondary" style="width:100%; background: transparent; border: 1.5px solid #ef4444; padding: 0.6rem; color: #ef4444; font-weight: 700; border-radius: 10px; cursor: pointer;" onclick="handleReportIssue('${activeSessionId}')">⚠ Report a Problem</button>
                         </div>
-                        ` : `<div style="font-size: 0.85rem; color: #0ea5e9; font-weight: 700; background: #e0f2fe; padding: 0.5rem; text-align:center; border-radius:8px;">Waiting for Buyer to Release Funds</div>`}
+                        ` : `<div style="font-size: 0.85rem; color: #16a34a; font-weight: 700; background: #d1fae5; padding: 0.5rem; text-align:center; border-radius:8px;">Waiting for Buyer Confirmation</div>`}
                     </div>
                 `;
             } else if (msg.text.startsWith("⚠️ DISPUTE RAISED:")) {
                 div.className = "message-system";
                 div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
+                const rawReason = msg.text.replace("⚠️ DISPUTE RAISED:", "").trim();
+                const displayReason = rawReason || "No specific reason provided.";
+
                 div.innerHTML = `
-                    <div style="background: #fff1f2; border: 1.5px solid #f43f5e; padding: 1.25rem; border-radius: 16px; border-left: 6px solid #f43f5e;">
-                        <div style="font-weight: 800; color: #e11d48; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
-                            <span style="font-size: 1.4rem;">🚨</span> Dispute Active
+                    <div style="background: white; border: 1px solid #fee2e2; padding: 1.5rem; border-radius: 20px; border-top: 6px solid #ef4444; box-shadow: 0 10px 15px -3px rgba(239, 68, 68, 0.05);">
+                        <div style="font-weight: 800; color: #1e293b; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between;">
+                            <span style="display: flex; align-items: center; gap: 0.5rem;"><span style="font-size: 1.4rem;">🚨</span> Dispute Raised</span>
+                            <span style="font-size: 0.65rem; background: #fee2e2; color: #ef4444; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; font-weight: 800;">Frozen</span>
                         </div>
-                        <div style="font-size: 0.9rem; color: #881337;">
-                            A dispute has been raised. Funds are frozen. Our team will review this transaction and contact both parties shortly.
+                        
+                        <div style="background: #fff1f2; border-radius: 12px; padding: 1rem; margin-bottom: 1rem; border-left: 4px solid #f43f5e;">
+                            <p style="margin: 0 0 0.4rem 0; color: #94a3b8; font-size: 0.7rem; font-weight: 700; text-transform: uppercase;">Stated Reason</p>
+                            <p style="margin: 0; font-size: 0.95rem; color: #881337; font-weight: 600; line-height: 1.4;">"${displayReason}"</p>
+                        </div>
+
+                        <div style="font-size: 0.8rem; color: #64748b; text-align: center; font-style: italic;">
+                            Funds are locked in Escrow. An administrator will review this case shortly.
                         </div>
                     </div>
                 `;
+            } else if (msg.text.startsWith("[REVIEW_PROMPT]:")) {
+                div.className = "message-system";
+                div.style.cssText = "align-self: center; width: 90%; margin: 1.5rem 0;";
+                const parts = msg.text.split(':');
+                const productId = parts[1];
+                const productTitle = parts.slice(2).join(':');
+
+                if (user.role === 'buyer') {
+                    div.innerHTML = `
+                        <div class="review-prompt-card" style="background: white; border: 1.5px solid #f59e0b; padding: 1.5rem; border-radius: 20px; border-top: 6px solid #f59e0b; box-shadow: 0 10px 15px -3px rgba(245,158,11,0.1);">
+                            <div style="font-weight: 800; color: #1e293b; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between;">
+                                <span style="display: flex; align-items: center; gap: 0.5rem;"><span style="font-size: 1.4rem;">⭐️</span> Leave a Review</span>
+                                <span style="font-size: 0.65rem; background: #fef3c7; color: #d97706; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; font-weight: 800;">Action Required</span>
+                            </div>
+                            <div style="background: #fffbeb; border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem; border-left: 4px solid #f59e0b;">
+                                <p style="margin: 0; font-size: 0.95rem; color: #92400e; line-height: 1.5; font-weight: 600;">
+                                    The transaction for <strong>${productTitle}</strong> is complete. Please take a moment to rate your experience with the seller.
+                                </p>
+                            </div>
+                            <div id="chatReviewForm-${productId}" style="display: flex; flex-direction: column; gap: 1rem;">
+                                <div>
+                                    <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #92400e; margin-bottom: 0.4rem; text-transform: uppercase;">Rating</label>
+                                    <div class="star-rating" style="display: flex; gap: 0.5rem; font-size: 1.8rem; cursor: pointer; color: #f59e0b;">
+                                        <span onclick="setChatStar(1, '${productId}')" id="star-${productId}-1">☆</span>
+                                        <span onclick="setChatStar(2, '${productId}')" id="star-${productId}-2">☆</span>
+                                        <span onclick="setChatStar(3, '${productId}')" id="star-${productId}-3">☆</span>
+                                        <span onclick="setChatStar(4, '${productId}')" id="star-${productId}-4">☆</span>
+                                        <span onclick="setChatStar(5, '${productId}')" id="star-${productId}-5">☆</span>
+                                    </div>
+                                    <input type="hidden" id="chatRatingInput-${productId}" value="0">
+                                </div>
+                                <div>
+                                    <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #92400e; margin-bottom: 0.4rem; text-transform: uppercase;">Comment</label>
+                                    <textarea id="chatComment-${productId}" style="width: 100%; border-radius: 10px; border: 1.5px solid #fde68a; padding: 0.75rem; font-size: 0.9rem; resize: vertical; background: #fffbeb;" rows="2" placeholder="How was your experience?"></textarea>
+                                </div>
+                                <button class="btn-primary" style="background: #f59e0b; border: none; padding: 0.8rem; border-radius: 10px; color: white; font-weight: 800; cursor: pointer; box-shadow: 0 4px 6px rgba(245,158,11,0.2);" onclick="handleChatReviewSubmit('${productId}', '${activeSessionId}', this)">Submit Review</button>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    div.innerHTML = `
+                        <div style="background: #f8fafc; border: 1px dashed #cbd5e1; padding: 1rem; border-radius: 12px; text-align: center; color: #64748b; font-size: 0.85rem;">
+                            Waiting for buyer feedback for <strong>${productTitle}</strong>
+                        </div>
+                    `;
+                }
             } else if (msg.text.startsWith("✅ FUNDS RELEASED:")) {
                 div.className = "message-system";
-                div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
+                div.style.cssText = "align-self: center; width: 85%; margin: 1.5rem 0;";
+                const details = msg.text.replace("✅ FUNDS RELEASED:", "").trim();
                 div.innerHTML = `
-                    <div style="background: #f0fdf4; border: 1.5px solid #22c55e; padding: 1rem; border-radius: 12px; color: #15803d; text-align: center; font-size: 0.95rem;">
-                        <span style="font-size: 1.2rem;">🎊</span> <strong>Transaction Completed!</strong> The funds have been released to the seller.
+                    <div style="background: white; border: 1px solid #d1fae5; padding: 1.5rem; border-radius: 20px; border-top: 6px solid #10b981; box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.05);">
+                        <div style="font-weight: 800; color: #1e293b; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between;">
+                            <span style="display: flex; align-items: center; gap: 0.5rem;"><span style="font-size: 1.4rem;">💰</span> Funds Released</span>
+                            <span style="font-size: 0.65rem; background: #d1fae5; color: #059669; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; font-weight: 800;">Completed</span>
+                        </div>
+                        <div style="background: #f0fdf4; border-radius: 12px; padding: 1.25rem; text-align: center;">
+                            <p style="margin: 0; font-size: 1rem; color: #166534; font-weight: 700; line-height: 1.4;">${details}</p>
+                        </div>
+                        
+                        <div style="margin-top: 1rem; font-size: 0.8rem; color: #64748b; text-align: center; font-style: italic;">
+                            Transaction successful. Thank you for using ReSale!
+                        </div>
+                    </div>
+                `;
+            } else if (msg.text.startsWith("⚖️ ADMIN RESOLUTION:")) {
+                div.className = "message-system";
+                div.style.cssText = "align-self: center; width: 85%; margin: 1.5rem 0;";
+                const resDetails = msg.text.replace("⚖️ ADMIN RESOLUTION:", "").trim();
+
+                div.innerHTML = `
+                    <div style="background: white; border: 1px solid #e2e8f0; padding: 1.5rem; border-radius: 20px; border-top: 6px solid #0f172a; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05);">
+                        <div style="font-weight: 800; color: #1e293b; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between;">
+                            <span style="display: flex; align-items: center; gap: 0.5rem;"><span style="font-size: 1.4rem;">⚖️</span> Admin Verdict</span>
+                            <span style="font-size: 0.65rem; background: #f1f5f9; color: #475569; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; font-weight: 800;">Resolved</span>
+                        </div>
+                        
+                        <div style="background: #f8fafc; border-radius: 12px; padding: 1.25rem; text-align: center; border: 1px dashed #cbd5e1; margin-bottom: 1rem;">
+                            <p style="margin: 0; font-size: 1rem; color: #1e293b; font-weight: 700; line-height: 1.5;">${resDetails}</p>
+                        </div>
+
+                        <div style="font-size: 0.8rem; color: #64748b; text-align: center;">
+                            This decision is final and has been applied to both wallets.
+                        </div>
+                    </div>
+                `;
+            } else if (msg.text.startsWith("⭐ Buyer left a") || msg.text.startsWith("🌟 REVIEW SUBMITTED:")) {
+                div.className = "message-system";
+                div.style.cssText = "align-self: center; width: 85%; margin: 1.5rem 0;";
+
+                let rating = 5;
+                let comment = "No comment provided.";
+
+                if (msg.text.startsWith("⭐ Buyer left a")) {
+                    // Parse: ⭐ Buyer left a 5-star review: "The experience was good..."
+                    const match = msg.text.match(/⭐ Buyer left a (\d)-star review: "(.*)"/);
+                    if (match) {
+                        rating = parseInt(match[1]);
+                        comment = match[2];
+                    }
+                } else {
+                    // Parse old format: 🌟 REVIEW SUBMITTED:\nRating: ⭐⭐⭐⭐⭐ (5/5)\nComment: ...
+                    const lines = msg.text.split('\n');
+                    const ratingLine = lines.find(l => l.includes('Rating:')) || "";
+                    const scoreMatch = ratingLine.match(/\((\d)\/5\)/);
+                    if (scoreMatch) rating = parseInt(scoreMatch[1]);
+                    
+                    const commentLine = lines.find(l => l.includes('Comment:'));
+                    if (commentLine) comment = commentLine.replace('Comment: ', '').trim();
+                    else {
+                        // Handle multi-line comments
+                        const commentIdx = lines.findIndex(l => l.includes('Comment:'));
+                        if (commentIdx !== -1) comment = lines.slice(commentIdx).join(' ').replace('Comment: ', '').trim();
+                    }
+                }
+
+                div.innerHTML = `
+                    <div style="background: white; border: 1px solid #fde68a; padding: 1.5rem; border-radius: 20px; border-top: 6px solid #fbbf24; box-shadow: 0 10px 15px -3px rgba(251, 191, 36, 0.1);">
+                        <div style="font-weight: 800; color: #1e293b; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between;">
+                            <span style="display: flex; align-items: center; gap: 0.5rem;"><span style="font-size: 1.4rem;">🌟</span> Feedback Received</span>
+                            <span style="font-size: 0.65rem; background: #fef3c7; color: #b45309; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; font-weight: 800;">Verified Purchase</span>
+                        </div>
+                        
+                        <div style="background: #fffbeb; border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; border-left: 4px solid #fbbf24; text-align: center;">
+                            <div style="font-size: 1.4rem; margin-bottom: 0.75rem; color: #f59e0b; letter-spacing: 2px;">
+                                ${'★'.repeat(rating)}${'☆'.repeat(5 - rating)}
+                                <div style="font-size: 0.75rem; color: #b45309; font-weight: 700; margin-top: 0.25rem; text-transform: uppercase;">Rating: ${rating}/5</div>
+                            </div>
+                            <div style="font-style: italic; color: #1e293b; font-size: 1rem; line-height: 1.6; padding: 0.5rem 1rem; background: rgba(255,255,255,0.5); border-radius: 8px;">
+                                "${comment}"
+                            </div>
+                        </div>
+
+                        <div style="border-top: 1px solid #fef3c7; pt-0.75rem; margin-top: 1rem; font-size: 0.75rem; color: #94a3b8; text-align: center;">
+                            This review is now visible on the seller's public profile.
+                        </div>
                     </div>
                 `;
             } else if (msg.text.startsWith("❌ OFFER REJECTED:")) {
                 div.className = "message-system";
                 div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
                 div.innerHTML = `
-                    <div style="background: #fef2f2; border: 1.5px solid #ef4444; padding: 1rem; border-radius: 12px; color: #991b1b; text-align: center; font-size: 0.9rem;">
-                        <strong>Offer Declined:</strong> The seller did not accept this price.
+                    <div style="background: white; border: 1px solid #fee2e2; padding: 1.25rem; border-radius: 16px; border-top: 4px solid #ef4444; box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.05); text-align: center;">
+                        <div style="font-weight: 800; color: #ef4444; margin-bottom: 0.5rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                            <span style="font-size: 1.2rem;">❌</span> Offer Declined
+                        </div>
+                        <div style="background: #fef2f2; border-radius: 8px; padding: 0.75rem; color: #991b1b; font-size: 0.9rem; font-weight: 600;">
+                            The seller did not accept this price.
+                        </div>
                     </div>
                 `;
             } else {
@@ -1618,8 +1933,9 @@ document.addEventListener('DOMContentLoaded', () => {
         function initActiveChat(chat) {
             if (!chat) return;
             activeSessionId = chat.id.toString();
+            window.currentChatProductId = chat.product_id;
             console.log(`[Chat] Initializing session: ${activeSessionId}`);
-            
+
             const otherParty = user.role === 'buyer' ? chat.seller : chat.buyer;
             if (chatHeader) {
                 chatHeader.innerHTML = `
@@ -1641,13 +1957,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const productPrice = chat.product_price || '0';
                 const imgSrc = chat.product_image_url ? `http://localhost:8000${chat.product_image_url}` : '';
                 const imgHtml = imgSrc ? `<img src="${imgSrc}" style="width: 44px; height: 44px; object-fit: cover; border-radius: 8px;">` : `<div style="width: 44px; height: 44px; background: #e2e8f0; border-radius: 8px; display:flex; align-items:center; justify-content:center;">📦</div>`;
-                
+
                 bannerContainer.innerHTML = `
                     <div style="display:flex; align-items:center; gap: 1rem; flex: 1;">
                         ${imgHtml}
                         <div>
                             <div style="font-weight: 600; font-size: 0.9rem; line-height: 1.2;">${productTitle}</div>
-                            <div style="color: var(--primary); font-weight: 700; font-size: 1rem;">৳${Number(productPrice).toLocaleString('en-IN')}</div>
+                            <div style="color: var(--primary); font-weight: 700; font-size: 1rem;">Tk.${Number(productPrice).toLocaleString('en-IN')}</div>
                         </div>
                     </div>
                     <div style="display: flex; gap: 0.5rem;">
@@ -1677,18 +1993,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
             window.currentChatSocket.onopen = () => console.log(`[Chat] Socket connected to ${chat.id}`);
             window.currentChatSocket.onerror = (e) => console.error("[Chat] WebSocket Error:", e);
-            
+
             window.currentChatSocket.onmessage = (event) => {
                 try {
                     const msg = JSON.parse(event.data);
                     console.log("[Chat] Received message:", msg);
-                    
+
                     if (String(msg.session_id) === String(activeSessionId)) {
                         appendMessage(msg);
                         requestAnimationFrame(() => {
-                           if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
+                            if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
                         });
-                        window.api.markChatRead(msg.session_id, user.id).catch(() => {});
+                        window.api.markChatRead(msg.session_id, user.id).catch(() => { });
                         refreshChatSidebar();
                     } else {
                         updateGlobalUnreadCount();
@@ -2081,23 +2397,23 @@ window.handleChatDelete = handleChatDelete;
 
 // ─── Negotiation Helper Functions ───────────────────────────
 
-window.openOfferModal = function(sessionId, productId) {
+window.openOfferModal = function (sessionId, productId) {
     const modal = document.getElementById('offerModal');
     if (!modal) return alert("Offer modal not found.");
     modal.style.display = 'flex';
     document.getElementById('modalOfferInput').focus();
-    
+
     document.getElementById('modalSubmitOffer').onclick = async () => {
         const input = document.getElementById('modalOfferInput');
         const price = parseInt(input.value);
         if (!price || price <= 0) return alert("Please enter a valid price.");
-        
+
         try {
             await window.api.createOffer(sessionId, productId, price);
             modal.style.display = 'none';
             input.value = '';
             alert("Success! Your offer has been sent to the seller.");
-            
+
             // Re-focus the chat input immediately
             const chatIn = document.getElementById('chatInput');
             if (chatIn) chatIn.focus();
@@ -2107,24 +2423,24 @@ window.openOfferModal = function(sessionId, productId) {
     };
 };
 
-window.handleCardAccept = async function(btn, sessionId) {
+window.handleCardAccept = async function (btn, sessionId) {
     if (btn) btn.closest('.offer-actions').innerHTML = '<div style="color:#10b981; font-weight:700; text-align:center; flex:1;">Accepting...</div>';
     await window.handleAcceptOffer(sessionId);
 };
 
-window.handleCardReject = async function(btn, sessionId) {
+window.handleCardReject = async function (btn, sessionId) {
     if (btn) btn.closest('.offer-actions').innerHTML = '<div style="color:#ef4444; font-weight:700; text-align:center; flex:1;">Declining...</div>';
     await window.handleRejectOffer(sessionId);
 };
 
-window.handleAcceptOffer = async function(sessionId) {
+window.handleAcceptOffer = async function (sessionId) {
     try {
         const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
         const pendingOffer = offersResponses.reverse().find(o => o.status === 'pending');
         if (!pendingOffer) return alert("No pending offer found.");
 
         await window.api.acceptOffer(pendingOffer.id);
-        
+
         // Auto-send follow-up message
         if (window.currentChatSocket && window.currentChatSocket.readyState === WebSocket.OPEN) {
             window.currentChatSocket.send("Your offer price is accepted. Payment for buy this product");
@@ -2135,7 +2451,7 @@ window.handleAcceptOffer = async function(sessionId) {
     }
 };
 
-window.handleRejectOffer = async function(sessionId) {
+window.handleRejectOffer = async function (sessionId) {
     if (!confirm("Are you sure you want to decline this offer?")) return;
     try {
         const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
@@ -2154,7 +2470,7 @@ window.handleRejectOffer = async function(sessionId) {
     }
 };
 
-window.handleProceedToCheckout = async function(sessionId) {
+window.handleProceedToCheckout = async function (sessionId) {
     try {
         const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
         const acceptedOffer = offersResponses.reverse().find(o => o.status === 'accepted');
@@ -2165,54 +2481,423 @@ window.handleProceedToCheckout = async function(sessionId) {
     }
 };
 
-window.handleReleaseFunds = async function(sessionId) {
-    if (!confirm("Confirm Receipt: Are you sure the product is exactly as described? This will release the payment to the seller immediately.")) return;
-
+window.handleReleaseFunds = async function (sessionId) {
     try {
         const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
-        const paidOffer = offersResponses.reverse().find(o => o.status === 'paid');
-        if (!paidOffer) return alert("No paid offer found to release.");
+        const activeOffer = offersResponses.reverse().find(o => ['paid', 'processing', 'shipped', 'delivered'].includes(o.status));
+        if (!activeOffer) return alert("No active paid offer found to release.");
 
-        await window.api.request(`/escrow/release/${paidOffer.id}`, 'POST');
-        
-        // Auto-send follow-up message if possible
-        if (window.currentChatSocket && window.currentChatSocket.readyState === WebSocket.OPEN) {
-            window.currentChatSocket.send("Product received! I've released the payment. Thank you!");
-        }
-        
-        alert("Success! Funds released to seller.");
-        window.location.reload();
+        const modal = document.getElementById('releaseModal');
+        const price = parseInt(activeOffer.offered_price, 10);
+        document.getElementById('releaseItemPrice').innerText = `Tk. ${price.toLocaleString()}`;
+        document.getElementById('releaseTotal').innerText = `Tk. ${(price + 150).toLocaleString()}`;
+
+        modal.style.display = 'flex';
+
+        document.getElementById('modalConfirmRelease').onclick = async () => {
+            try {
+                await window.api.request(`/escrow/release/${activeOffer.id}`, 'POST');
+                modal.style.display = 'none';
+
+                if (window.currentChatSocket && window.currentChatSocket.readyState === WebSocket.OPEN) {
+                    window.currentChatSocket.send("Product received! I've released the payment. Thank you!");
+                }
+
+                alert("Success! Funds released to seller.");
+                window.location.reload();
+            } catch (e) {
+                alert("Release failed: " + e.message);
+            }
+        };
     } catch (e) {
-        alert("Release failed: " + e.message);
+        alert("Could not load offer: " + e.message);
     }
 };
 
-window.handleReportIssue = async function(sessionId) {
-    const reason = prompt("Dispute Report: Please explain the issue (e.g. Seller hasn't shipped, item is broken, etc.):");
-    if (!reason) return;
-
+window.handleReportIssue = async function (sessionId) {
     try {
-        const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
-        const paidOffer = offersResponses.reverse().find(o => o.status === 'paid');
-        if (!paidOffer) return alert("No active payment found to dispute.");
+        const chats = await window.api.getUserChats(getUser().id);
+        const chat = chats.find(c => c.id.toString() === sessionId);
+        if (!chat) return alert("Chat session not found.");
 
-        await window.api.disputePayment(paidOffer.id);
-        
-        if (window.currentChatSocket && window.currentChatSocket.readyState === WebSocket.OPEN) {
-            window.currentChatSocket.send(`🚨 DISPUTE REASON: ${reason}`);
-        }
-        
-        alert("Dispute raised. The funds are now frozen.");
-        window.location.reload();
+        const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
+        const activeOffer = offersResponses.reverse().find(o => ['paid', 'processing', 'shipped', 'delivered'].includes(o.status));
+        if (!activeOffer) return alert("No active payment found to dispute.");
+
+        const modal = document.getElementById('disputeModal');
+        document.getElementById('disputeProductName').innerText = chat.product_title;
+        document.getElementById('disputeAmount').innerText = `Tk. ${parseInt(activeOffer.offered_price, 10)}`;
+        document.getElementById('disputeReason').value = '';
+
+        modal.style.display = 'flex';
+
+        document.getElementById('modalSubmitDispute').onclick = async () => {
+            const reason = document.getElementById('disputeReason').value;
+            if (!reason || reason.length < 10) return alert("Please provide a detailed reason (min 10 characters).");
+
+            try {
+                await window.api.disputePayment(activeOffer.id, reason);
+                modal.style.display = 'none';
+
+                if (window.currentChatSocket && window.currentChatSocket.readyState === WebSocket.OPEN) {
+                    window.currentChatSocket.send('Dispute raised!');
+                }
+
+                alert("Dispute raised. The funds are now frozen.");
+                window.location.reload();
+            } catch (e) {
+                alert(e.message);
+            }
+        };
     } catch (e) {
-        alert("Could not raise dispute: " + e.message);
+        alert(e.message);
     }
 };
+
+window.handleMarkProcessing = async function (sessionId) {
+    try {
+        const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
+        const activeOffer = offersResponses.reverse().find(o => o.status === 'paid');
+        if (!activeOffer) return alert("No paid offer found.");
+
+        await window.api.request(`/escrow/process/${activeOffer.id}`, 'POST');
+        if (window.currentChatSocket && window.currentChatSocket.readyState === WebSocket.OPEN) {
+            window.currentChatSocket.send('Processing order...');
+        }
+    } catch (e) {
+        alert(e.message);
+    }
+};
+
+window.handleMarkShipped = async function (sessionId) {
+    try {
+        const chats = await window.api.getUserChats(getUser().id);
+        const chat = chats.find(c => c.id.toString() === sessionId);
+        if (!chat) return alert("Chat session not found.");
+
+        const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
+        const activeOffer = offersResponses.reverse().find(o => o.status === 'processing');
+        if (!activeOffer) return alert("Order must be PROCESSING to ship.");
+
+        // Show modal and pre-fill
+        const modal = document.getElementById('shippingModal');
+
+        // Populate inputs
+        document.getElementById('shipSellerName').value = chat.seller.full_name;
+        document.getElementById('shipSellerPhone').value = chat.seller.phone;
+        document.getElementById('shipProductName').value = chat.product_title;
+        document.getElementById('shipProductPrice').value = `Tk.${Number(activeOffer.offered_price).toLocaleString('en-IN')}`;
+        document.getElementById('shipProductQty').value = activeOffer.quantity || 1;
+
+        document.getElementById('shipBuyerName').value = chat.buyer.full_name;
+        document.getElementById('shipBuyerPhone').value = chat.buyer.phone;
+
+        document.getElementById('shipDate').value = new Date().toISOString().split('T')[0];
+
+        modal.style.display = 'flex';
+
+        document.getElementById('modalSubmitShipping').onclick = async () => {
+            const courier = document.getElementById('shipCourierName').value;
+            const tracking = document.getElementById('shipTrackingNumber').value;
+            const date = document.getElementById('shipDate').value;
+            const sellerPhone = document.getElementById('shipSellerPhone').value;
+            const buyerPhone = document.getElementById('shipBuyerPhone').value;
+
+            if (!courier || !tracking || !date || !sellerPhone || !buyerPhone) return alert("Please fill all required fields including contact numbers.");
+
+            try {
+                const trackingStr = `Courier: ${courier}\nTracking: ${tracking}\nDate: ${date}\nSeller: ${chat.seller.full_name}\nPhone: ${sellerPhone}\nProduct: ${chat.product_title}\nPrice: ${activeOffer.offered_price}\nQuantity: ${activeOffer.quantity || 1}\nBuyer: ${chat.buyer.full_name}\nBuyerPhone: ${buyerPhone}\nOrderID: ${activeOffer.id}`;
+
+                await window.api.request(`/escrow/ship/${activeOffer.id}?tracking_info=` + encodeURIComponent(trackingStr), 'POST');
+                modal.style.display = 'none';
+
+                if (window.currentChatSocket && window.currentChatSocket.readyState === WebSocket.OPEN) {
+                    window.currentChatSocket.send('Item shipped!');
+                }
+            } catch (e) {
+                alert(e.message);
+            }
+        };
+    } catch (e) {
+        alert(e.message);
+    }
+};
+
+window.handleDownloadReceipt = function (sessionId, data) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    // Premium Background/Border
+    doc.setDrawColor(99, 102, 241);
+    doc.setLineWidth(1.5);
+    doc.rect(5, 5, 200, 287);
+
+    // Receipt Header
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(28);
+    doc.setTextColor(31, 41, 55);
+
+    const title = "RESALE MARKETPLACE";
+    const pageWidth = doc.internal.pageSize.getWidth();
+    doc.text(title, pageWidth / 2, 30, { align: "center" });
+
+    doc.setDrawColor(226, 232, 240);
+    doc.line(20, 38, 190, 38);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(100, 116, 139);
+
+    const receiptId = (data['OrderID'] || '0').toString().padStart(5, '0');
+    doc.text(`RECEIPT NO: RS-${receiptId}`, 20, 45);
+    doc.text(`ISSUED DATE: ${new Date().toLocaleDateString().toUpperCase()}`, 145, 45);
+
+    // Section 1: Transaction Parties
+    doc.setFillColor(248, 250, 252);
+    doc.rect(20, 55, 170, 45, 'F');
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.setTextColor(31, 41, 55);
+    doc.text("SELLER DETAILS", 25, 65);
+    doc.text("BUYER DETAILS", 110, 65);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(71, 85, 105);
+    doc.text(`Name: ${data['Seller'] || 'N/A'}`, 25, 75);
+    doc.text(`Phone: ${data['Phone'] || 'N/A'}`, 25, 82);
+
+    doc.text(`Name: ${data['Buyer'] || 'N/A'}`, 110, 75);
+    doc.text(`Phone: ${data['BuyerPhone'] || 'N/A'}`, 110, 82);
+
+    // Section 2: Logistics
+    doc.setFont("helvetica", "bold");
+    doc.text("LOGISTICS INFORMATION", 20, 115);
+    let y = 125;
+    const shipDetails = [
+        ["COURIER SERVICE:", data['Courier'] || 'N/A'],
+        ["TRACKING ID / AWB:", data['Tracking'] || 'N/A'],
+        ["DISPATCH DATE:", data['Date'] || 'N/A']
+    ];
+
+    shipDetails.forEach(([label, value]) => {
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(100, 116, 139);
+        doc.text(label, 20, y);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(31, 41, 55);
+        doc.text(value, 75, y);
+        y += 8;
+    });
+
+    // Section 3: Table
+    y += 10;
+    doc.setFillColor(30, 41, 59);
+    doc.rect(20, y, 170, 10, 'F');
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(255, 255, 255);
+    doc.text("DESCRIPTION", 25, y + 7);
+    doc.text("QTY", 140, y + 7);
+    doc.text("SUBTOTAL", 165, y + 7);
+
+    y += 18;
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(31, 41, 55);
+    doc.text(data['Product'] || 'Electronic Device', 25, y);
+    doc.text((data['Quantity'] || 1).toString(), 142, y);
+
+    const rawPrice = (data['Price'] || '0').toString().replace(/^0+/, '');
+    const priceInt = parseInt(rawPrice, 10);
+    doc.text(`Tk. ${priceInt.toLocaleString()}`, 165, y);
+
+    y += 12;
+    doc.setDrawColor(226, 232, 240);
+    doc.line(20, y, 190, y);
+
+    y += 10;
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 116, 139);
+    doc.text("DELIVERY CHARGE", 25, y);
+    doc.text("1", 142, y);
+    doc.text("Tk. 150", 165, y);
+
+    y += 15;
+    doc.setFillColor(248, 250, 252);
+    doc.rect(130, y, 60, 12, 'F');
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.setTextColor(31, 41, 55);
+    doc.text("TOTAL:", 135, y + 8);
+
+    const totalAmount = priceInt + 150;
+    doc.setTextColor(79, 70, 229);
+    doc.text(`Tk. ${totalAmount.toLocaleString()}`, 155, y + 8);
+
+    y = 265;
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(9);
+    doc.setTextColor(148, 163, 184);
+    doc.text("This is a system-generated receipt for the ReSale Escrow Transaction.", pageWidth / 2, y, { align: "center" });
+    doc.text("Funds are held in escrow until buyer confirms delivery.", pageWidth / 2, y + 5, { align: "center" });
+
+    doc.save(`ReSale_Receipt_RS-${receiptId}.pdf`);
+};
+
+window.handleMarkDelivered = async function (sessionId) {
+    try {
+        const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
+        const activeOffer = offersResponses.reverse().find(o => o.status === 'shipped');
+        if (!activeOffer) return alert("Order must be SHIPPED to be delivered.");
+
+        await window.api.request(`/escrow/deliver/${activeOffer.id}`, 'POST');
+        if (window.currentChatSocket && window.currentChatSocket.readyState === WebSocket.OPEN) {
+            window.currentChatSocket.send('Item delivered!');
+        }
+    } catch (e) {
+        alert(e.message);
+    }
+};
+window.clearTransactionHistory = async function () {
+    if (!confirm("Are you sure you want to permanently clear your transaction history? This cannot be undone.")) return;
+
+    try {
+        await window.api.request('/wallet/transactions/clear', 'DELETE');
+        alert("History cleared successfully.");
+        // Refresh the wallet view to show empty state
+        if (typeof loadWalletData === 'function') {
+            loadWalletData();
+        } else {
+            window.location.reload();
+        }
+    } catch (e) {
+        alert("Failed to clear history: " + e.message);
+    }
+};
+
 window.toggleDescription = toggleDescription;
+
+// ─── CHAT REVIEW LOGIC ───────────────────────────────────────────────
+
+window.setChatStar = function (rating, productId) {
+    const input = document.getElementById(`chatRatingInput-${productId}`);
+    if (input) input.value = rating;
+
+    for (let i = 1; i <= 5; i++) {
+        const star = document.getElementById(`star-${productId}-${i}`);
+        if (star) {
+            star.innerText = i <= rating ? '★' : '☆';
+        }
+    }
+};
+
+window.handleChatReviewSubmit = async function (productId, sessionId, btn) {
+    const rating = parseInt(document.getElementById(`chatRatingInput-${productId}`).value);
+    const comment = document.getElementById(`chatComment-${productId}`).value.trim();
+
+    if (rating === 0) {
+        alert("Please select a star rating first.");
+        return;
+    }
+
+    const originalText = btn.innerText;
+    btn.innerText = 'Submitting...';
+    btn.disabled = true;
+
+    try {
+        await window.api.createReview({
+            product_id: productId,
+            rating: rating,
+            comment: comment
+        });
+
+        // Update the card UI to show success
+        const container = document.getElementById(`chatReviewForm-${productId}`);
+        if (container) {
+            container.innerHTML = `
+                <div style="background: #ecfdf5; color: #065f46; padding: 1rem; border-radius: 12px; text-align: center; font-weight: 700; border: 1px solid #10b981;">
+                    ✅ Thank you! Your review has been submitted.
+                </div>
+            `;
+        }
+
+        // Note: We no longer send a manual socket message here because 
+        // the backend POST /reviews automatically adds a system message to the chat.
+        // This prevents "double-notifying" in the chat history.
+
+    } catch (err) {
+        alert("Failed to submit review: " + err.message);
+        btn.innerText = originalText;
+        btn.disabled = false;
+    }
+};
+
+window.openReviewFromChat = function () {
+    alert("Please look for the Review Card at the end of the chat history.");
+};
 
 /**
  * Updates the unread message badge on the sidebar Messages link.
  */
+async function renderSellerReviews() {
+    const container = document.getElementById('sellerReviewsContainer');
+    if (!container) return;
+
+    container.innerHTML = '<div style="text-align:center; padding: 3rem; color: var(--text-muted);">Loading reviews...</div>';
+
+    try {
+        const user = getUser();
+        // Use standard window.api.request for the new endpoint
+        const reviews = await window.api.request(`/reviews/seller/${user.id}`, 'GET');
+
+        if (!reviews || reviews.length === 0) {
+            container.innerHTML = `
+                <div style="text-align:center; padding: 5rem 2rem; background: var(--bg-card); border: 1px dashed var(--border); border-radius: 20px;">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">⭐</div>
+                    <h3 style="color: var(--secondary);">No Reviews Yet</h3>
+                    <p style="color: var(--text-muted); max-width: 300px; margin: 0.5rem auto;">Complete your first sale to start building your reputation!</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = `
+            <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                ${reviews.map(r => `
+                    <div style="background: var(--bg-card); border: 1px solid var(--border); padding: 1.5rem; border-radius: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='translateY(0)'">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+                            <div style="display: flex; align-items: center; gap: 1rem;">
+                                <div style="width: 45px; height: 45px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--accent-cyan)); color: white; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.1rem;">
+                                    ${r.buyer_name ? r.buyer_name.charAt(0) : 'B'}
+                                </div>
+                                <div>
+                                    <h4 style="margin: 0; font-size: 1rem; color: var(--secondary); font-weight: 700;">${r.buyer_name || 'Anonymous Buyer'}</h4>
+                                    <div style="color: #f59e0b; font-size: 0.9rem; margin-top: 0.1rem;">
+                                        ${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}
+                                        <span style="color: var(--text-muted); font-size: 0.75rem; margin-left: 0.5rem; font-weight: 500;">(${r.rating}/5)</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500;">${new Date(r.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.02); padding: 1rem; border-radius: 12px; border-left: 4px solid var(--primary);">
+                            <p style="margin: 0; font-size: 0.95rem; color: var(--text-primary); line-height: 1.6; font-style: italic;">"${r.comment || 'No comment provided.'}"</p>
+                        </div>
+                        <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">Reviewed for:</span>
+                            <span style="font-size: 0.75rem; font-weight: 700; color: var(--primary);">${r.product_title || 'Purchased Item'}</span>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    } catch (err) {
+        console.error("Reviews load error:", err);
+        container.innerHTML = `<div style="color: red; padding: 2rem; text-align: center;">Error loading reviews: ${err.message}</div>`;
+    }
+}
+window.renderSellerReviews = renderSellerReviews;
+
 async function updateGlobalUnreadCount() {
     const user = getUser();
     if (!user || user.role === 'admin') return;
@@ -2239,40 +2924,11 @@ window.updateGlobalUnreadCount = updateGlobalUnreadCount;
 
 // ─── REVIEW LOGIC ───────────────────────────────────────────────
 
-window.openReviewModal = async function (productId) {
-    const user = getUser();
-    if (!user) {
-        alert("Please login to leave a review.");
-        window.location.href = "login.html";
-        return;
-    }
-
-    try {
-        // PRE-CHECK: Only show modal if they have a completed offer
-        // (Backend will also verify this for security)
-        const offers = await window.api.request(`/offers?product_id=${productId}`, 'GET');
-        const hasCompleted = offers.some(o => o.buyer_id === user.id && o.status === 'completed');
-        
-        if (!hasCompleted) {
-            alert("🔒 Access Denied: You can only review a seller after purchasing this product and confirming receipt.");
-            return;
-        }
-
-        const modal = document.getElementById('reviewModal');
-        if (!modal) return;
-
-        document.getElementById('reviewProductId').value = productId;
-        document.getElementById('reviewRating').value = '';
-        document.getElementById('reviewComment').value = '';
-
-        modal.classList.add('active');
-        document.body.style.overflow = 'hidden';
-    } catch (err) {
-        alert("Could not verify purchase status: " + err.message);
-    }
+window.openReviewModal = function (productId) {
+    alert("Reviews are now handled directly within the chat! Please check your message history for the transaction.");
 };
 
-window.markProductAsSold = async function(productId) {
+window.markProductAsSold = async function (productId) {
     if (!confirm("Are you sure you want to mark this item as SOLD? This will set quantity to 0 and hide it from listings.")) return;
     try {
         await window.api.request(`/products/${productId}/status`, 'PATCH', { status: 'sold' });
@@ -2282,41 +2938,6 @@ window.markProductAsSold = async function(productId) {
         alert("Failed to update status: " + err.message);
     }
 };
-
-document.addEventListener('DOMContentLoaded', () => {
-    const reviewForm = document.getElementById('reviewForm');
-    if (reviewForm) {
-        reviewForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const btn = document.getElementById('submitReviewBtn');
-            const originalText = btn.innerText;
-            btn.innerText = 'Submitting...';
-            btn.disabled = true;
-
-            try {
-                const productId = document.getElementById('reviewProductId').value;
-                const rating = parseInt(document.getElementById('reviewRating').value);
-                const comment = document.getElementById('reviewComment').value;
-
-                await window.api.createReview({
-                    product_id: productId,
-                    rating: rating,
-                    comment: comment
-                });
-
-                document.getElementById('reviewModal').classList.remove('active');
-                document.body.style.overflow = '';
-                alert("Thank you! Your review has been submitted. It will appear on the seller's profile shortly.");
-
-            } catch (err) {
-                alert("Failed to submit review: " + err.message);
-            } finally {
-                btn.innerText = originalText;
-                btn.disabled = false;
-            }
-        });
-    }
-});
 // ─── ADMIN DISPUTE HELPERS ───────────────────────────────────────
 
 function setAdminInlineStatus(status, btn) {
@@ -2342,7 +2963,7 @@ async function renderAdminDisputes() {
     const container = document.getElementById('adminListingsContainer');
     const empty = document.getElementById('adminEmpty');
     const catFilter = document.getElementById('adminCategoryFilter');
-    
+
     if (catFilter) catFilter.style.display = 'none';
     if (!container) return;
 
@@ -2375,11 +2996,11 @@ async function renderAdminDisputes() {
             const card = document.createElement('div');
             card.className = 'product-card';
             card.style.cssText = "border: 1.5px solid #f43f5e; box-shadow: 0 10px 15px -3px rgba(244,63,94,0.1); display: flex; flex-direction: column;";
-            
+
             // Image handling logic
             const imgSrc = d.product_image;
             let fullImgSrc = 'img/placeholder.png'; // Default to local placeholder
-            
+
             if (imgSrc) {
                 if (imgSrc.startsWith('http')) {
                     fullImgSrc = imgSrc;
@@ -2410,8 +3031,13 @@ async function renderAdminDisputes() {
                         </div>
                         <div style="margin-top: 0.5rem; pt-0.5rem; border-top: 1px dashed rgba(225,29,72,0.2); display: flex; justify-content: space-between; align-items: center;">
                             <span>💰 Total Amount:</span>
-                            <strong style="color:#e11d48; font-size:1.1rem;">৳${(d.offered_price * d.quantity + 150).toLocaleString()}</strong>
+                            <strong style="color:#e11d48; font-size:1.1rem;">Tk.${(d.offered_price * d.quantity + 150).toLocaleString()}</strong>
                         </div>
+                    </div>
+
+                    <div style="margin-bottom: 1rem; background: #fff1f2; padding: 0.75rem; border-radius: 8px; border-left: 4px solid #f43f5e;">
+                        <p style="margin: 0 0 0.25rem 0; font-size: 0.7rem; color: #94a3b8; font-weight: 700; text-transform: uppercase;">Dispute Reason:</p>
+                        <p style="margin: 0; font-size: 0.85rem; color: #881337; font-weight: 600; line-height: 1.4;">${d.dispute_reason || 'No reason provided.'}</p>
                     </div>
                     
                     <div style="display: flex; flex-direction: column; gap: 0.6rem; margin-top: auto;">
@@ -2431,7 +3057,20 @@ async function renderAdminDisputes() {
 window.renderAdminDisputes = renderAdminDisputes;
 
 async function handleDisputeVerdict(offerId, verdict) {
-    const actionText = verdict === 'payout_seller' ? 'Release funds to Seller?' : 'Refund the Buyer in full?';
+    if (verdict === 'refund_buyer') {
+        window.activeDisputeIdForRefund = offerId;
+        const modal = document.getElementById('adminRefundModal');
+        if (modal) {
+            modal.style.display = 'flex';
+        } else {
+            // Fallback if modal not found
+            if (!confirm("Are you sure you want to refund the buyer in full?")) return;
+            submitRefundVerdict('refund_full');
+        }
+        return;
+    }
+
+    const actionText = verdict === 'payout_seller' ? 'Release funds to Seller?' : 'Process this action?';
     if (!confirm(`Are you sure you want to resolve this dispute? \n\nAction: ${actionText}`)) return;
 
     try {
@@ -2444,3 +3083,74 @@ async function handleDisputeVerdict(offerId, verdict) {
     }
 }
 window.handleDisputeVerdict = handleDisputeVerdict;
+
+window.submitRefundVerdict = async function (resolution) {
+    const offerId = window.activeDisputeIdForRefund;
+    const modal = document.getElementById('adminRefundModal');
+
+    try {
+        await window.api.request(`/admin/disputes/${offerId}/resolve?resolution=${resolution}`, 'POST');
+        if (modal) modal.style.display = 'none';
+        alert("Verdict recorded successfully! The transaction is now settled.");
+        renderAdminDisputes();
+        loadAdminStats();
+    } catch (err) {
+        alert("Failed to resolve dispute: " + err.message);
+    }
+};
+
+async function renderPlatformWallet() {
+    const balanceEl = document.getElementById('platformWalletBalance');
+    const listEl = document.getElementById('platformTransactionsList');
+    if (!balanceEl || !listEl) return;
+
+    try {
+        // Fetch Admin's own data to get balance
+        const adminData = await window.api.getMe();
+
+        // Update balance
+        balanceEl.innerText = `Tk. ${(adminData.wallet_balance || 0).toLocaleString('en-IN')}`;
+
+        // Fetch wallet transactions for the ledger
+        const txs = await window.api.getWalletTransactions();
+
+        // Filter only platform revenue types or relevant types for the admin account
+        const revenueTxs = txs.filter(t => t.transaction_type === 'platform_revenue' || t.transaction_type === 'withdrawal');
+
+        if (revenueTxs.length === 0) {
+            listEl.innerHTML = '<p style="color: var(--text-muted); font-size: 0.9rem; text-align: center; padding: 2rem;">No revenue transactions found yet.</p>';
+            return;
+        }
+
+        listEl.innerHTML = revenueTxs.map(t => {
+            const isRevenue = t.amount > 0;
+            const date = new Date(t.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+            return `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid var(--border); transition: background 0.2s;" onmouseover="this.style.background='rgba(0,0,0,0.02)'" onmouseout="this.style.background='transparent'">
+                    <div style="display: flex; gap: 1rem; align-items: center;">
+                        <div style="width: 40px; height: 40px; border-radius: 10px; background: ${isRevenue ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)'}; color: ${isRevenue ? '#10b981' : '#ef4444'}; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;">
+                            ${isRevenue ? '💰' : '💸'}
+                        </div>
+                        <div>
+                            <p style="margin: 0; font-weight: 700; color: var(--secondary); font-size: 0.95rem;">${t.description}</p>
+                            <p style="margin: 0; font-size: 0.75rem; color: var(--text-muted); font-weight: 500;">${date}</p>
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <p style="margin: 0; font-weight: 800; font-size: 1rem; color: ${isRevenue ? '#10b981' : '#ef4444'};">
+                            ${isRevenue ? '+' : ''}Tk. ${Math.abs(t.amount).toLocaleString('en-IN')}
+                        </p>
+                        <span style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; color: var(--text-muted);">${t.transaction_type.replace('_', ' ')}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+    } catch (err) {
+        console.error("Failed to render platform wallet:", err);
+        listEl.innerHTML = `<p style="color: #ef4444; text-align: center; padding: 2rem;">Error: ${err.message}</p>`;
+    }
+}
+window.renderPlatformWallet = renderPlatformWallet;
+
+

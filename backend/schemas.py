@@ -8,6 +8,10 @@ class UserBase(BaseModel):
     full_name: str
     role: UserRole = UserRole.BUYER
     phone_number: Optional[str] = None
+    address_region: Optional[str] = None
+    address_city: Optional[str] = None
+    address_area: Optional[str] = None
+    address_full: Optional[str] = None
 
 class UserCreate(UserBase):
     password: str = Field(..., min_length=8)
