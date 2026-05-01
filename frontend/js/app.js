@@ -1248,7 +1248,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const walletMenu = document.querySelector('.profile-menu-item[href="wallet.html"]');
         const chatMenu = document.querySelector('.profile-menu-item[href="chat.html"]');
         const platformWalletMenu = document.getElementById('menuPlatformWallet');
-        
+
         if (role === 'admin') {
             if (walletMenu) walletMenu.style.display = 'none';
             if (chatMenu) chatMenu.style.display = 'none';
@@ -1274,7 +1274,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 tab.addEventListener('click', async () => {
                     tabs.forEach(t => t.classList.remove('active'));
                     tab.classList.add('active');
-                    
+
                     const status = tab.dataset.status;
                     if (status === 'reviews') {
                         if (listingsGrid) listingsGrid.style.display = 'none';
@@ -1329,7 +1329,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Handle Dashboard vs Platform Wallet switching
             const menuListings = document.getElementById('menuListings');
             const platformWalletView = document.getElementById('platformWalletView');
-            
+
             if (menuListings && platformWalletMenu) {
                 menuListings.addEventListener('click', (e) => {
                     e.preventDefault();
@@ -1338,7 +1338,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     adminView.style.display = 'block';
                     platformWalletView.style.display = 'none';
                 });
-                
+
                 platformWalletMenu.addEventListener('click', (e) => {
                     e.preventDefault();
                     platformWalletMenu.classList.add('active');
@@ -1588,8 +1588,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span style="display:flex; align-items:center; gap:0.5rem;"><span style="font-size: 1.4rem;">🤝</span> Negotiation Offer</span>
                             <span style="font-size:0.7rem; background: #e0e7ff; padding: 2px 8px; border-radius:10px; margin-left:auto;">ACTIVE</span>
                         </div>
-                        <div style="font-size: 0.95rem; color: #334155; margin-bottom: 1.25rem; line-height: 1.5;">
-                            A new offer of <strong style="color:var(--primary); font-size:1.1rem;">Tk.${priceLabel}</strong> was placed for this product.
+                        <div style="background: var(--bg-body); border-radius: 12px; padding: 1rem; margin-bottom: 1rem; border-left: 4px solid var(--primary);">
+                            <p style="margin: 0; font-size: 0.95rem; color: #334155; line-height: 1.5;">
+                                A new offer of <strong style="color:var(--primary); font-size:1.1rem;">Tk.${priceLabel}</strong> was placed for this product.
+                            </p>
                         </div>
                         ${user.role === 'seller' ? `
                         <div class="offer-actions" style="display: flex; gap: 0.75rem;">
@@ -1609,8 +1611,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div style="font-weight: 800; color: #10b981; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
                             <span style="font-size: 1.4rem;">🎉</span> Price Agreed!
                         </div>
-                        <div style="font-size: 0.95rem; color: #064e3b; margin-bottom: 1.25rem;">
-                            Seller accepted <strong>Tk.${priceLabel}</strong>. You can now finish the purchase.
+                        <div style="background: #f0fdf4; border-radius: 12px; padding: 1rem; margin-bottom: 1.25rem; border-left: 4px solid #10b981;">
+                            <p style="margin: 0; font-size: 0.95rem; color: #064e3b; line-height: 1.5;">
+                                Seller accepted <strong>Tk.${priceLabel}</strong>. You can now finish the purchase.
+                            </p>
                         </div>
                         ${user.role === 'buyer' ? `
                         <button class="btn-primary" style="width:100%; background: #10b981; border: none; padding: 0.8rem; color: white; font-weight: 800; border-radius: 10px; cursor: pointer; transition: transform 0.2s;" onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'" onclick="handleProceedToCheckout('${activeSessionId}')">Complete Purchase Now</button>
@@ -1626,8 +1630,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div style="font-weight: 800; color: #0ea5e9; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
                             <span style="font-size: 1.4rem;">🔐</span> Held in Escrow
                         </div>
-                        <div style="font-size: 0.95rem; color: #0c4a6e; margin-bottom: 1.25rem;">
-                            The payment is now safely held in Escrow. Once you receive and check the product, please release the funds to the seller.
+                        <div style="background: #e0f2fe; border-radius: 12px; padding: 1rem; margin-bottom: 1.25rem; border-left: 4px solid #0ea5e9;">
+                            <p style="margin: 0; font-size: 0.95rem; color: #0c4a6e; line-height: 1.5;">
+                                The payment is now safely held in Escrow. Once you receive and check the product, please release the funds to the seller.
+                            </p>
                         </div>
                         ${user.role === 'buyer' ? `
                         <div style="font-size: 0.85rem; color: #0ea5e9; font-weight: 700; background: #e0f2fe; padding: 0.5rem; text-align:center; border-radius:8px;">Payment Secured in Escrow</div>
@@ -1643,8 +1649,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div style="font-weight: 800; color: #d97706; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
                             <span style="font-size: 1.4rem;">📢</span> Action Required: Ship Item
                         </div>
-                        <div style="font-size: 0.95rem; color: #92400e; margin-bottom: 1.25rem;">
-                            The buyer has made the payment. Please prepare the item and update the shipping status.
+                        <div style="background: #fffbeb; border-radius: 12px; padding: 1rem; margin-bottom: 1.25rem; border-left: 4px solid #f59e0b;">
+                            <p style="margin: 0; font-size: 0.95rem; color: #92400e; line-height: 1.5;">
+                                The buyer has made the payment. Please prepare the item and update the shipping status.
+                            </p>
                         </div>
                         ${user.role === 'seller' ? `
                         <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
@@ -1661,8 +1669,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div style="font-weight: 800; color: #c026d3; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
                             <span style="font-size: 1.4rem;">⚙️</span> Order Processing
                         </div>
-                        <div style="font-size: 0.9rem; color: #86198f;">
-                            The seller is currently preparing the item for shipment.
+                        <div style="background: #fdf4ff; border-radius: 12px; padding: 1rem; margin-bottom: 1rem; border-left: 4px solid #d946ef;">
+                            <p style="margin: 0; font-size: 0.95rem; color: #86198f; line-height: 1.5;">
+                                The seller is currently preparing the item for shipment.
+                            </p>
                         </div>
                         ${user.role === 'seller' ? `
                         <div style="margin-top: 1rem;">
@@ -1726,8 +1736,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div style="font-weight: 800; color: #16a34a; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
                             <span style="font-size: 1.4rem;">📦</span> Order Delivered
                         </div>
-                        <div style="font-size: 0.9rem; color: #14532d; margin-bottom: 1rem;">
-                            The seller has marked the order as delivered. Please check the product and release payment.
+                        <div style="background: #f0fdf4; border-radius: 12px; padding: 1rem; margin-bottom: 1.25rem; border-left: 4px solid #22c55e;">
+                            <p style="margin: 0; font-size: 0.95rem; color: #14532d; line-height: 1.5;">
+                                The seller has marked the order as delivered. Please check the product and release payment.
+                            </p>
                         </div>
                         ${user.role === 'buyer' ? `
                         <div style="display: flex; flex-direction: column; gap: 0.75rem;">
@@ -1742,7 +1754,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
                 const rawReason = msg.text.replace("⚠️ DISPUTE RAISED:", "").trim();
                 const displayReason = rawReason || "No specific reason provided.";
-                
+
                 div.innerHTML = `
                     <div style="background: white; border: 1px solid #fee2e2; padding: 1.5rem; border-radius: 20px; border-top: 6px solid #ef4444; box-shadow: 0 10px 15px -3px rgba(239, 68, 68, 0.05);">
                         <div style="font-weight: 800; color: #1e293b; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between;">
@@ -1774,8 +1786,10 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <span style="display: flex; align-items: center; gap: 0.5rem;"><span style="font-size: 1.4rem;">⭐️</span> Leave a Review</span>
                                 <span style="font-size: 0.65rem; background: #fef3c7; color: #d97706; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; font-weight: 800;">Action Required</span>
                             </div>
-                            <div style="font-size: 0.95rem; color: #334155; margin-bottom: 1.25rem; line-height: 1.5;">
-                                The transaction for <strong>${productTitle}</strong> is complete. Please take a moment to rate the seller.
+                            <div style="background: #fffbeb; border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem; border-left: 4px solid #f59e0b;">
+                                <p style="margin: 0; font-size: 0.95rem; color: #92400e; line-height: 1.5; font-weight: 600;">
+                                    The transaction for <strong>${productTitle}</strong> is complete. Please take a moment to rate your experience with the seller.
+                                </p>
                             </div>
                             <div id="chatReviewForm-${productId}" style="display: flex; flex-direction: column; gap: 1rem;">
                                 <div>
@@ -1827,7 +1841,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 div.className = "message-system";
                 div.style.cssText = "align-self: center; width: 85%; margin: 1.5rem 0;";
                 const resDetails = msg.text.replace("⚖️ ADMIN RESOLUTION:", "").trim();
-                
+
                 div.innerHTML = `
                     <div style="background: white; border: 1px solid #e2e8f0; padding: 1.5rem; border-radius: 20px; border-top: 6px solid #0f172a; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05);">
                         <div style="font-weight: 800; color: #1e293b; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between;">
@@ -1844,14 +1858,35 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     </div>
                 `;
-            } else if (msg.text.startsWith("🌟 REVIEW SUBMITTED:")) {
+            } else if (msg.text.startsWith("⭐ Buyer left a") || msg.text.startsWith("🌟 REVIEW SUBMITTED:")) {
                 div.className = "message-system";
                 div.style.cssText = "align-self: center; width: 85%; margin: 1.5rem 0;";
-                
-                // Parse out the rating and comment from the text
-                const lines = msg.text.split('\n');
-                const ratingLine = lines[1] || "Rating: ⭐⭐⭐⭐⭐";
-                const commentLine = lines.slice(2).join('\n').replace('Comment: ', '');
+
+                let rating = 5;
+                let comment = "No comment provided.";
+
+                if (msg.text.startsWith("⭐ Buyer left a")) {
+                    // Parse: ⭐ Buyer left a 5-star review: "The experience was good..."
+                    const match = msg.text.match(/⭐ Buyer left a (\d)-star review: "(.*)"/);
+                    if (match) {
+                        rating = parseInt(match[1]);
+                        comment = match[2];
+                    }
+                } else {
+                    // Parse old format: 🌟 REVIEW SUBMITTED:\nRating: ⭐⭐⭐⭐⭐ (5/5)\nComment: ...
+                    const lines = msg.text.split('\n');
+                    const ratingLine = lines.find(l => l.includes('Rating:')) || "";
+                    const scoreMatch = ratingLine.match(/\((\d)\/5\)/);
+                    if (scoreMatch) rating = parseInt(scoreMatch[1]);
+                    
+                    const commentLine = lines.find(l => l.includes('Comment:'));
+                    if (commentLine) comment = commentLine.replace('Comment: ', '').trim();
+                    else {
+                        // Handle multi-line comments
+                        const commentIdx = lines.findIndex(l => l.includes('Comment:'));
+                        if (commentIdx !== -1) comment = lines.slice(commentIdx).join(' ').replace('Comment: ', '').trim();
+                    }
+                }
 
                 div.innerHTML = `
                     <div style="background: white; border: 1px solid #fde68a; padding: 1.5rem; border-radius: 20px; border-top: 6px solid #fbbf24; box-shadow: 0 10px 15px -3px rgba(251, 191, 36, 0.1);">
@@ -1860,10 +1895,13 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span style="font-size: 0.65rem; background: #fef3c7; color: #b45309; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; font-weight: 800;">Verified Purchase</span>
                         </div>
                         
-                        <div style="text-align: center; margin-bottom: 1rem;">
-                            <div style="font-size: 1.25rem; margin-bottom: 0.5rem;">${ratingLine.replace('Rating: ', '')}</div>
-                            <div style="font-style: italic; color: #475569; font-size: 0.95rem; line-height: 1.5; padding: 0 0.5rem;">
-                                "${commentLine || 'No comment provided.'}"
+                        <div style="background: #fffbeb; border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; border-left: 4px solid #fbbf24; text-align: center;">
+                            <div style="font-size: 1.4rem; margin-bottom: 0.75rem; color: #f59e0b; letter-spacing: 2px;">
+                                ${'★'.repeat(rating)}${'☆'.repeat(5 - rating)}
+                                <div style="font-size: 0.75rem; color: #b45309; font-weight: 700; margin-top: 0.25rem; text-transform: uppercase;">Rating: ${rating}/5</div>
+                            </div>
+                            <div style="font-style: italic; color: #1e293b; font-size: 1rem; line-height: 1.6; padding: 0.5rem 1rem; background: rgba(255,255,255,0.5); border-radius: 8px;">
+                                "${comment}"
                             </div>
                         </div>
 
@@ -1876,8 +1914,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 div.className = "message-system";
                 div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
                 div.innerHTML = `
-                    <div style="background: #fef2f2; border: 1.5px solid #ef4444; padding: 1rem; border-radius: 12px; color: #991b1b; text-align: center; font-size: 0.9rem;">
-                        <strong>Offer Declined:</strong> The seller did not accept this price.
+                    <div style="background: white; border: 1px solid #fee2e2; padding: 1.25rem; border-radius: 16px; border-top: 4px solid #ef4444; box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.05); text-align: center;">
+                        <div style="font-weight: 800; color: #ef4444; margin-bottom: 0.5rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                            <span style="font-size: 1.2rem;">❌</span> Offer Declined
+                        </div>
+                        <div style="background: #fef2f2; border-radius: 8px; padding: 0.75rem; color: #991b1b; font-size: 0.9rem; font-weight: 600;">
+                            The seller did not accept this price.
+                        </div>
                     </div>
                 `;
             } else {
@@ -2448,7 +2491,7 @@ window.handleReleaseFunds = async function (sessionId) {
         const price = parseInt(activeOffer.offered_price, 10);
         document.getElementById('releaseItemPrice').innerText = `Tk. ${price.toLocaleString()}`;
         document.getElementById('releaseTotal').innerText = `Tk. ${(price + 150).toLocaleString()}`;
-        
+
         modal.style.display = 'flex';
 
         document.getElementById('modalConfirmRelease').onclick = async () => {
@@ -2663,7 +2706,7 @@ window.handleDownloadReceipt = function (sessionId, data) {
     doc.setTextColor(31, 41, 55);
     doc.text(data['Product'] || 'Electronic Device', 25, y);
     doc.text((data['Quantity'] || 1).toString(), 142, y);
-    
+
     const rawPrice = (data['Price'] || '0').toString().replace(/^0+/, '');
     const priceInt = parseInt(rawPrice, 10);
     doc.text(`Tk. ${priceInt.toLocaleString()}`, 165, y);
@@ -2686,7 +2729,7 @@ window.handleDownloadReceipt = function (sessionId, data) {
     doc.setFontSize(14);
     doc.setTextColor(31, 41, 55);
     doc.text("TOTAL:", 135, y + 8);
-    
+
     const totalAmount = priceInt + 150;
     doc.setTextColor(79, 70, 229);
     doc.text(`Tk. ${totalAmount.toLocaleString()}`, 155, y + 8);
@@ -2697,7 +2740,7 @@ window.handleDownloadReceipt = function (sessionId, data) {
     doc.setTextColor(148, 163, 184);
     doc.text("This is a system-generated receipt for the ReSale Escrow Transaction.", pageWidth / 2, y, { align: "center" });
     doc.text("Funds are held in escrow until buyer confirms delivery.", pageWidth / 2, y + 5, { align: "center" });
-    
+
     doc.save(`ReSale_Receipt_RS-${receiptId}.pdf`);
 };
 
@@ -2715,9 +2758,9 @@ window.handleMarkDelivered = async function (sessionId) {
         alert(e.message);
     }
 };
-window.clearTransactionHistory = async function() {
+window.clearTransactionHistory = async function () {
     if (!confirm("Are you sure you want to permanently clear your transaction history? This cannot be undone.")) return;
-    
+
     try {
         await window.api.request('/wallet/transactions/clear', 'DELETE');
         alert("History cleared successfully.");
@@ -2736,10 +2779,10 @@ window.toggleDescription = toggleDescription;
 
 // ─── CHAT REVIEW LOGIC ───────────────────────────────────────────────
 
-window.setChatStar = function(rating, productId) {
+window.setChatStar = function (rating, productId) {
     const input = document.getElementById(`chatRatingInput-${productId}`);
     if (input) input.value = rating;
-    
+
     for (let i = 1; i <= 5; i++) {
         const star = document.getElementById(`star-${productId}-${i}`);
         if (star) {
@@ -2748,26 +2791,26 @@ window.setChatStar = function(rating, productId) {
     }
 };
 
-window.handleChatReviewSubmit = async function(productId, sessionId, btn) {
+window.handleChatReviewSubmit = async function (productId, sessionId, btn) {
     const rating = parseInt(document.getElementById(`chatRatingInput-${productId}`).value);
     const comment = document.getElementById(`chatComment-${productId}`).value.trim();
-    
+
     if (rating === 0) {
         alert("Please select a star rating first.");
         return;
     }
-    
+
     const originalText = btn.innerText;
     btn.innerText = 'Submitting...';
     btn.disabled = true;
-    
+
     try {
         await window.api.createReview({
             product_id: productId,
             rating: rating,
             comment: comment
         });
-        
+
         // Update the card UI to show success
         const container = document.getElementById(`chatReviewForm-${productId}`);
         if (container) {
@@ -2777,11 +2820,10 @@ window.handleChatReviewSubmit = async function(productId, sessionId, btn) {
                 </div>
             `;
         }
-        
-        // Notify the seller via chat that a review was left (optional but nice)
-        if (window.currentChatSocket && window.currentChatSocket.readyState === WebSocket.OPEN) {
-            window.currentChatSocket.send(`⭐ Buyer left a ${rating}-star review: "${comment}"`);
-        }
+
+        // Note: We no longer send a manual socket message here because 
+        // the backend POST /reviews automatically adds a system message to the chat.
+        // This prevents "double-notifying" in the chat history.
 
     } catch (err) {
         alert("Failed to submit review: " + err.message);
@@ -2790,7 +2832,7 @@ window.handleChatReviewSubmit = async function(productId, sessionId, btn) {
     }
 };
 
-window.openReviewFromChat = function() {
+window.openReviewFromChat = function () {
     alert("Please look for the Review Card at the end of the chat history.");
 };
 
@@ -2800,14 +2842,14 @@ window.openReviewFromChat = function() {
 async function renderSellerReviews() {
     const container = document.getElementById('sellerReviewsContainer');
     if (!container) return;
-    
+
     container.innerHTML = '<div style="text-align:center; padding: 3rem; color: var(--text-muted);">Loading reviews...</div>';
-    
+
     try {
         const user = getUser();
         // Use standard window.api.request for the new endpoint
         const reviews = await window.api.request(`/reviews/seller/${user.id}`, 'GET');
-        
+
         if (!reviews || reviews.length === 0) {
             container.innerHTML = `
                 <div style="text-align:center; padding: 5rem 2rem; background: var(--bg-card); border: 1px dashed var(--border); border-radius: 20px;">
@@ -2882,7 +2924,7 @@ window.updateGlobalUnreadCount = updateGlobalUnreadCount;
 
 // ─── REVIEW LOGIC ───────────────────────────────────────────────
 
-window.openReviewModal = function(productId) {
+window.openReviewModal = function (productId) {
     alert("Reviews are now handled directly within the chat! Please check your message history for the transaction.");
 };
 
@@ -3042,10 +3084,10 @@ async function handleDisputeVerdict(offerId, verdict) {
 }
 window.handleDisputeVerdict = handleDisputeVerdict;
 
-window.submitRefundVerdict = async function(resolution) {
+window.submitRefundVerdict = async function (resolution) {
     const offerId = window.activeDisputeIdForRefund;
     const modal = document.getElementById('adminRefundModal');
-    
+
     try {
         await window.api.request(`/admin/disputes/${offerId}/resolve?resolution=${resolution}`, 'POST');
         if (modal) modal.style.display = 'none';
@@ -3065,13 +3107,13 @@ async function renderPlatformWallet() {
     try {
         // Fetch Admin's own data to get balance
         const adminData = await window.api.getMe();
-        
+
         // Update balance
         balanceEl.innerText = `Tk. ${(adminData.wallet_balance || 0).toLocaleString('en-IN')}`;
 
         // Fetch wallet transactions for the ledger
         const txs = await window.api.getWalletTransactions();
-        
+
         // Filter only platform revenue types or relevant types for the admin account
         const revenueTxs = txs.filter(t => t.transaction_type === 'platform_revenue' || t.transaction_type === 'withdrawal');
 
