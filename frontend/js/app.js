@@ -1998,8 +1998,15 @@ document.addEventListener('DOMContentLoaded', () => {
             window.api.getChatMessages(chat.id).then(messages => {
                 if (chatBox) chatBox.innerHTML = '';
                 messages.forEach(msg => appendMessage(msg));
-                // Scroll to bottom reliably after all messages are painted
+                
+                // Temporarily disable smooth scrolling to snap instantly to the bottom
+                chatBox.style.scrollBehavior = 'auto';
                 chatBox.scrollTop = chatBox.scrollHeight;
+                
+                // Re-enable CSS smooth scrolling after snap is complete
+                setTimeout(() => {
+                    chatBox.style.removeProperty('scroll-behavior');
+                }, 50);
             });
 
             // --- SOCKET MANAGEMENT ---
