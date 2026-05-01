@@ -63,9 +63,11 @@
             <button class="status-tab pending" data-status="pending" id="sellerTabPending">⏳ Pending</button>
             <button class="status-tab approved" data-status="approved" id="sellerTabApproved">✅ Approved</button>
             <button class="status-tab rejected" data-status="rejected" id="sellerTabRejected">❌ Rejected</button>
+            <button class="status-tab reviews" data-status="reviews" id="sellerTabReviews" style="border-left: 2px solid var(--border); padding-left: 1.5rem; margin-left: 0.5rem;">⭐️ Customer Reviews</button>
           </div>
 
           <div class="product-grid" id="sellerListingsGrid" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));"></div>
+          <div id="sellerReviewsContainer" style="display:none; margin-top: 1rem;"></div>
           <div class="listings-empty" id="sellerEmpty" style="display:none;">
             <div class="empty-icon">📸</div>
             <h3>No Products Yet</h3>
@@ -310,36 +312,7 @@
   </div>
 
 
-  <div class="modal-overlay" id="reviewModal">
-    <div class="modal-box">
-      <div class="modal-header">
-        <h3>⭐️ Leave a Review</h3>
-        <button class="modal-close" onclick="document.getElementById('reviewModal').classList.remove('active'); document.body.style.overflow=''">&times;</button>
-      </div>
-      <form id="reviewForm" class="modal-form">
-        <input type="hidden" id="reviewProductId">
-        <div class="form-group">
-          <label for="reviewRating">Rating (1-5 Stars) *</label>
-          <select id="reviewRating" class="form-input" required>
-            <option value="">Select Rating</option>
-            <option value="5">⭐⭐⭐⭐⭐ (5/5) Excellent</option>
-            <option value="4">⭐⭐⭐⭐ (4/5) Good</option>
-            <option value="3">⭐⭐⭐ (3/5) Average</option>
-            <option value="2">⭐⭐ (2/5) Poor</option>
-            <option value="1">⭐ (1/5) Terrible</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label for="reviewComment">Comment</label>
-          <textarea id="reviewComment" class="form-input" rows="3" placeholder="Tell us about your experience with this seller..." style="resize:vertical;"></textarea>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn-outline" onclick="document.getElementById('reviewModal').classList.remove('active'); document.body.style.overflow=''">Cancel</button>
-          <button type="submit" class="btn-primary" id="submitReviewBtn">Submit Review</button>
-        </div>
-      </form>
-    </div>
-  </div>
+
   
   <!-- ====== ADMIN REFUND CONFIG MODAL ====== -->
   <div id="adminRefundModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(8px);">

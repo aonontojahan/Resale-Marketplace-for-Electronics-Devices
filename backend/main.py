@@ -615,6 +615,14 @@ def release_payment(
     )
     db.add(system_msg)
 
+    # Trigger Review Prompt for Buyer (Dynamic Card in Chat)
+    review_prompt = models.ChatMessage(
+        session_id=offer.session_id,
+        sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1,
+        text=f"[REVIEW_PROMPT]:{offer.product_id}:{offer.product.title}"
+    )
+    db.add(review_prompt)
+
     db.commit()
     return {"message": "Funds released successfully", "seller_received": seller_amount, "commission": commission}
 
@@ -796,6 +804,15 @@ def resolve_dispute(
         text=msg_text
     )
     db.add(admin_msg)
+
+    # Trigger Review Prompt for Buyer (Dynamic Card in Chat - After Dispute)
+    review_prompt = models.ChatMessage(
+        session_id=offer.session_id,
+        sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1,
+        text=f"[REVIEW_PROMPT]:{offer.product_id}:{offer.product.title}"
+    )
+    db.add(review_prompt)
+
     db.commit()
 
     return {"message": f"Dispute resolved via {resolution}", "status": offer.status}
@@ -1386,3 +1403,20 @@ def create_review(
     db.commit()
     db.refresh(new_review)
     return new_review
+
+@app.get("/reviews/seller/{seller_id}")
+def get_seller_reviews(seller_id: int, db: Session = Depends(get_db)):
+    """Fetch all reviews received by a seller."""
+    reviews = db.query(models.Review).filter(models.Review.seller_id == seller_id).order_by(models.Review.created_at.desc()).all()
+    results = []
+    for r in reviews:
+        results.append({
+            "id": r.id,
+            "rating": r.rating,
+            "comment": r.comment,
+            "created_at": r.created_at,
+            "buyer_name": r.reviewer.full_name if r.reviewer else "Anonymous Buyer",
+            "product_title": r.product.title if r.product else "Deleted Product"
+        })
+    return results
+

@@ -1266,11 +1266,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Seller status tabs
             const tabs = document.querySelectorAll('#sellerStatusTabs .status-tab');
+            const listingsGrid = document.getElementById('sellerListingsGrid');
+            const reviewsContainer = document.getElementById('sellerReviewsContainer');
+            const emptyState = document.getElementById('sellerEmpty');
+
             tabs.forEach(tab => {
-                tab.addEventListener('click', () => {
+                tab.addEventListener('click', async () => {
                     tabs.forEach(t => t.classList.remove('active'));
                     tab.classList.add('active');
-                    renderSellerListings(tab.dataset.status);
+                    
+                    const status = tab.dataset.status;
+                    if (status === 'reviews') {
+                        if (listingsGrid) listingsGrid.style.display = 'none';
+                        if (emptyState) emptyState.style.display = 'none';
+                        if (reviewsContainer) {
+                            reviewsContainer.style.display = 'block';
+                            renderSellerReviews();
+                        }
+                    } else {
+                        if (reviewsContainer) reviewsContainer.style.display = 'none';
+                        if (listingsGrid) listingsGrid.style.display = 'grid';
+                        renderSellerListings(status);
+                    }
                 });
             });
 
@@ -1743,6 +1760,50 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     </div>
                 `;
+            } else if (msg.text.startsWith("[REVIEW_PROMPT]:")) {
+                div.className = "message-system";
+                div.style.cssText = "align-self: center; width: 90%; margin: 1.5rem 0;";
+                const parts = msg.text.split(':');
+                const productId = parts[1];
+                const productTitle = parts.slice(2).join(':');
+
+                if (user.role === 'buyer') {
+                    div.innerHTML = `
+                        <div class="review-prompt-card" style="background: white; border: 1.5px solid #f59e0b; padding: 1.5rem; border-radius: 20px; border-top: 6px solid #f59e0b; box-shadow: 0 10px 15px -3px rgba(245,158,11,0.1);">
+                            <div style="font-weight: 800; color: #1e293b; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between;">
+                                <span style="display: flex; align-items: center; gap: 0.5rem;"><span style="font-size: 1.4rem;">⭐️</span> Leave a Review</span>
+                                <span style="font-size: 0.65rem; background: #fef3c7; color: #d97706; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; font-weight: 800;">Action Required</span>
+                            </div>
+                            <div style="font-size: 0.95rem; color: #334155; margin-bottom: 1.25rem; line-height: 1.5;">
+                                The transaction for <strong>${productTitle}</strong> is complete. Please take a moment to rate the seller.
+                            </div>
+                            <div id="chatReviewForm-${productId}" style="display: flex; flex-direction: column; gap: 1rem;">
+                                <div>
+                                    <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #92400e; margin-bottom: 0.4rem; text-transform: uppercase;">Rating</label>
+                                    <div class="star-rating" style="display: flex; gap: 0.5rem; font-size: 1.8rem; cursor: pointer; color: #f59e0b;">
+                                        <span onclick="setChatStar(1, '${productId}')" id="star-${productId}-1">☆</span>
+                                        <span onclick="setChatStar(2, '${productId}')" id="star-${productId}-2">☆</span>
+                                        <span onclick="setChatStar(3, '${productId}')" id="star-${productId}-3">☆</span>
+                                        <span onclick="setChatStar(4, '${productId}')" id="star-${productId}-4">☆</span>
+                                        <span onclick="setChatStar(5, '${productId}')" id="star-${productId}-5">☆</span>
+                                    </div>
+                                    <input type="hidden" id="chatRatingInput-${productId}" value="0">
+                                </div>
+                                <div>
+                                    <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #92400e; margin-bottom: 0.4rem; text-transform: uppercase;">Comment</label>
+                                    <textarea id="chatComment-${productId}" style="width: 100%; border-radius: 10px; border: 1.5px solid #fde68a; padding: 0.75rem; font-size: 0.9rem; resize: vertical; background: #fffbeb;" rows="2" placeholder="How was your experience?"></textarea>
+                                </div>
+                                <button class="btn-primary" style="background: #f59e0b; border: none; padding: 0.8rem; border-radius: 10px; color: white; font-weight: 800; cursor: pointer; box-shadow: 0 4px 6px rgba(245,158,11,0.2);" onclick="handleChatReviewSubmit('${productId}', '${activeSessionId}', this)">Submit Review</button>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    div.innerHTML = `
+                        <div style="background: #f8fafc; border: 1px dashed #cbd5e1; padding: 1rem; border-radius: 12px; text-align: center; color: #64748b; font-size: 0.85rem;">
+                            Waiting for buyer feedback for <strong>${productTitle}</strong>
+                        </div>
+                    `;
+                }
             } else if (msg.text.startsWith("✅ FUNDS RELEASED:")) {
                 div.className = "message-system";
                 div.style.cssText = "align-self: center; width: 85%; margin: 1.5rem 0;";
@@ -1757,14 +1818,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             <p style="margin: 0; font-size: 1rem; color: #166534; font-weight: 700; line-height: 1.4;">${details}</p>
                         </div>
                         
-                        ${user.role === 'buyer' ? `
-                        <div style="margin-top: 1rem;">
-                            <button class="btn-primary" style="width: 100%; background: #10b981; border: none; padding: 0.7rem; border-radius: 10px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;" onclick="openReviewFromChat()">
-                                ⭐ Rate the Seller
-                            </button>
-                        </div>
-                        ` : ''}
-
                         <div style="margin-top: 1rem; font-size: 0.8rem; color: #64748b; text-align: center; font-style: italic;">
                             Transaction successful. Thank you for using ReSale!
                         </div>
@@ -1785,14 +1838,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div style="background: #f8fafc; border-radius: 12px; padding: 1.25rem; text-align: center; border: 1px dashed #cbd5e1; margin-bottom: 1rem;">
                             <p style="margin: 0; font-size: 1rem; color: #1e293b; font-weight: 700; line-height: 1.5;">${resDetails}</p>
                         </div>
-
-                        ${user.role === 'buyer' ? `
-                        <div style="margin-top: 0.5rem; margin-bottom: 1rem;">
-                            <button class="btn-primary" style="width: 100%; background: #1e293b; border: none; padding: 0.7rem; border-radius: 10px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;" onclick="openReviewFromChat()">
-                                ⭐ Rate your Experience
-                            </button>
-                        </div>
-                        ` : ''}
 
                         <div style="font-size: 0.8rem; color: #64748b; text-align: center;">
                             This decision is final and has been applied to both wallets.
@@ -2689,28 +2734,128 @@ window.clearTransactionHistory = async function() {
 
 window.toggleDescription = toggleDescription;
 
-window.openReviewFromChat = function() {
-    const productId = window.currentChatProductId;
-    if (!productId) {
-        alert("Product information missing. Please try again.");
+// ─── CHAT REVIEW LOGIC ───────────────────────────────────────────────
+
+window.setChatStar = function(rating, productId) {
+    const input = document.getElementById(`chatRatingInput-${productId}`);
+    if (input) input.value = rating;
+    
+    for (let i = 1; i <= 5; i++) {
+        const star = document.getElementById(`star-${productId}-${i}`);
+        if (star) {
+            star.innerText = i <= rating ? '★' : '☆';
+        }
+    }
+};
+
+window.handleChatReviewSubmit = async function(productId, sessionId, btn) {
+    const rating = parseInt(document.getElementById(`chatRatingInput-${productId}`).value);
+    const comment = document.getElementById(`chatComment-${productId}`).value.trim();
+    
+    if (rating === 0) {
+        alert("Please select a star rating first.");
         return;
     }
     
-    const modal = document.getElementById('reviewModal');
-    if (modal) {
-        document.getElementById('reviewProductId').value = productId;
-        modal.classList.add('active');
-        document.body.style.overflow = 'hidden';
-    } else {
-        // If they are in chat.html, we might need to redirect to profile.html or handle it differently
-        // But the user has the reviewModal in profile.html
-        alert("Please go to your profile dashboard to leave a review.");
+    const originalText = btn.innerText;
+    btn.innerText = 'Submitting...';
+    btn.disabled = true;
+    
+    try {
+        await window.api.createReview({
+            product_id: productId,
+            rating: rating,
+            comment: comment
+        });
+        
+        // Update the card UI to show success
+        const container = document.getElementById(`chatReviewForm-${productId}`);
+        if (container) {
+            container.innerHTML = `
+                <div style="background: #ecfdf5; color: #065f46; padding: 1rem; border-radius: 12px; text-align: center; font-weight: 700; border: 1px solid #10b981;">
+                    ✅ Thank you! Your review has been submitted.
+                </div>
+            `;
+        }
+        
+        // Notify the seller via chat that a review was left (optional but nice)
+        if (window.currentChatSocket && window.currentChatSocket.readyState === WebSocket.OPEN) {
+            window.currentChatSocket.send(`⭐ Buyer left a ${rating}-star review: "${comment}"`);
+        }
+
+    } catch (err) {
+        alert("Failed to submit review: " + err.message);
+        btn.innerText = originalText;
+        btn.disabled = false;
     }
+};
+
+window.openReviewFromChat = function() {
+    alert("Please look for the Review Card at the end of the chat history.");
 };
 
 /**
  * Updates the unread message badge on the sidebar Messages link.
  */
+async function renderSellerReviews() {
+    const container = document.getElementById('sellerReviewsContainer');
+    if (!container) return;
+    
+    container.innerHTML = '<div style="text-align:center; padding: 3rem; color: var(--text-muted);">Loading reviews...</div>';
+    
+    try {
+        const user = getUser();
+        // Use standard window.api.request for the new endpoint
+        const reviews = await window.api.request(`/reviews/seller/${user.id}`, 'GET');
+        
+        if (!reviews || reviews.length === 0) {
+            container.innerHTML = `
+                <div style="text-align:center; padding: 5rem 2rem; background: var(--bg-card); border: 1px dashed var(--border); border-radius: 20px;">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">⭐</div>
+                    <h3 style="color: var(--secondary);">No Reviews Yet</h3>
+                    <p style="color: var(--text-muted); max-width: 300px; margin: 0.5rem auto;">Complete your first sale to start building your reputation!</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = `
+            <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                ${reviews.map(r => `
+                    <div style="background: var(--bg-card); border: 1px solid var(--border); padding: 1.5rem; border-radius: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='translateY(0)'">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+                            <div style="display: flex; align-items: center; gap: 1rem;">
+                                <div style="width: 45px; height: 45px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--accent-cyan)); color: white; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.1rem;">
+                                    ${r.buyer_name ? r.buyer_name.charAt(0) : 'B'}
+                                </div>
+                                <div>
+                                    <h4 style="margin: 0; font-size: 1rem; color: var(--secondary); font-weight: 700;">${r.buyer_name || 'Anonymous Buyer'}</h4>
+                                    <div style="color: #f59e0b; font-size: 0.9rem; margin-top: 0.1rem;">
+                                        ${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}
+                                        <span style="color: var(--text-muted); font-size: 0.75rem; margin-left: 0.5rem; font-weight: 500;">(${r.rating}/5)</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500;">${new Date(r.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                        </div>
+                        <div style="background: rgba(0,0,0,0.02); padding: 1rem; border-radius: 12px; border-left: 4px solid var(--primary);">
+                            <p style="margin: 0; font-size: 0.95rem; color: var(--text-primary); line-height: 1.6; font-style: italic;">"${r.comment || 'No comment provided.'}"</p>
+                        </div>
+                        <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">Reviewed for:</span>
+                            <span style="font-size: 0.75rem; font-weight: 700; color: var(--primary);">${r.product_title || 'Purchased Item'}</span>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    } catch (err) {
+        console.error("Reviews load error:", err);
+        container.innerHTML = `<div style="color: red; padding: 2rem; text-align: center;">Error loading reviews: ${err.message}</div>`;
+    }
+}
+window.renderSellerReviews = renderSellerReviews;
+
 async function updateGlobalUnreadCount() {
     const user = getUser();
     if (!user || user.role === 'admin') return;
@@ -2737,37 +2882,8 @@ window.updateGlobalUnreadCount = updateGlobalUnreadCount;
 
 // ─── REVIEW LOGIC ───────────────────────────────────────────────
 
-window.openReviewModal = async function (productId) {
-    const user = getUser();
-    if (!user) {
-        alert("Please login to leave a review.");
-        window.location.href = "login.html";
-        return;
-    }
-
-    try {
-        // PRE-CHECK: Only show modal if they have a completed offer
-        // (Backend will also verify this for security)
-        const offers = await window.api.request(`/offers?product_id=${productId}`, 'GET');
-        const hasCompleted = offers.some(o => o.buyer_id === user.id && o.status === 'completed');
-
-        if (!hasCompleted) {
-            alert("🔒 Access Denied: You can only review a seller after purchasing this product and confirming receipt.");
-            return;
-        }
-
-        const modal = document.getElementById('reviewModal');
-        if (!modal) return;
-
-        document.getElementById('reviewProductId').value = productId;
-        document.getElementById('reviewRating').value = '';
-        document.getElementById('reviewComment').value = '';
-
-        modal.classList.add('active');
-        document.body.style.overflow = 'hidden';
-    } catch (err) {
-        alert("Could not verify purchase status: " + err.message);
-    }
+window.openReviewModal = function(productId) {
+    alert("Reviews are now handled directly within the chat! Please check your message history for the transaction.");
 };
 
 window.markProductAsSold = async function (productId) {
@@ -2780,41 +2896,6 @@ window.markProductAsSold = async function (productId) {
         alert("Failed to update status: " + err.message);
     }
 };
-
-document.addEventListener('DOMContentLoaded', () => {
-    const reviewForm = document.getElementById('reviewForm');
-    if (reviewForm) {
-        reviewForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const btn = document.getElementById('submitReviewBtn');
-            const originalText = btn.innerText;
-            btn.innerText = 'Submitting...';
-            btn.disabled = true;
-
-            try {
-                const productId = document.getElementById('reviewProductId').value;
-                const rating = parseInt(document.getElementById('reviewRating').value);
-                const comment = document.getElementById('reviewComment').value;
-
-                await window.api.createReview({
-                    product_id: productId,
-                    rating: rating,
-                    comment: comment
-                });
-
-                document.getElementById('reviewModal').classList.remove('active');
-                document.body.style.overflow = '';
-                alert("Thank you! Your review has been submitted. It will appear on the seller's profile shortly.");
-
-            } catch (err) {
-                alert("Failed to submit review: " + err.message);
-            } finally {
-                btn.innerText = originalText;
-                btn.disabled = false;
-            }
-        });
-    }
-});
 // ─── ADMIN DISPUTE HELPERS ───────────────────────────────────────
 
 function setAdminInlineStatus(status, btn) {
