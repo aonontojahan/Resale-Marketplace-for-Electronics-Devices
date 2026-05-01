@@ -745,8 +745,8 @@ def resolve_dispute(
         
         # Reset product status back to available
         if offer.product:
-            offer.product.status = "available"
-            offer.product.stock += offer.quantity
+            offer.product.status = models.ProductStatus.APPROVED
+            offer.product.inventory_quantity += offer.quantity
             
         msg_text = f"⚖️ ADMIN RESOLUTION: Dispute resolved with FULL REFUND. Tk.{total_escrow:,d} returned to buyer wallet. Product has been re-listed."
 
@@ -775,8 +775,8 @@ def resolve_dispute(
         
         # Reset product status back to available
         if offer.product:
-            offer.product.status = "available"
-            offer.product.stock += offer.quantity
+            offer.product.status = models.ProductStatus.APPROVED
+            offer.product.inventory_quantity += offer.quantity
 
         msg_text = f"⚖️ ADMIN RESOLUTION: Dispute resolved with PARTIAL REFUND. Tk.{product_price_total:,d} returned to buyer. Tk.{DELIVERY_FEE:,d} released to seller to cover shipping. Product has been re-listed."
         
