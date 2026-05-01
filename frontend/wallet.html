@@ -106,16 +106,16 @@
 
             <div style="display: flex; justify-content: space-between; font-size: 0.95rem; margin-bottom: 1rem;">
               <span style="color: var(--text-muted);">Items Total (<span id="coQtyText">1</span> Items)</span>
-              <span style="font-weight: 600;">৳<span id="coBasePrice">0</span></span>
+              <span style="font-weight: 600;">Tk.<span id="coBasePrice">0</span></span>
             </div>
             <div style="display: flex; justify-content: space-between; font-size: 0.95rem; margin-bottom: 1.5rem;">
               <span style="color: var(--text-muted);">Delivery Fee</span>
-              <span style="font-weight: 600;">৳<span id="coDeliveryFee">150</span></span>
+              <span style="font-weight: 600;">Tk.<span id="coDeliveryFee">150</span></span>
             </div>
 
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
               <span style="font-size: 1.2rem; font-weight: 600;">Total:</span>
-              <span style="font-size: 1.6rem; font-weight: 800; color: #f97316;">৳<span id="coTotal">0</span></span>
+              <span style="font-size: 1.6rem; font-weight: 800; color: #f97316;">Tk.<span id="coTotal">0</span></span>
             </div>
 
             <p style="font-size: 0.75rem; color: var(--text-muted); text-align: right; margin-bottom: 1.5rem;">VAT
@@ -137,7 +137,7 @@
       <div class="wallet-grid">
         <div class="wallet-card available">
           <h3 id="availableBalanceTitle">Available Balance</h3>
-          <p class="balance" id="walletAvailableBalance">৳0</p>
+          <p class="balance" id="walletAvailableBalance">Tk.0</p>
           <div id="buyerWalletActions" style="display: none; margin-top: 2rem;">
             <button class="btn-primary" onclick="openMockGateway()"
               style="width: 100%; border-radius: 8px; background: linear-gradient(135deg, var(--primary), var(--accent-cyan)); box-shadow: 0 4px 12px rgba(99,102,241,0.3);">+
@@ -151,7 +151,7 @@
 
         <div class="wallet-card escrow">
           <h3 id="escrowBalanceTitle">Escrow Balance</h3>
-          <p class="balance" id="walletEscrowBalance">৳0</p>
+          <p class="balance" id="walletEscrowBalance">Tk.0</p>
           <p id="escrowDescription" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 1rem;">Holdings</p>
         </div>
       </div>
@@ -186,7 +186,7 @@
       <div id="gatewayFormView" style="padding: 2rem;">
         <div class="form-group" style="margin-bottom: 1.5rem;">
           <label style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-bottom: 0.5rem;">Amount to
-            Deposit (৳)</label>
+            Deposit (Tk.)</label>
           <input type="number" id="depositAmount" class="form-input"
             style="background: var(--surface);" placeholder="e.g. 500" min="10">
         </div>
@@ -389,7 +389,7 @@
             if (currentUser && currentUser.wallet_balance < totalToPay) {
               btn.disabled = true;
               btn.style.background = '#94a3b8';
-              btn.innerText = `Insufficient Funds (Short ৳${(totalToPay - currentUser.wallet_balance).toLocaleString()})`;
+              btn.innerText = `Insufficient Funds (Short Tk.${(totalToPay - currentUser.wallet_balance).toLocaleString()})`;
             } else {
               btn.disabled = false;
               btn.style.background = '#f97316';
@@ -441,8 +441,8 @@
     async function loadWalletData() {
       try {
         const user = await window.api.getMe();
-        document.getElementById('walletAvailableBalance').innerText = '৳' + (user.wallet_balance || 0).toLocaleString('en-IN');
-        document.getElementById('walletEscrowBalance').innerText = '৳' + (user.escrow_balance || 0).toLocaleString('en-IN');
+        document.getElementById('walletAvailableBalance').innerText = 'Tk.' + (user.wallet_balance || 0).toLocaleString('en-IN');
+        document.getElementById('walletEscrowBalance').innerText = 'Tk.' + (user.escrow_balance || 0).toLocaleString('en-IN');
 
         // Adjust UI by Role
         if (user.role === 'buyer') {
@@ -513,7 +513,7 @@
                         <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0;">${date}</p>
                     </div>
                     <div style="text-align: right;">
-                        <p style="color: ${color}; font-weight: 800; font-size: 1.05rem; margin: 0;">${sign}৳${Math.abs(tx.amount).toLocaleString('en-IN')}</p>
+                        <p style="color: ${color}; font-weight: 800; font-size: 1.05rem; margin: 0;">${sign}Tk.${Math.abs(tx.amount).toLocaleString('en-IN')}</p>
                         <p style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; margin-top: 0.2rem;">${tx.transaction_type.replace('_', ' ')}</p>
                     </div>
                 </div>

@@ -259,7 +259,7 @@ def create_offer(
     system_msg = models.ChatMessage(
         session_id=offer_in.session_id,
         sender_id=session.buyer_id,
-        text=f"📢 OFFER MADE: {current_user.full_name} offered ৳{offer_in.offered_price:,d} for this item."
+        text=f"📢 OFFER MADE: {current_user.full_name} offered Tk.{offer_in.offered_price:,d} for this item."
     )
     db.add(system_msg)
     
@@ -307,7 +307,7 @@ def accept_offer(
     system_msg = models.ChatMessage(
         session_id=offer.session_id,
         sender_id=offer.seller_id,
-        text=f"✅ OFFER ACCEPTED: {current_user.full_name} has accepted the offer of ৳{offer.offered_price:,d}!"
+        text=f"✅ OFFER ACCEPTED: {current_user.full_name} has accepted the offer of Tk.{offer.offered_price:,d}!"
     )
     db.add(system_msg)
     
@@ -338,7 +338,7 @@ def reject_offer(
     system_msg = models.ChatMessage(
         session_id=offer.session_id,
         sender_id=offer.seller_id,
-        text=f"❌ OFFER REJECTED: The seller has declined the offer of ৳{offer.offered_price:,d}."
+        text=f"❌ OFFER REJECTED: The seller has declined the offer of Tk.{offer.offered_price:,d}."
     )
     db.add(system_msg)
     
@@ -391,7 +391,7 @@ def finalize_payment(
     pay_msg = models.ChatMessage(
         session_id=offer.session_id,
         sender_id=offer.buyer_id,
-        text=f"💰 PAYMENT COMPLETED: ৳{final_total:,d} moved to escrow via SecurePay."
+        text=f"💰 PAYMENT COMPLETED: Tk.{final_total:,d} moved to escrow via SecurePay."
     )
     db.add(pay_msg)
     
@@ -595,14 +595,23 @@ def release_payment(
     )
     db.add(buyer_tx)
 
-    # Record platform commission (optional, for tracking)
-    # In a real system, you'd add this to a platform account.
+    # Record platform commission
+    admin = db.query(models.User).filter(models.User.role == models.UserRole.ADMIN).first()
+    if admin and commission > 0:
+        admin.wallet_balance += commission
+        platform_tx = models.WalletTransaction(
+            user_id=admin.id,
+            amount=commission,
+            transaction_type="platform_revenue",
+            description=f"Commission earned from {offer.product.title} (Sale ID: {offer.id})"
+        )
+        db.add(platform_tx)
 
     # System message
     system_msg = models.ChatMessage(
         session_id=offer.session_id,
         sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1, 
-        text=f"✅ FUNDS RELEASED: ৳{seller_amount:,d} has been moved to the seller's wallet after a {COMMISSION_RATE*100}% service fee."
+        text=f"✅ FUNDS RELEASED: Tk.{seller_amount:,d} has been moved to the seller's wallet after a {COMMISSION_RATE*100}% service fee."
     )
     db.add(system_msg)
 
@@ -688,7 +697,7 @@ def resolve_dispute(
         seller.wallet_balance += seller_payout
         offer.status = models.OfferStatus.COMPLETED
         
-        msg_text = f"⚖️ ADMIN RESOLUTION: Dispute resolved in favor of SELLER. ৳{seller_payout:,d} released to seller wallet."
+        msg_text = f"⚖️ ADMIN RESOLUTION: Dispute resolved in favor of SELLER. Tk.{seller_payout:,d} released to seller wallet."
 
         # Record for Seller
         seller_tx = models.WalletTransaction(
@@ -704,6 +713,18 @@ def resolve_dispute(
             transaction_type="escrow_release",
             description=f"⚖️ ADMIN RELEASE: Escrow released to seller for {offer.product.title}"
         )
+        # Record platform commission
+        admin = db.query(models.User).filter(models.User.role == models.UserRole.ADMIN).first()
+        if admin and commission > 0:
+            admin.wallet_balance += commission
+            platform_tx = models.WalletTransaction(
+                user_id=admin.id,
+                amount=commission,
+                transaction_type="platform_revenue",
+                description=f"⚖️ ADMIN DISPUTE: Commission from {offer.product.title}"
+            )
+            db.add(platform_tx)
+
         db.add(seller_tx)
         db.add(buyer_tx)
 
@@ -719,7 +740,7 @@ def resolve_dispute(
             offer.product.status = "available"
             offer.product.stock += offer.quantity
             
-        msg_text = f"⚖️ ADMIN RESOLUTION: Dispute resolved with FULL REFUND. ৳{total_escrow:,d} returned to buyer wallet. Product has been re-listed."
+        msg_text = f"⚖️ ADMIN RESOLUTION: Dispute resolved with FULL REFUND. Tk.{total_escrow:,d} returned to buyer wallet. Product has been re-listed."
 
         # Record for Buyer
         refund_tx = models.WalletTransaction(
@@ -749,7 +770,7 @@ def resolve_dispute(
             offer.product.status = "available"
             offer.product.stock += offer.quantity
 
-        msg_text = f"⚖️ ADMIN RESOLUTION: Dispute resolved with PARTIAL REFUND. ৳{product_price_total:,d} returned to buyer. ৳{DELIVERY_FEE:,d} released to seller to cover shipping. Product has been re-listed."
+        msg_text = f"⚖️ ADMIN RESOLUTION: Dispute resolved with PARTIAL REFUND. Tk.{product_price_total:,d} returned to buyer. Tk.{DELIVERY_FEE:,d} released to seller to cover shipping. Product has been re-listed."
         
         # Record for Buyer
         buyer_tx = models.WalletTransaction(
@@ -859,13 +880,25 @@ def auto_release_escrow(db: Session = Depends(get_db)):
             system_msg = models.ChatMessage(
                 session_id=offer.session_id,
                 sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1,
-                text=f"⏰ AUTO-RELEASE: 3 days have passed since delivery. ৳{seller_amount:,d} automatically released to the seller."
+                text=f"⏰ AUTO-RELEASE: 3 days have passed since delivery. Tk.{seller_amount:,d} automatically released to the seller."
             )
             db.add(system_msg)
             
             # Touch session
             offer.session.updated_at = func.now()
             db.add(offer.session)
+            
+            # Record platform commission
+            admin = db.query(models.User).filter(models.User.role == models.UserRole.ADMIN).first()
+            if admin and commission > 0:
+                admin.wallet_balance += commission
+                platform_tx = models.WalletTransaction(
+                    user_id=admin.id,
+                    amount=commission,
+                    transaction_type="platform_revenue",
+                    description=f"⏰ AUTO-RELEASE: Commission from {offer.product.title}"
+                )
+                db.add(platform_tx)
             
             released_count += 1
             
@@ -1117,6 +1150,12 @@ def get_platform_stats(db: Session = Depends(get_db)):
         models.User.account_status == "pending_verification"
     ).count()
 
+    # Revenue Calculation
+    completed_offers = db.query(models.Offer).filter(
+        models.Offer.status.in_([models.OfferStatus.COMPLETED, models.OfferStatus.AUTO_COMPLETED])
+    ).all()
+    total_commission = sum(int(o.offered_price * o.quantity * COMMISSION_RATE) for o in completed_offers)
+
     return {
         "total_users":       total_users,
         "total_buyers":      total_buyers,
@@ -1128,7 +1167,7 @@ def get_platform_stats(db: Session = Depends(get_db)):
         "approved_products": approved_products,
         "rejected_products": rejected_products,
         "pending_sellers":   pending_sellers,
-        # Keep old keys for backward-compatibility with frontend stats
+        "platform_revenue":  total_commission,
         "total_listings":    total_products,
         "pending_listings":  pending_products,
         "approved_listings": approved_products,

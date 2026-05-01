@@ -158,7 +158,7 @@ function renderProductCard(product) {
                     <h3 class="card-title" style="margin: 0; font-size: 1.15rem; font-weight: 800; line-height: 1.3; color: var(--text-primary); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${product.title}</h3>
                 </div>
                 <div style="display: flex; align-items: baseline; gap: 0.5rem; margin-bottom: 0.75rem;">
-                    <p class="card-price" style="margin: 0; font-size: 1.6rem; font-weight: 900; background: linear-gradient(135deg, var(--primary), var(--accent-cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">৳${priceFormatted}</p>
+                    <p class="card-price" style="margin: 0; font-size: 1.6rem; font-weight: 900; background: linear-gradient(135deg, var(--primary), var(--accent-cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Tk.${priceFormatted}</p>
                 </div>
                 <div style="display: flex; gap: 0.4rem; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; margin-bottom: 0.75rem; align-items: center;">
                     <span style="font-size: 0.72rem; background: rgba(99,102,241,0.08); color: var(--primary); font-weight: 700; padding: 0.35rem 0.4rem; border-radius: 6px; border: 1px solid rgba(99,102,241,0.2); white-space: nowrap;">${CATEGORY_EMOJIS[product.category] || '📦'} ${product.category}</span>
@@ -184,7 +184,7 @@ function renderProductCard(product) {
         }
                     <button style="background: transparent; color: var(--primary); border: 2px solid var(--primary); border-radius: 10px; text-align: center; font-weight: 800; width: 100%; padding: 0.65rem; font-size: 0.85rem; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='var(--primary)'; this.style.color='white'" onmouseout="this.style.background='transparent'; this.style.color='var(--primary)'" onclick="handleMessageClick('${product.id}', '${product.seller_id}')" id="msgBtn-${product.id}">Message</button>
                 </div>
-                <button style="width: 100%; padding: 0.5rem; border-radius: 8px; text-align: center; font-weight: 600; font-size: 0.8rem; border: none; background: transparent; color: var(--text-muted); margin-top: 0.5rem; cursor: pointer; transition: color 0.2s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-muted)'" onclick="openReviewModal('${product.id}')" id="revBtn-${product.id}">⭐️ Leave a Review</button>
+
             </div>
         </div>`;
 }
@@ -226,7 +226,7 @@ function renderSellerCard(product) {
             <div class="card-content">
                 <h4 class="card-title" style="font-size:1.05rem; margin: 0.5rem 0; line-height: 1.3;">${product.title}</h4>
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <p class="card-price" style="font-size:1.05rem; margin-bottom: 0;">৳${priceFormatted}</p>
+                    <p class="card-price" style="font-size:1.05rem; margin-bottom: 0;">Tk.${priceFormatted}</p>
                     <span style="font-size: 0.75rem; background: rgba(16,185,129,0.1); color: #10b981; font-weight: bold; padding: 0.25rem 0.6rem; border-radius: 4px; border: 1px solid rgba(16,185,129,0.2); white-space: nowrap;">Qty: ${product.inventory_quantity || 1}</span>
                 </div>
                 <div style="margin-top: 0.4rem;">
@@ -280,7 +280,7 @@ function renderAdminCard(product) {
                 : `<span class="listing-status-badge ${statusCfg.cls}">${statusCfg.label.toUpperCase()}</span>`
         }
                         <h4 class="admin-card-title">${product.title}</h4>
-                        <p class="admin-card-price">৳${priceFormatted}</p>
+                        <p class="admin-card-price">Tk.${priceFormatted}</p>
                     </div>
                     <div class="admin-card-badges">
                         <span class="badge badge-condition" style="background: rgba(16,185,129,0.1); color: #10b981; border: 1px solid rgba(16,185,129,0.2);">Qty: ${product.inventory_quantity || 1}</span>
@@ -671,6 +671,10 @@ async function loadAdminStats() {
         // Fetch dispute count
         const disputes = await window.api.request('/admin/disputes', 'GET');
         if (disputesStatEl) disputesStatEl.innerText = disputes.length || 0;
+
+        // Populate Platform Revenue
+        const revenueEl = document.getElementById('adminStatRevenue');
+        if (revenueEl) revenueEl.innerText = `Tk.${(stats.platform_revenue || 0).toLocaleString('en-IN')}`;
     } catch (error) {
         console.error("Failed to load admin stats:", error);
     }
@@ -1243,12 +1247,16 @@ document.addEventListener('DOMContentLoaded', () => {
         // Hide wallet/messages for admin
         const walletMenu = document.querySelector('.profile-menu-item[href="wallet.html"]');
         const chatMenu = document.querySelector('.profile-menu-item[href="chat.html"]');
+        const platformWalletMenu = document.getElementById('menuPlatformWallet');
+        
         if (role === 'admin') {
             if (walletMenu) walletMenu.style.display = 'none';
             if (chatMenu) chatMenu.style.display = 'none';
+            if (platformWalletMenu) platformWalletMenu.style.display = 'block';
         } else {
             if (walletMenu) walletMenu.style.display = 'flex';
             if (chatMenu) chatMenu.style.display = 'flex';
+            if (platformWalletMenu) platformWalletMenu.style.display = 'none';
         }
 
         // Show the correct view
@@ -1300,6 +1308,29 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
             });
+
+            // Handle Dashboard vs Platform Wallet switching
+            const menuListings = document.getElementById('menuListings');
+            const platformWalletView = document.getElementById('platformWalletView');
+            
+            if (menuListings && platformWalletMenu) {
+                menuListings.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    menuListings.classList.add('active');
+                    platformWalletMenu.classList.remove('active');
+                    adminView.style.display = 'block';
+                    platformWalletView.style.display = 'none';
+                });
+                
+                platformWalletMenu.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    platformWalletMenu.classList.add('active');
+                    menuListings.classList.remove('active');
+                    adminView.style.display = 'none';
+                    platformWalletView.style.display = 'block';
+                    renderPlatformWallet();
+                });
+            }
         }
     }
 
@@ -1531,7 +1562,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 div.className = "message-system offer-card-container";
                 div.style.cssText = "align-self: center; width: 85%; margin: 1.5rem 0;";
 
-                const priceMatch = msg.text.match(/৳([\d,]+)/);
+                const priceMatch = msg.text.match(/Tk.([\d,]+)/);
                 const priceLabel = priceMatch ? priceMatch[1] : 'N/A';
 
                 div.innerHTML = `
@@ -1541,7 +1572,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span style="font-size:0.7rem; background: #e0e7ff; padding: 2px 8px; border-radius:10px; margin-left:auto;">ACTIVE</span>
                         </div>
                         <div style="font-size: 0.95rem; color: #334155; margin-bottom: 1.25rem; line-height: 1.5;">
-                            A new offer of <strong style="color:var(--primary); font-size:1.1rem;">৳${priceLabel}</strong> was placed for this product.
+                            A new offer of <strong style="color:var(--primary); font-size:1.1rem;">Tk.${priceLabel}</strong> was placed for this product.
                         </div>
                         ${user.role === 'seller' ? `
                         <div class="offer-actions" style="display: flex; gap: 0.75rem;">
@@ -1553,7 +1584,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (msg.text.startsWith("✅ OFFER ACCEPTED:")) {
                 div.className = "message-system";
                 div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
-                const priceMatch = msg.text.match(/৳([\d,]+)/);
+                const priceMatch = msg.text.match(/Tk.([\d,]+)/);
                 const priceLabel = priceMatch ? priceMatch[1] : 'N/A';
 
                 div.innerHTML = `
@@ -1562,7 +1593,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span style="font-size: 1.4rem;">🎉</span> Price Agreed!
                         </div>
                         <div style="font-size: 0.95rem; color: #064e3b; margin-bottom: 1.25rem;">
-                            Seller accepted <strong>৳${priceLabel}</strong>. You can now finish the purchase.
+                            Seller accepted <strong>Tk.${priceLabel}</strong>. You can now finish the purchase.
                         </div>
                         ${user.role === 'buyer' ? `
                         <button class="btn-primary" style="width:100%; background: #10b981; border: none; padding: 0.8rem; color: white; font-weight: 800; border-radius: 10px; cursor: pointer; transition: transform 0.2s;" onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'" onclick="handleProceedToCheckout('${activeSessionId}')">Complete Purchase Now</button>
@@ -1844,7 +1875,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         ${imgHtml}
                         <div>
                             <div style="font-weight: 600; font-size: 0.9rem; line-height: 1.2;">${productTitle}</div>
-                            <div style="color: var(--primary); font-weight: 700; font-size: 1rem;">৳${Number(productPrice).toLocaleString('en-IN')}</div>
+                            <div style="color: var(--primary); font-weight: 700; font-size: 1rem;">Tk.${Number(productPrice).toLocaleString('en-IN')}</div>
                         </div>
                     </div>
                     <div style="display: flex; gap: 0.5rem;">
@@ -2467,7 +2498,7 @@ window.handleMarkShipped = async function (sessionId) {
         document.getElementById('shipSellerName').value = chat.seller.full_name;
         document.getElementById('shipSellerPhone').value = chat.seller.phone;
         document.getElementById('shipProductName').value = chat.product_title;
-        document.getElementById('shipProductPrice').value = `৳${Number(activeOffer.offered_price).toLocaleString('en-IN')}`;
+        document.getElementById('shipProductPrice').value = `Tk.${Number(activeOffer.offered_price).toLocaleString('en-IN')}`;
         document.getElementById('shipProductQty').value = activeOffer.quantity || 1;
 
         document.getElementById('shipBuyerName').value = chat.buyer.full_name;
@@ -2877,7 +2908,7 @@ async function renderAdminDisputes() {
                         </div>
                         <div style="margin-top: 0.5rem; pt-0.5rem; border-top: 1px dashed rgba(225,29,72,0.2); display: flex; justify-content: space-between; align-items: center;">
                             <span>💰 Total Amount:</span>
-                            <strong style="color:#e11d48; font-size:1.1rem;">৳${(d.offered_price * d.quantity + 150).toLocaleString()}</strong>
+                            <strong style="color:#e11d48; font-size:1.1rem;">Tk.${(d.offered_price * d.quantity + 150).toLocaleString()}</strong>
                         </div>
                     </div>
 
@@ -2944,3 +2975,59 @@ window.submitRefundVerdict = async function(resolution) {
         alert("Failed to resolve dispute: " + err.message);
     }
 };
+
+async function renderPlatformWallet() {
+    const balanceEl = document.getElementById('platformWalletBalance');
+    const listEl = document.getElementById('platformTransactionsList');
+    if (!balanceEl || !listEl) return;
+
+    try {
+        // Fetch Admin's own data to get balance
+        const adminData = await window.api.getMe();
+        
+        // Update balance
+        balanceEl.innerText = `Tk. ${(adminData.wallet_balance || 0).toLocaleString('en-IN')}`;
+
+        // Fetch wallet transactions for the ledger
+        const txs = await window.api.getWalletTransactions();
+        
+        // Filter only platform revenue types or relevant types for the admin account
+        const revenueTxs = txs.filter(t => t.transaction_type === 'platform_revenue' || t.transaction_type === 'withdrawal');
+
+        if (revenueTxs.length === 0) {
+            listEl.innerHTML = '<p style="color: var(--text-muted); font-size: 0.9rem; text-align: center; padding: 2rem;">No revenue transactions found yet.</p>';
+            return;
+        }
+
+        listEl.innerHTML = revenueTxs.map(t => {
+            const isRevenue = t.amount > 0;
+            const date = new Date(t.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+            return `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid var(--border); transition: background 0.2s;" onmouseover="this.style.background='rgba(0,0,0,0.02)'" onmouseout="this.style.background='transparent'">
+                    <div style="display: flex; gap: 1rem; align-items: center;">
+                        <div style="width: 40px; height: 40px; border-radius: 10px; background: ${isRevenue ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)'}; color: ${isRevenue ? '#10b981' : '#ef4444'}; display: flex; align-items: center; justify-content: center; font-size: 1.1rem;">
+                            ${isRevenue ? '💰' : '💸'}
+                        </div>
+                        <div>
+                            <p style="margin: 0; font-weight: 700; color: var(--secondary); font-size: 0.95rem;">${t.description}</p>
+                            <p style="margin: 0; font-size: 0.75rem; color: var(--text-muted); font-weight: 500;">${date}</p>
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <p style="margin: 0; font-weight: 800; font-size: 1rem; color: ${isRevenue ? '#10b981' : '#ef4444'};">
+                            ${isRevenue ? '+' : ''}Tk. ${Math.abs(t.amount).toLocaleString('en-IN')}
+                        </p>
+                        <span style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; color: var(--text-muted);">${t.transaction_type.replace('_', ' ')}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+    } catch (err) {
+        console.error("Failed to render platform wallet:", err);
+        listEl.innerHTML = `<p style="color: #ef4444; text-align: center; padding: 2rem;">Error: ${err.message}</p>`;
+    }
+}
+window.renderPlatformWallet = renderPlatformWallet;
+
+

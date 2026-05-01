@@ -42,6 +42,7 @@
             <span>Messages</span>
             <span id="sidebarUnreadBadge" class="sidebar-unread-badge" style="display:none;"></span>
           </a>
+          <a href="#" class="profile-menu-item" id="menuPlatformWallet" style="display:none;">Platform Wallet</a>
           <a href="javascript:void(0)" onclick="logoutUser()" class="profile-menu-item logout">Logout</a>
         </div>
       </aside>
@@ -160,7 +161,7 @@
                 </div>
 
                 <!-- High Priority Disputes Card -->
-                <div class="stat-card" style="padding: 1.25rem; background: #fff1f2; border: 2px solid #f43f5e; border-radius: 16px; display: flex; align-items: center; gap: 1rem; box-shadow: 0 10px 15px -3px rgba(244,63,94,0.1); transition: all 0.3s ease; cursor: pointer; grid-column: span 1;" onclick="renderAdminDisputes()">
+                <div class="stat-card" style="padding: 1.25rem; background: #fff1f2; border: 2px solid #f43f5e; border-radius: 16px; display: flex; align-items: center; gap: 1rem; box-shadow: 0 10px 15px -3px rgba(244,63,94,0.1); transition: all 0.3s ease; cursor: pointer;" onclick="renderAdminDisputes()">
                   <div style="width: 44px; height: 44px; border-radius: 12px; background: #f43f5e; color: white; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; flex-shrink: 0; animation: pulse-error 2s infinite;">🚨</div>
                   <div>
                     <p style="color: #e11d48; font-size: 0.75rem; font-weight: 800; margin: 0 0 0.15rem; text-transform: uppercase; letter-spacing: 0.05em;">Active Disputes</p>
@@ -201,6 +202,43 @@
           </div>
         </div>
 
+        <!-- ====== PLATFORM WALLET VIEW ====== -->
+        <div id="platformWalletView" style="display:none;">
+          <div class="profile-section-title">
+            <h2 style="font-size: 1.5rem; font-weight: 700;">Platform <span class="text-gradient">Revenue Wallet</span></h2>
+            <span class="badge badge-approved" style="font-size:0.85rem; background:rgba(16,185,129,0.15); color:#10b981; border-color:#10b981;">Financial Admin</span>
+          </div>
+
+          <div class="wallet-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+            <div class="wallet-card available" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; padding: 2rem; border-left: 5px solid #10b981;">
+              <h3 style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em;">Total Platform Revenue</h3>
+              <p class="balance" id="platformWalletBalance" style="font-size: 2.5rem; font-weight: 900; color: #10b981; margin: 0;">Tk.0</p>
+              <div style="margin-top: 2rem;">
+                <button class="btn-primary" onclick="alert('Platform withdrawal processed to Admin bank account.')"
+                  style="width: 100%; border-radius: 12px; background: linear-gradient(135deg, #10b981, #059669); font-weight: 800; padding: 1rem; border: none; color: white; cursor: pointer; box-shadow: 0 10px 15px -3px rgba(16,185,129,0.2);">Withdraw Revenue</button>
+              </div>
+            </div>
+
+            <div class="wallet-card info" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; padding: 2rem; border-left: 5px solid var(--primary);">
+              <h3 style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em;">Revenue Stats</h3>
+              <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.6; margin: 1rem 0;">This wallet stores all marketplace commissions (0.5%) collected from successful transactions.</p>
+              <div style="background: rgba(99,102,241,0.05); padding: 1rem; border-radius: 12px; border: 1px dashed var(--primary);">
+                <p style="margin: 0; font-size: 0.8rem; font-weight: 600; color: var(--primary);">Commission Rate: 0.5%</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="recent-transactions" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; padding: 1.5rem;">
+            <div class="transactions-header" style="font-size: 1.1rem; font-weight: 800; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
+              Earnings Ledger
+              <span style="font-size: 0.75rem; background: var(--bg-body); padding: 4px 10px; border-radius: 20px; color: var(--text-muted); border: 1px solid var(--border);">Live Updates</span>
+            </div>
+            <div id="platformTransactionsList">
+              <p style="color: var(--text-muted); font-size: 0.9rem; text-align: center; padding: 2rem;">No earnings recorded yet.</p>
+            </div>
+          </div>
+        </div>
+
       </section>
     </div>
   </main>
@@ -232,7 +270,7 @@
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label for="listingPrice">Price (৳) *</label>
+            <label for="listingPrice">Price (Tk.) *</label>
             <input type="number" id="listingPrice" class="form-input" placeholder="e.g. 82500" min="1" required>
           </div>
           <div class="form-group">
