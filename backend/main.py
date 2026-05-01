@@ -1404,6 +1404,28 @@ async def websocket_chat(websocket: WebSocket, session_id: int, token: str, db: 
     except WebSocketDisconnect:
         manager.disconnect(websocket, user.id)
 
+@app.websocket("/ws/notifications")
+async def websocket_notifications(websocket: WebSocket, token: str, db: Session = Depends(get_db)):
+    """Global WebSocket endpoint for real-time notifications across all pages."""
+    payload = auth.decode_access_token(token)
+    if not payload:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    email = payload.get("sub")
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if not user:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    await manager.connect(websocket, user.id)
+    try:
+        while True:
+            # Keep connection alive
+            _ = await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, user.id)
+
 
 # ─── REVIEWS ──────────────────────────────────────────────────────────────────
 

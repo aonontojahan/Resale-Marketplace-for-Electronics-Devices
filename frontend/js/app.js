@@ -1059,6 +1059,25 @@ function updateNav() {
         // Initial unread count update
         if (role !== 'admin') {
             updateGlobalUnreadCount();
+            
+            // Connect to global notifications WebSocket
+            if (!window.globalNotificationSocket) {
+                // Determine ws protocol based on location
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${protocol}//localhost:8000/ws/notifications?token=${user.token}`;
+                const socket = new WebSocket(wsUrl);
+                window.globalNotificationSocket = socket;
+                
+                socket.onmessage = (event) => {
+                    console.log("[Global] Notification received");
+                    if (window.updateGlobalUnreadCount) window.updateGlobalUnreadCount();
+                    if (window.renderSidebarList) window.renderSidebarList();
+                };
+                
+                socket.onclose = () => {
+                    window.globalNotificationSocket = null;
+                };
+            }
         }
     } else {
         const searchBar = document.getElementById('globalSearchBar');
@@ -2217,6 +2236,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error('Failed to refresh sidebar order:', err);
             }
         }
+        
+        window.renderSidebarList = renderSidebarList;
 
         // Initial load
         refreshChatSidebar();
