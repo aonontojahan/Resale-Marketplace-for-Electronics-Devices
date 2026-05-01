@@ -1,4 +1,5 @@
 import os
+import asyncio
 import shutil
 import uuid
 from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, Form, File, UploadFile, Query
@@ -56,6 +57,35 @@ class ConnectionManager:
                 await connection.send_json(message)
 
 manager = ConnectionManager()
+
+_app_loop = None
+
+@app.on_event("startup")
+def on_startup():
+    global _app_loop
+    _app_loop = asyncio.get_running_loop()
+
+def push_system_msg(msg: models.ChatMessage, buyer_id: int, seller_id: int):
+    global _app_loop
+    if not _app_loop: return
+    
+    msg_dict = {
+        "id": msg.id or 0,
+        "session_id": msg.session_id,
+        "sender_id": msg.sender_id,
+        "text": msg.text,
+        "created_at": msg.created_at.isoformat() if msg.created_at else datetime.now(timezone.utc).isoformat()
+    }
+    
+    async def _send():
+        await manager.send_personal_message(msg_dict, buyer_id)
+        if buyer_id != seller_id:
+            await manager.send_personal_message(msg_dict, seller_id)
+            
+    try:
+        asyncio.run_coroutine_threadsafe(_send(), _app_loop)
+    except Exception:
+        pass
 
 # Marketplace Constants
 COMMISSION_RATE = 0.005 # 0.5% Escrow Service Fee
@@ -262,6 +292,8 @@ def create_offer(
         text=f"📢 OFFER MADE: {current_user.full_name} offered Tk.{offer_in.offered_price:,d} for this item."
     )
     db.add(system_msg)
+    db.flush()
+    push_system_msg(system_msg, session.buyer_id, session.seller_id)
     
     # Touch session to float to top of sidebar
     session.updated_at = func.now()
@@ -310,6 +342,8 @@ def accept_offer(
         text=f"✅ OFFER ACCEPTED: {current_user.full_name} has accepted the offer of Tk.{offer.offered_price:,d}!"
     )
     db.add(system_msg)
+    db.flush()
+    push_system_msg(system_msg, offer.buyer_id, offer.seller_id)
     
     # Touch session
     offer.session.updated_at = func.now()
@@ -341,6 +375,8 @@ def reject_offer(
         text=f"❌ OFFER REJECTED: The seller has declined the offer of Tk.{offer.offered_price:,d}."
     )
     db.add(system_msg)
+    db.flush()
+    push_system_msg(system_msg, offer.buyer_id, offer.seller_id)
     
     # Touch session
     offer.session.updated_at = func.now()
@@ -402,6 +438,9 @@ def finalize_payment(
         text=f"📢 ORDER ALERT: The buyer has made the payment. Please prepare the item for delivery and mark it as DELIVERED once shipped."
     )
     db.add(seller_notify_msg)
+    db.flush()
+    push_system_msg(pay_msg, offer.buyer_id, offer.seller_id)
+    push_system_msg(seller_notify_msg, offer.buyer_id, offer.seller_id)
     
     # Add transaction record
     new_tx = models.WalletTransaction(
@@ -447,6 +486,8 @@ def process_order(
         text="⚙️ ORDER PROCESSING: The seller is now preparing your item for shipment."
     )
     db.add(system_msg)
+    db.flush()
+    push_system_msg(system_msg, offer.buyer_id, offer.seller_id)
 
     offer.session.updated_at = func.now()
     db.add(offer.session)
@@ -487,6 +528,8 @@ def ship_order(
         text=msg_text
     )
     db.add(system_msg)
+    db.flush()
+    push_system_msg(system_msg, offer.buyer_id, offer.seller_id)
 
     offer.session.updated_at = func.now()
     db.add(offer.session)
@@ -522,6 +565,8 @@ def deliver_order(
         text="📦 ORDER DELIVERED: The seller has marked the order as delivered. Buyer, please confirm delivery to release funds to the seller. Funds will auto-release in 3 days if no action is taken."
     )
     db.add(system_msg)
+    db.flush()
+    push_system_msg(system_msg, offer.buyer_id, offer.seller_id)
 
     # Touch session
     offer.session.updated_at = func.now()
@@ -622,6 +667,9 @@ def release_payment(
         text=f"[REVIEW_PROMPT]:{offer.product_id}:{offer.product.title}"
     )
     db.add(review_prompt)
+    db.flush()
+    push_system_msg(system_msg, offer.buyer_id, offer.seller_id)
+    push_system_msg(review_prompt, offer.buyer_id, offer.seller_id)
 
     db.commit()
     return {"message": "Funds released successfully", "seller_received": seller_amount, "commission": commission}
@@ -668,6 +716,8 @@ def dispute_transaction(
         text=msg_text
     )
     db.add(system_msg)
+    db.flush()
+    push_system_msg(system_msg, offer.buyer_id, offer.seller_id)
     
     db.commit()
     return {"message": "Dispute raised successfully. Admin will be notified."}
@@ -812,6 +862,9 @@ def resolve_dispute(
         text=f"[REVIEW_PROMPT]:{offer.product_id}:{offer.product.title}"
     )
     db.add(review_prompt)
+    db.flush()
+    push_system_msg(admin_msg, offer.buyer_id, offer.seller_id)
+    push_system_msg(review_prompt, offer.buyer_id, offer.seller_id)
 
     db.commit()
 
@@ -900,6 +953,8 @@ def auto_release_escrow(db: Session = Depends(get_db)):
                 text=f"⏰ AUTO-RELEASE: 3 days have passed since delivery. Tk.{seller_amount:,d} automatically released to the seller."
             )
             db.add(system_msg)
+            db.flush()
+            push_system_msg(system_msg, offer.buyer_id, offer.seller_id)
             
             # Touch session
             offer.session.updated_at = func.now()
@@ -1398,6 +1453,8 @@ def create_review(
         text=msg_text
     )
     db.add(review_msg)
+    db.flush()
+    push_system_msg(review_msg, purchase.buyer_id, purchase.seller_id)
     
     db.commit()
     db.refresh(new_review)
