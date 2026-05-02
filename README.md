@@ -22,7 +22,9 @@ pip install -r requirements.txt
 
 # Start the FastAPI server
 
+source venv/Scripts/activate
 uvicorn backend.main:app --reload
+
 
 ### 3. Accessing the Application:
 - **Frontend**: Open `frontend/index.html` in your browser.

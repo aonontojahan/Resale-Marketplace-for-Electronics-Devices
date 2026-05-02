@@ -37,7 +37,7 @@ from typing import (
     overload,
 )
 
-from pydantic import AliasChoices, AliasPath, BaseModel, Field, PrivateAttr, TypeAdapter, ValidationError
+from pydantic import AliasChoices, AliasPath, BaseModel, Field, PrivateAttr, TypeAdapter
 from pydantic._internal._repr import Representation
 from pydantic._internal._utils import is_model_class
 from pydantic.dataclasses import is_pydantic_dataclass
@@ -90,12 +90,56 @@ class CliMutuallyExclusiveGroup(BaseModel):
     pass
 
 
+def _get_model_description(model_cls: type[Any]) -> str | None:
+    """Get model description from json_schema_extra or __doc__ fallback.
+
+    ``json_schema_extra.description`` takes precedence over ``__doc__`` to
+    match pydantic's own behaviour.  When neither is available (e.g. under
+    ``python -OO`` where docstrings are stripped), returns ``None``.
+    """
+    config: Any = {}
+    if is_model_class(model_cls):
+        config = model_cls.model_config
+    elif is_pydantic_dataclass(model_cls):
+        config = getattr(model_cls, '__pydantic_config__', {})
+    json_schema_extra = config.get('json_schema_extra')
+    if isinstance(json_schema_extra, dict):
+        desc = json_schema_extra.get('description')
+        if desc is not None:
+            return desc
+    elif callable(json_schema_extra):
+        try:
+            desc = None
+            if is_model_class(model_cls):
+                desc = model_cls.model_json_schema().get('description')
+            elif is_pydantic_dataclass(model_cls):
+                desc = TypeAdapter(model_cls).json_schema().get('description')
+            if desc is not None:
+                return desc
+        except Exception:
+            pass
+    if model_cls.__doc__ is not None:
+        return dedent(model_cls.__doc__)
+    return None
+
+
+def _collect_sub_models(type_: Any, sub_models: list[type[BaseModel]]) -> None:
+    """Recursively collect BaseModel subclasses from possibly nested union types."""
+    stripped = _strip_annotated(type_)
+    if is_model_class(stripped) or is_pydantic_dataclass(stripped):
+        sub_models.append(stripped)  # type: ignore[arg-type]
+    elif is_union_origin(get_origin(stripped)):
+        for arg in get_args(stripped):
+            _collect_sub_models(arg, sub_models)
+
+
 class _CliArg(BaseModel):
     model: Any
     parser: Any
     field_name: str
     arg_prefix: str
     case_sensitive: bool
+    populate_by_name: bool
     hide_none_type: bool
     kebab_case: bool | Literal['all', 'no_enums'] | None
     enable_decoding: bool | None
@@ -117,7 +161,11 @@ class _CliArg(BaseModel):
         super().__init__(**values)
         self._field_info = field_info
         self._alias_names, self._is_alias_path_only = _get_alias_names(
-            self.field_name, self.field_info, alias_path_args=self._alias_paths, case_sensitive=self.case_sensitive
+            self.field_name,
+            self.field_info,
+            alias_path_args=self._alias_paths,
+            case_sensitive=self.case_sensitive,
+            populate_by_name=self.populate_by_name,
         )
 
         alias_path_dests = {f'{self.arg_prefix}{name}': index for name, index in self._alias_paths.items()}
@@ -200,8 +248,7 @@ class _CliArg(BaseModel):
                 raise SettingsError(
                     f'CliPositionalArg is not outermost annotation for {self.model.__name__}.{self.field_name}'
                 )
-            if is_model_class(_strip_annotated(type_)) or is_pydantic_dataclass(_strip_annotated(type_)):
-                sub_models.append(_strip_annotated(type_))
+            _collect_sub_models(type_, sub_models)
         return sub_models
 
     @cached_property
@@ -397,13 +444,14 @@ class CliSettingsSource(EnvSettingsSource, Generic[T]):
             env_parse_enums=True,
             env_prefix=self.cli_prefix,
             case_sensitive=case_sensitive,
+            env_nested_max_split=0,
         )
 
         root_parser = (
             _CliInternalArgParser(
                 cli_exit_on_error=self.cli_exit_on_error,
                 prog=self.cli_prog_name,
-                description=None if settings_cls.__doc__ is None else dedent(settings_cls.__doc__),
+                description=_get_model_description(settings_cls),
                 formatter_class=formatter_class,
                 prefix_chars=self.cli_flag_prefix_char,
                 allow_abbrev=False,
@@ -532,6 +580,22 @@ class CliSettingsSource(EnvSettingsSource, Generic[T]):
             last_selected_subcommand = max(selected_subcommands, key=len)
             if not any(field_name for field_name in parsed_args.keys() if f'{last_selected_subcommand}.' in field_name):
                 parsed_args[last_selected_subcommand] = '{}'
+        else:
+            last_selected_subcommand = ''
+
+        # When using parse_known_args due to a subcommand's CliUnknownArgs, reject
+        # unknown args if the selected subcommand does not accept them.
+        if not self.cli_ignore_unknown_args and self._cli_unknown_args:
+            has_unknown = any(args for args in self._cli_unknown_args.values())
+            if has_unknown:
+                selected_accepts_unknown = any(
+                    dest.rsplit('.', 1)[0] in last_selected_subcommand for dest in self._cli_unknown_args
+                )
+                if not selected_accepts_unknown:
+                    unknown = next(args for args in self._cli_unknown_args.values() if args)
+                    if isinstance(self.root_parser, ArgumentParser):
+                        self.root_parser.error(f'unrecognized arguments: {" ".join(unknown)}')
+                    raise SystemExit(2)
 
         parsed_args.update(self._cli_unknown_args)
 
@@ -622,7 +686,7 @@ class CliSettingsSource(EnvSettingsSource, Generic[T]):
         try:
             list_adapter: Any = TypeAdapter(next(iter(cli_arg_map.values())).field_info.annotation)
             is_num_type_str = type(next(iter(list_adapter.validate_python(['1'])))) is str
-        except (StopIteration, ValidationError):
+        except Exception:
             is_num_type_str = None
         for index, item in enumerate(merged_list):
             cli_arg = cli_arg_map.get(index)
@@ -889,6 +953,7 @@ class CliSettingsSource(EnvSettingsSource, Generic[T]):
             return cast(Namespace, args)
 
         self._root_parser = root_parser
+        _is_default_parse_args = parse_args_method is None
         if parse_args_method is None:
             parse_args_method = _parse_known_args if self.cli_ignore_unknown_args else ArgumentParser.parse_args
         self._parse_args = self._connect_parser_method(parse_args_method, 'parse_args_method')
@@ -912,7 +977,14 @@ class CliSettingsSource(EnvSettingsSource, Generic[T]):
             group=None,
             alias_prefixes=[],
             model_default=PydanticUndefined,
+            model_path=set(),
         )
+
+        # If subcommands registered CliUnknownArgs fields but root does not have
+        # cli_ignore_unknown_args=True, upgrade to parse_known_args so that argparse
+        # does not error on unknown arguments destined for a subcommand.
+        if self._cli_unknown_args and not self.cli_ignore_unknown_args and _is_default_parse_args:
+            self._parse_args = self._connect_parser_method(_parse_known_args, 'parse_args_method')
 
     def _add_default_help(self) -> None:
         if isinstance(self._root_parser, _CliInternalArgParser):
@@ -944,7 +1016,11 @@ class CliSettingsSource(EnvSettingsSource, Generic[T]):
         is_model_suppressed: bool = False,
         discriminator_vals: dict[str, set[Any]] = {},
         is_last_discriminator: bool = True,
+        model_path: set[type[BaseModel]] | None = None,
     ) -> ArgumentParser:
+        if model_path is None:
+            model_path = set()
+        model_path = model_path | {model}
         subparsers: Any = None
         alias_path_args: dict[str, int | None] = {}
         # Ignore model default if the default is a model and not a subclass of the current model.
@@ -965,6 +1041,8 @@ class CliSettingsSource(EnvSettingsSource, Generic[T]):
                 field_name=field_name,
                 arg_prefix=arg_prefix,
                 case_sensitive=self.case_sensitive,
+                populate_by_name=self.config.get('populate_by_name', False)
+                or self.config.get('validate_by_name', False),
                 hide_none_type=self.cli_hide_none_type,
                 kebab_case=self.cli_kebab_case,
                 enable_decoding=self.config.get('enable_decoding'),
@@ -979,12 +1057,10 @@ class CliSettingsSource(EnvSettingsSource, Generic[T]):
                     subcommand_arg.args = [subcommand_alias]
                     subcommand_arg.kwargs['allow_abbrev'] = False
                     subcommand_arg.kwargs['formatter_class'] = self._formatter_class
-                    subcommand_arg.kwargs['description'] = (
-                        None if sub_model.__doc__ is None else dedent(sub_model.__doc__)
-                    )
+                    subcommand_arg.kwargs['description'] = _get_model_description(sub_model)
                     subcommand_arg.kwargs['help'] = None if len(arg.sub_models) > 1 else field_info.description
                     if self.cli_use_class_docs_for_groups:
-                        subcommand_arg.kwargs['help'] = None if sub_model.__doc__ is None else dedent(sub_model.__doc__)
+                        subcommand_arg.kwargs['help'] = _get_model_description(sub_model)
 
                     subparsers = (
                         self._add_subparsers(
@@ -1014,6 +1090,7 @@ class CliSettingsSource(EnvSettingsSource, Generic[T]):
                         group=None,
                         alias_prefixes=[],
                         model_default=PydanticUndefined,
+                        model_path=model_path,
                     )
             else:
                 flag_prefix: str = self._cli_flag_prefix
@@ -1045,7 +1122,7 @@ class CliSettingsSource(EnvSettingsSource, Generic[T]):
 
                 self._convert_bool_flag(arg.kwargs, field_info, model_default)
 
-                non_recursive_sub_models = [m for m in arg.sub_models if m is not model]
+                non_recursive_sub_models = [m for m in arg.sub_models if m not in model_path]
                 if (
                     arg.is_parser_submodel
                     and not getattr(field_info.annotation, '__pydantic_root_model__', False)
@@ -1066,6 +1143,7 @@ class CliSettingsSource(EnvSettingsSource, Generic[T]):
                         arg.alias_names,
                         model_default=model_default,
                         is_model_suppressed=is_model_suppressed,
+                        model_path=model_path,
                     )
                 elif _CliUnknownArgs in field_info.metadata:
                     self._cli_unknown_args[arg.kwargs['dest']] = []
@@ -1192,6 +1270,7 @@ class CliSettingsSource(EnvSettingsSource, Generic[T]):
         alias_names: tuple[str, ...],
         model_default: Any,
         is_model_suppressed: bool,
+        model_path: set[type[BaseModel]] | None = None,
     ) -> None:
         if issubclass(model, CliMutuallyExclusiveGroup):
             # Argparse has deprecated "calling add_argument_group() or add_mutually_exclusive_group() on a
@@ -1210,7 +1289,7 @@ class CliSettingsSource(EnvSettingsSource, Generic[T]):
         if model_group_kwargs['_is_cli_mutually_exclusive_group'] and len(sub_models) > 1:
             raise SettingsError('cannot use union with CliMutuallyExclusiveGroup')
         if self.cli_use_class_docs_for_groups and len(sub_models) == 1:
-            model_group_kwargs['description'] = None if sub_models[0].__doc__ is None else dedent(sub_models[0].__doc__)
+            model_group_kwargs['description'] = _get_model_description(sub_models[0])
 
         if model_default is not PydanticUndefined:
             if is_model_class(type(model_default)) or is_pydantic_dataclass(type(model_default)):
@@ -1258,6 +1337,7 @@ class CliSettingsSource(EnvSettingsSource, Generic[T]):
                 is_model_suppressed=is_model_suppressed,
                 discriminator_vals=discriminator_vals,
                 is_last_discriminator=model is sub_models[-1],
+                model_path=model_path,
             )
 
     def _add_parser_alias_paths(

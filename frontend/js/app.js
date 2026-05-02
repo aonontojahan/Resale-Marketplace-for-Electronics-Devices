@@ -1059,6 +1059,25 @@ function updateNav() {
         // Initial unread count update
         if (role !== 'admin') {
             updateGlobalUnreadCount();
+            
+            // Connect to global notifications WebSocket
+            if (!window.globalNotificationSocket) {
+                // Determine ws protocol based on location
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${protocol}//localhost:8000/ws/notifications?token=${user.token}`;
+                const socket = new WebSocket(wsUrl);
+                window.globalNotificationSocket = socket;
+                
+                socket.onmessage = (event) => {
+                    console.log("[Global] Notification received");
+                    if (window.updateGlobalUnreadCount) window.updateGlobalUnreadCount();
+                    if (window.renderSidebarList) window.renderSidebarList();
+                };
+                
+                socket.onclose = () => {
+                    window.globalNotificationSocket = null;
+                };
+            }
         }
     } else {
         const searchBar = document.getElementById('globalSearchBar');
@@ -1998,41 +2017,77 @@ document.addEventListener('DOMContentLoaded', () => {
             window.api.getChatMessages(chat.id).then(messages => {
                 if (chatBox) chatBox.innerHTML = '';
                 messages.forEach(msg => appendMessage(msg));
-                setTimeout(() => { chatBox.scrollTop = chatBox.scrollHeight; }, 100);
+                
+                // Temporarily disable smooth scrolling to snap instantly to the bottom
+                chatBox.style.scrollBehavior = 'auto';
+                chatBox.scrollTop = chatBox.scrollHeight;
+                
+                // Re-enable CSS smooth scrolling after snap is complete
+                setTimeout(() => {
+                    chatBox.style.removeProperty('scroll-behavior');
+                }, 50);
             });
 
             // --- SOCKET MANAGEMENT ---
             if (window.currentChatSocket) {
                 console.log("[Chat] Closing existing socket...");
+                window.currentChatSocket.onclose = null; // prevent reconnect loop on manual close
                 window.currentChatSocket.close();
             }
 
-            const wsUrl = `ws://localhost:8000/ws/chat/${chat.id}?token=${user.token}`;
-            window.currentChatSocket = new WebSocket(wsUrl);
+            function connectChatSocket(chatId, token) {
+                const wsUrl = `ws://localhost:8000/ws/chat/${chatId}?token=${token}`;
+                const socket = new WebSocket(wsUrl);
+                window.currentChatSocket = socket;
 
-            window.currentChatSocket.onopen = () => console.log(`[Chat] Socket connected to ${chat.id}`);
-            window.currentChatSocket.onerror = (e) => console.error("[Chat] WebSocket Error:", e);
+                socket.onopen = () => console.log(`[Chat] Socket connected to ${chatId}`);
+                socket.onerror = (e) => console.error("[Chat] WebSocket Error:", e);
 
-            window.currentChatSocket.onmessage = (event) => {
-                try {
-                    const msg = JSON.parse(event.data);
-                    console.log("[Chat] Received message:", msg);
+                socket.onmessage = (event) => {
+                    try {
+                        const msg = JSON.parse(event.data);
+                        console.log("[Chat] Received message:", msg);
 
-                    if (String(msg.session_id) === String(activeSessionId)) {
-                        appendMessage(msg);
-                        requestAnimationFrame(() => {
-                            if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
-                        });
-                        window.api.markChatRead(msg.session_id, user.id).catch(() => { });
-                        refreshChatSidebar();
-                    } else {
-                        updateGlobalUnreadCount();
-                        refreshChatSidebar();
+                        if (String(msg.session_id) === String(activeSessionId)) {
+                            // Smart scroll: only auto-scroll if user is already near the bottom
+                            // Calculate BEFORE appending so huge cards don't break the math
+                            const isNearBottom = chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight < 120;
+                            
+                            appendMessage(msg);
+                            
+                            if (isNearBottom) {
+                                setTimeout(() => { chatBox.scrollTop = chatBox.scrollHeight; }, 50);
+                            }
+                            window.api.markChatRead(msg.session_id, user.id).catch(() => { });
+                            // Use lightweight sidebar refresh to avoid DOM thrashing / scroll reset
+                            renderSidebarList();
+                        } else {
+                            updateGlobalUnreadCount();
+                            renderSidebarList();
+                        }
+                    } catch (err) {
+                        console.error("[Chat] Parse Error:", err);
                     }
-                } catch (err) {
-                    console.error("[Chat] Parse Error:", err);
-                }
-            };
+                };
+
+                // Auto-reconnect if connection drops unexpectedly
+                socket.onclose = (event) => {
+                    if (event.wasClean) {
+                        console.log("[Chat] Socket closed cleanly.");
+                    } else {
+                        console.warn("[Chat] Socket dropped. Reconnecting in 3s...");
+                        setTimeout(() => {
+                            // Only reconnect if still on the same session
+                            if (window._activeChatId === String(chatId)) {
+                                connectChatSocket(chatId, token);
+                            }
+                        }, 3000);
+                    }
+                };
+            }
+
+            window._activeChatId = String(chat.id);
+            connectChatSocket(chat.id, user.token);
 
             // ONE-TIME FORM BINDING
             if (chatForm && !chatForm.dataset.listenerAttached) {
@@ -2047,11 +2102,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         return;
                     }
 
-                    // --- OPTIMISTIC UI: Show instantly ---
-                    // (We don't append locally because we trust the fast round-trip)
-                    // If round-trip is failing, we'll see console errors
                     window.currentChatSocket.send(text);
                     input.value = '';
+                    // Scroll to bottom immediately after sending
+                    setTimeout(() => { chatBox.scrollTop = chatBox.scrollHeight; }, 50);
                 });
                 chatForm.dataset.listenerAttached = "true";
             }
@@ -2182,6 +2236,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error('Failed to refresh sidebar order:', err);
             }
         }
+        
+        window.renderSidebarList = renderSidebarList;
 
         // Initial load
         refreshChatSidebar();
@@ -2443,13 +2499,25 @@ window.openOfferModal = function (sessionId, productId) {
 };
 
 window.handleCardAccept = async function (btn, sessionId) {
-    if (btn) btn.closest('.offer-actions').innerHTML = '<div style="color:#10b981; font-weight:700; text-align:center; flex:1;">Accepting...</div>';
-    await window.handleAcceptOffer(sessionId);
+    const actionsDiv = btn ? btn.closest('.offer-actions') : null;
+    if (actionsDiv) actionsDiv.innerHTML = '<div style="color:#10b981; font-weight:700; text-align:center; flex:1;">Accepting...</div>';
+    try {
+        await window.handleAcceptOffer(sessionId);
+        if (actionsDiv) actionsDiv.innerHTML = '<div style="color:#10b981; font-weight:700; text-align:center; flex:1;">Accepted</div>';
+    } catch (e) {
+        if (actionsDiv) actionsDiv.innerHTML = '<div style="color:#ef4444; font-weight:700; text-align:center; flex:1;">Error</div>';
+    }
 };
 
 window.handleCardReject = async function (btn, sessionId) {
-    if (btn) btn.closest('.offer-actions').innerHTML = '<div style="color:#ef4444; font-weight:700; text-align:center; flex:1;">Declining...</div>';
-    await window.handleRejectOffer(sessionId);
+    const actionsDiv = btn ? btn.closest('.offer-actions') : null;
+    if (actionsDiv) actionsDiv.innerHTML = '<div style="color:#ef4444; font-weight:700; text-align:center; flex:1;">Declining...</div>';
+    try {
+        await window.handleRejectOffer(sessionId);
+        if (actionsDiv) actionsDiv.innerHTML = '<div style="color:#ef4444; font-weight:700; text-align:center; flex:1;">Declined</div>';
+    } catch (e) {
+        if (actionsDiv) actionsDiv.innerHTML = '<div style="color:#ef4444; font-weight:700; text-align:center; flex:1;">Error</div>';
+    }
 };
 
 window.handleAcceptOffer = async function (sessionId) {
