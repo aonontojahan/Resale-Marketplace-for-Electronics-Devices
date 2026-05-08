@@ -172,3 +172,34 @@ class ReviewResponse(ReviewBase):
 
     class Config:
         from_attributes = True
+
+class ReportSummary(BaseModel):
+    total_count: int
+    total_amount: int
+    period: str
+
+class SellerReportItem(BaseModel):
+    order_id: int
+    product_title: str
+    price: int
+    quantity: int
+    commission: int
+    net_earnings: int
+    status: str
+    date: datetime
+
+class SellerReportResponse(BaseModel):
+    summary: ReportSummary
+    history: List[SellerReportItem]
+
+class BuyerReportItem(BaseModel):
+    order_id: int
+    product_title: str
+    price: int
+    quantity: int
+    status: str
+    date: datetime
+
+class BuyerReportResponse(BaseModel):
+    summary: ReportSummary
+    history: List[BuyerReportItem]

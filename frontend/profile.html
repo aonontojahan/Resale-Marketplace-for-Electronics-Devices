@@ -42,6 +42,7 @@
             <span>Messages</span>
             <span id="sidebarUnreadBadge" class="sidebar-unread-badge" style="display:none;"></span>
           </a>
+          <a href="#" class="profile-menu-item" id="menuReports">System Reports</a>
           <a href="#" class="profile-menu-item" id="menuPlatformWallet" style="display:none;">Platform Wallet</a>
           <a href="javascript:void(0)" onclick="logoutUser()" class="profile-menu-item logout">Logout</a>
         </div>
@@ -241,6 +242,37 @@
           </div>
         </div>
 
+        <!-- ====== REPORTS VIEW ====== -->
+        <div id="reportsView" style="display:none;">
+          <div class="profile-section-title">
+            <h2 style="font-size: 1.5rem; font-weight: 700;">System <span class="text-gradient">Activity Reports</span></h2>
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+               <select id="reportPeriodSelect" class="form-input" style="padding: 0.5rem; font-size: 0.85rem; width: auto; margin-bottom: 0; border-radius: 10px;">
+                 <option value="all">All Time</option>
+                 <option value="monthly">Monthly Report</option>
+                 <option value="weekly">Weekly Report</option>
+               </select>
+               <button id="downloadReportBtn" class="btn-primary" style="padding: 0.6rem 1.2rem; font-size: 0.9rem; background: #1e293b; border-radius: 10px; display: flex; align-items: center; gap: 0.5rem;">
+                 <span>📥</span> Download PDF
+               </button>
+            </div>
+          </div>
+
+          <div id="reportSummaryCards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;">
+            <!-- Summary cards injected via JS -->
+          </div>
+
+          <div class="recent-transactions" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+            <div class="transactions-header" style="font-size: 1.1rem; font-weight: 800; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
+              Detailed Activity History
+              <span id="reportTypeLabel" style="font-size: 0.75rem; background: var(--bg-body); padding: 4px 10px; border-radius: 20px; color: var(--text-muted); border: 1px solid var(--border); text-transform: uppercase; font-weight: 700;">Seller Report</span>
+            </div>
+            <div id="reportHistoryTableContainer" style="overflow-x: auto;">
+              <p style="text-align:center; padding: 3rem; color: var(--text-muted);">Loading report data...</p>
+            </div>
+          </div>
+        </div>
+
       </section>
     </div>
   </main>
@@ -401,6 +433,7 @@
     </div>
   </footer>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="js/api.js?v=3"></script>
   <script src="js/app.js?v=3"></script>
 </body>

@@ -1241,6 +1241,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const sellerView = document.getElementById('sellerView');
     const buyerView = document.getElementById('buyerView');
     const adminView = document.getElementById('adminView');
+    const reportsView = document.getElementById('reportsView');
+    const menuReports = document.getElementById('menuReports');
 
     if (sellerView || buyerView || adminView) {
         if (!user) {
@@ -1267,6 +1269,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const walletMenu = document.querySelector('.profile-menu-item[href="wallet.html"]');
         const chatMenu = document.querySelector('.profile-menu-item[href="chat.html"]');
         const platformWalletMenu = document.getElementById('menuPlatformWallet');
+        const menuListings = document.getElementById('menuListings');
 
         if (role === 'admin') {
             if (walletMenu) walletMenu.style.display = 'none';
@@ -1278,10 +1281,23 @@ document.addEventListener('DOMContentLoaded', () => {
             if (platformWalletMenu) platformWalletMenu.style.display = 'none';
         }
 
-        // Show the correct view
+        // Show the correct initial view
         if (role === 'seller' && sellerView) {
             sellerView.style.display = 'block';
             renderSellerListings('all');
+            
+            // Re-bind dashboard menu for non-admin roles if needed
+            if (menuListings) {
+                menuListings.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    document.querySelectorAll('.profile-menu-item').forEach(m => m.classList.remove('active'));
+                    menuListings.classList.add('active');
+                    if (sellerView) sellerView.style.display = 'block';
+                    if (buyerView) buyerView.style.display = 'none';
+                    if (adminView) adminView.style.display = 'none';
+                    if (reportsView) reportsView.style.display = 'none';
+                });
+            }
 
             // Seller status tabs
             const tabs = document.querySelectorAll('#sellerStatusTabs .status-tab');
@@ -1318,6 +1334,18 @@ document.addEventListener('DOMContentLoaded', () => {
             buyerView.style.display = 'block';
             renderBuyerListings('all');
 
+            if (menuListings) {
+                menuListings.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    document.querySelectorAll('.profile-menu-item').forEach(m => m.classList.remove('active'));
+                    menuListings.classList.add('active');
+                    if (buyerView) buyerView.style.display = 'block';
+                    if (sellerView) sellerView.style.display = 'none';
+                    if (adminView) adminView.style.display = 'none';
+                    if (reportsView) reportsView.style.display = 'none';
+                });
+            }
+
             // Buyer category filter
             const filterBtns = document.querySelectorAll('#buyerFilter .filter-btn');
             filterBtns.forEach(btn => {
@@ -1346,27 +1374,63 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             // Handle Dashboard vs Platform Wallet switching
-            const menuListings = document.getElementById('menuListings');
             const platformWalletView = document.getElementById('platformWalletView');
 
             if (menuListings && platformWalletMenu) {
                 menuListings.addEventListener('click', (e) => {
                     e.preventDefault();
+                    document.querySelectorAll('.profile-menu-item').forEach(m => m.classList.remove('active'));
                     menuListings.classList.add('active');
-                    platformWalletMenu.classList.remove('active');
                     adminView.style.display = 'block';
                     platformWalletView.style.display = 'none';
+                    if (reportsView) reportsView.style.display = 'none';
                 });
 
                 platformWalletMenu.addEventListener('click', (e) => {
                     e.preventDefault();
+                    document.querySelectorAll('.profile-menu-item').forEach(m => m.classList.remove('active'));
                     platformWalletMenu.classList.add('active');
-                    menuListings.classList.remove('active');
                     adminView.style.display = 'none';
                     platformWalletView.style.display = 'block';
+                    if (reportsView) reportsView.style.display = 'none';
                     renderPlatformWallet();
                 });
             }
+        }
+
+        // System Reports Switching (Accessible by all roles)
+        if (menuReports && reportsView) {
+            menuReports.addEventListener('click', (e) => {
+                e.preventDefault();
+                document.querySelectorAll('.profile-menu-item').forEach(m => m.classList.remove('active'));
+                menuReports.classList.add('active');
+
+                // Hide all other views
+                if (sellerView) sellerView.style.display = 'none';
+                if (buyerView) buyerView.style.display = 'none';
+                if (adminView) adminView.style.display = 'none';
+                const platformWalletView = document.getElementById('platformWalletView');
+                if (platformWalletView) platformWalletView.style.display = 'none';
+
+                reportsView.style.display = 'block';
+                renderSystemReports('all');
+            });
+        }
+
+        // Report Period Selector
+        const reportPeriodSelect = document.getElementById('reportPeriodSelect');
+        if (reportPeriodSelect) {
+            reportPeriodSelect.addEventListener('change', () => {
+                renderSystemReports(reportPeriodSelect.value);
+            });
+        }
+
+        // Download Report Button
+        const downloadReportBtn = document.getElementById('downloadReportBtn');
+        if (downloadReportBtn) {
+            downloadReportBtn.addEventListener('click', () => {
+                handleDownloadReport();
+            });
         }
     }
 
@@ -3224,5 +3288,222 @@ async function renderPlatformWallet() {
     }
 }
 window.renderPlatformWallet = renderPlatformWallet;
+
+// ─── SYSTEM REPORTS ───────────────────────────────────────────
+
+async function renderSystemReports(period = 'all') {
+    const container = document.getElementById('reportHistoryTableContainer');
+    const summaryGrid = document.getElementById('reportSummaryCards');
+    const typeLabel = document.getElementById('reportTypeLabel');
+    if (!container || !summaryGrid) return;
+
+    container.innerHTML = '<p style="text-align:center; padding: 3rem; color: var(--text-muted);">Aggregating data and generating report...</p>';
+    
+    const user = getUser();
+    if (!user) return;
+    const role = user.role || 'buyer';
+    const isSeller = role === 'seller';
+    
+    if (typeLabel) typeLabel.innerText = isSeller ? 'Seller Performance Report' : 'Buyer Purchase Report';
+
+    try {
+        const reportData = isSeller 
+            ? await window.api.getSellerReport(period) 
+            : await window.api.getBuyerReport(period);
+        
+        const { summary, history } = reportData;
+
+        // Recalculate summary to ONLY include Purchased/Sold items for financial totals
+        const successfulItems = history.filter(item => 
+            item.status === 'completed' || item.status === 'auto_completed'
+        );
+        const successCount = successfulItems.length;
+        const successAmount = successfulItems.reduce((acc, item) => {
+            const val = isSeller ? (item.net_earnings || 0) : ((item.price * item.quantity) + 150);
+            return acc + val;
+        }, 0);
+
+        // Render Summary Cards
+        summaryGrid.innerHTML = `
+            <div class="stat-card" style="padding: 1.5rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; border-left: 4px solid var(--primary);">
+                <p style="color: var(--text-muted); font-size: 0.75rem; font-weight: 700; margin: 0 0 0.5rem; text-transform: uppercase;">Total ${isSeller ? 'Sold' : 'Purchased'}</p>
+                <h3 style="font-size: 1.8rem; font-weight: 800; margin: 0; color: var(--secondary);">${successCount}</h3>
+            </div>
+            <div class="stat-card" style="padding: 1.5rem; background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; border-left: 4px solid #10b981;">
+                <p style="color: var(--text-muted); font-size: 0.75rem; font-weight: 700; margin: 0 0 0.5rem; text-transform: uppercase;">${isSeller ? 'Net Earnings' : 'Total Spent'}</p>
+                <h3 style="font-size: 1.8rem; font-weight: 800; margin: 0; color: #10b981;">Tk. ${successAmount.toLocaleString()}</h3>
+            </div>
+        `;
+
+        if (history.length === 0) {
+            container.innerHTML = '<p style="text-align:center; padding: 4rem; color: var(--text-muted);">No activity found for this period.</p>';
+            return;
+        }
+
+        // Render Table
+        container.innerHTML = `
+            <table style="width: 100%; border-collapse: collapse; min-width: 600px;">
+                <thead>
+                    <tr style="text-align: left; border-bottom: 2px solid var(--border);">
+                        <th style="padding: 1rem 0.5rem; color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase;">Order ID</th>
+                        <th style="padding: 1rem 0.5rem; color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase;">Device Details</th>
+                        <th style="padding: 1rem 0.5rem; color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase;">Transaction Date</th>
+                        <th style="padding: 1rem 0.5rem; color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase;">Amount</th>
+                        <th style="padding: 1rem 0.5rem; color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase;">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${history.map(item => {
+                        const profStatus = getProfessionalStatus(item.status, role);
+                        return `
+                            <tr style="border-bottom: 1px solid var(--border); transition: background 0.2s;">
+                                <td style="padding: 1rem 0.5rem; font-family: monospace; font-weight: 700; color: var(--primary);">RS-${item.order_id.toString().padStart(5, '0')}</td>
+                                <td style="padding: 1rem 0.5rem;">
+                                    <div style="font-weight: 600; color: var(--secondary);">${item.product_title}</div>
+                                    <div style="font-size: 0.7rem; color: var(--text-muted);">Quantity: ${item.quantity}</div>
+                                </td>
+                                <td style="padding: 1rem 0.5rem; font-size: 0.85rem; color: var(--text-muted);">${new Date(item.date).toLocaleDateString()}</td>
+                                <td style="padding: 1rem 0.5rem; font-weight: 700; color: var(--secondary);">Tk. ${item.price.toLocaleString()}</td>
+                                <td style="padding: 1rem 0.5rem;">
+                                    <span class="badge" style="font-size: 0.7rem; padding: 4px 8px; border-radius: 6px; background: ${getStatusColor(item.status)}; color: white; font-weight: 700;">${profStatus.toUpperCase()}</span>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('')}
+                </tbody>
+            </table>
+        `;
+
+        // Store data for PDF download
+        window.currentReportData = { ...reportData, summary: { ...summary, total_count: successCount, total_amount: successAmount } };
+
+    } catch (err) {
+        console.error("Report generation failed:", err);
+        container.innerHTML = `<p style="text-align:center; padding: 3rem; color: #ef4444;">Error generating report: ${err.message}</p>`;
+    }
+}
+
+
+function getProfessionalStatus(status, role) {
+    const s = (status || '').toLowerCase();
+    if (s === 'completed' || s === 'auto_completed') {
+        return role === 'seller' ? 'Sold' : 'Purchased';
+    }
+    if (['paid', 'processing', 'shipped', 'delivered'].includes(s)) {
+        return role === 'seller' ? 'Sold (Processing)' : 'Purchased (In Transit)';
+    }
+    if (s === 'accepted') return 'Awaiting Payment';
+    if (s === 'rejected') return 'Rejected';
+    if (s === 'refunded') return 'Refunded';
+    return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+function getStatusColor(status) {
+    switch(status.toLowerCase()) {
+        case 'completed': case 'auto_completed': return '#10b981';
+        case 'paid': case 'processing': case 'shipped': case 'delivered': return '#3b82f6';
+        case 'pending': return '#f59e0b';
+        case 'rejected': case 'refunded': return '#ef4444';
+        default: return '#94a3b8';
+    }
+}
+
+window.handleDownloadReport = function() {
+    const data = window.currentReportData;
+    if (!data) return alert("Please load the report data before downloading.");
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const user = getUser();
+    const isSeller = user.role === 'seller';
+
+    // Premium Header
+    doc.setDrawColor(99, 102, 241);
+    doc.setLineWidth(1.5);
+    doc.rect(5, 5, 200, 287);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(22);
+    doc.setTextColor(31, 41, 55);
+    doc.text("ReSale Marketplace", 105, 20, { align: "center" });
+    
+    doc.setFontSize(14);
+    doc.setTextColor(79, 70, 229);
+    doc.text(`${isSeller ? 'OFFICIAL SOLD HISTORY' : 'OFFICIAL PURCHASE HISTORY'} REPORT`, 105, 30, { align: "center" });
+
+    doc.setDrawColor(226, 232, 240);
+    doc.line(20, 35, 190, 35);
+
+    // User & Period Info
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Report For: ${user.full_name}`, 20, 45);
+    doc.text(`Account ID: USR-${user.id.toString().padStart(4, '0')}`, 20, 50);
+    doc.text(`Period: ${data.summary.period.toUpperCase()}`, 140, 45);
+    doc.text(`Generated On: ${new Date().toLocaleString()}`, 140, 50);
+
+    // Summary Box
+    doc.setFillColor(248, 250, 252);
+    doc.rect(20, 60, 170, 25, 'F');
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(31, 41, 55);
+    doc.text(`TOTAL ITEMS ${isSeller ? 'SOLD' : 'PURCHASED'}:`, 30, 75);
+    doc.text(`${data.summary.total_count}`, 95, 75);
+    
+    doc.text(`TOTAL ${isSeller ? 'NET EARNINGS' : 'EXPENDITURE'}:`, 115, 75);
+    doc.setTextColor(16, 185, 129);
+    doc.text(`Tk. ${data.summary.total_amount.toLocaleString()}`, 160, 75);
+
+    // Table Header
+    let y = 100;
+    doc.setFillColor(30, 41, 59);
+    doc.rect(20, y, 170, 10, 'F');
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(255, 255, 255);
+    doc.text("ORDER ID", 25, y + 7);
+    doc.text("DEVICE DETAILS", 55, y + 7);
+    doc.text("STATUS", 130, y + 7);
+    doc.text("AMOUNT", 165, y + 7);
+
+    y += 18;
+    doc.setTextColor(71, 85, 105);
+    doc.setFont("helvetica", "normal");
+
+    data.history.forEach(item => {
+        if (y > 270) {
+            doc.addPage();
+            y = 20;
+            doc.setDrawColor(99, 102, 241);
+            doc.rect(5, 5, 200, 287);
+        }
+        doc.text(`RS-${item.order_id.toString().padStart(5, '0')}`, 25, y);
+        
+        let title = item.product_title;
+        if (title.length > 25) title = title.substring(0, 22) + '...';
+        doc.text(title, 55, y);
+        
+        const profStatus = getProfessionalStatus(item.status, user.role);
+        doc.text(profStatus, 130, y);
+        doc.text(`Tk. ${item.price.toLocaleString()}`, 165, y);
+        
+        y += 8;
+        doc.setDrawColor(241, 245, 249);
+        doc.line(20, y - 4, 190, y - 4);
+    });
+
+    // Footer
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(8);
+    doc.setTextColor(148, 163, 184);
+    doc.text("This report is system-generated and serves as an official record of your marketplace activity.", 105, 280, { align: "center" });
+    doc.text("ReSale Marketplace | Premium Electronics Marketplace", 105, 285, { align: "center" });
+
+    doc.save(`ReSale_${isSeller ? 'Sold' : 'Purchased'}_History_${data.summary.period}_${new Date().getTime()}.pdf`);
+};
+
+window.renderSystemReports = renderSystemReports;
 
 

@@ -204,8 +204,18 @@ const api = {
 
     // ─── Reviews ────────────────────────────────────────────────────────────
 
-    async createReview(reviewData) {
-        return this.request('/reviews', 'POST', reviewData);
+    // ─── Reports ────────────────────────────────────────────────────────────
+
+    async getSellerReport(period = 'all') {
+        return this.request(`/reports/seller?period=${period}`, 'GET');
+    },
+
+    async getBuyerReport(period = 'all') {
+        return this.request(`/reports/buyer?period=${period}`, 'GET');
+    },
+
+    async checkAutoRelease() {
+        return this.request('/escrow/check-auto-release', 'POST');
     }
 };
 
