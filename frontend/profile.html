@@ -210,7 +210,7 @@
               <h3 style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em;" id="availableTitle">Available for Deposit</h3>
               <p class="balance" id="userWalletBalance" style="font-size: 2.2rem; font-weight: 900; color: #10b981; margin: 0;">Tk.0</p>
               <div style="margin-top: 1.5rem; display: flex; gap: 0.75rem;">
-                <button id="walletActionBtn" class="btn-primary" onclick="window.location.href='wallet.html'" style="flex: 1; border-radius: 10px; font-weight: 700;">Add Money</button>
+                <button id="walletActionBtn" class="btn-primary" onclick="openAddMoneyModal()" style="flex: 1; border-radius: 10px; font-weight: 700;">Add Money</button>
               </div>
             </div>
 
@@ -477,21 +477,163 @@
   </div>
 
   <style>
-    input[name="withdrawMethod"]:checked + .method-btn {
+    input[name="withdrawMethod"]:checked + .method-btn,
+    input[name="addMoneyMethod"]:checked + .method-btn {
       border-color: #10b981 !important;
       background: #f0fdf4;
       color: #10b981;
     }
   </style>
 
+  <!-- ====== ADD MONEY MODAL ====== -->
+  <div id="addMoneyModal" style="display:none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(10px); overflow-y: auto; padding: 2rem 0;">
+    <div style="background: white; width: 100%; max-width: 460px; border-radius: 28px; margin: auto; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); overflow: hidden;">
+      
+      <!-- Header -->
+      <div style="background: linear-gradient(135deg, #6366f1, #8b5cf6); padding: 2rem; text-align: center;">
+        <div style="width: 56px; height: 56px; background: rgba(255,255,255,0.2); border-radius: 18px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; font-size: 1.8rem;">💳</div>
+        <h2 style="color: white; font-size: 1.6rem; font-weight: 900; margin: 0 0 0.3rem;">Add Money</h2>
+        <p style="color: rgba(255,255,255,0.8); margin: 0; font-size: 0.95rem;">Top up your wallet securely</p>
+      </div>
+
+      <!-- Body -->
+      <div id="addMoneyFormView" style="padding: 2rem;">
+        <div style="margin-bottom: 1.5rem;">
+          <label style="display: block; font-size: 0.75rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.6rem;">Amount (Tk.)</label>
+          <input type="number" id="depositAmountModal" min="10" placeholder="e.g. 500" style="width: 100%; padding: 1rem 1.25rem; border-radius: 14px; border: 2px solid #f1f5f9; background: #f8fafc; font-size: 1.3rem; font-weight: 900; color: #0f172a; outline: none;" onfocus="this.style.borderColor='#6366f1'; this.style.background='white'; this.style.boxShadow='0 0 0 4px rgba(99,102,241,0.1)'" onblur="this.style.borderColor='#f1f5f9'; this.style.background='#f8fafc'; this.style.boxShadow='none'">
+          <!-- Quick amount buttons -->
+          <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem; flex-wrap: wrap;">
+            <button type="button" onclick="document.getElementById('depositAmountModal').value=500" style="padding: 0.4rem 1rem; border-radius: 20px; border: 1.5px solid #e2e8f0; background: white; font-size: 0.8rem; font-weight: 700; cursor: pointer; color: #475569;">Tk.500</button>
+            <button type="button" onclick="document.getElementById('depositAmountModal').value=1000" style="padding: 0.4rem 1rem; border-radius: 20px; border: 1.5px solid #e2e8f0; background: white; font-size: 0.8rem; font-weight: 700; cursor: pointer; color: #475569;">Tk.1,000</button>
+            <button type="button" onclick="document.getElementById('depositAmountModal').value=2000" style="padding: 0.4rem 1rem; border-radius: 20px; border: 1.5px solid #e2e8f0; background: white; font-size: 0.8rem; font-weight: 700; cursor: pointer; color: #475569;">Tk.2,000</button>
+            <button type="button" onclick="document.getElementById('depositAmountModal').value=5000" style="padding: 0.4rem 1rem; border-radius: 20px; border: 1.5px solid #e2e8f0; background: white; font-size: 0.8rem; font-weight: 700; cursor: pointer; color: #475569;">Tk.5,000</button>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 1.5rem;">
+          <label style="display: block; font-size: 0.75rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem;">Payment Method</label>
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+            <label style="cursor: pointer; position: relative;">
+              <input type="radio" name="addMoneyMethod" value="card" checked style="position: absolute; opacity: 0;" onchange="toggleAddMoneyFields('card')">
+              <div class="method-btn" style="padding: 1.25rem 0.5rem; border: 2.5px solid #f1f5f9; background: #f8fafc; border-radius: 18px; text-align: center; transition: all 0.2s;">
+                <span style="display: block; font-size: 1.5rem; margin-bottom: 0.4rem;">💳</span>
+                <span style="font-size: 0.75rem; font-weight: 800; color: #475569; display: block; text-transform: uppercase;">Card</span>
+              </div>
+            </label>
+            <label style="cursor: pointer; position: relative;">
+              <input type="radio" name="addMoneyMethod" value="bkash" style="position: absolute; opacity: 0;" onchange="toggleAddMoneyFields('bkash')">
+              <div class="method-btn" style="padding: 1.25rem 0.5rem; border: 2.5px solid #f1f5f9; background: #f8fafc; border-radius: 18px; text-align: center; transition: all 0.2s;">
+                <span style="display: block; font-size: 1.5rem; margin-bottom: 0.4rem;">📱</span>
+                <span style="font-size: 0.75rem; font-weight: 800; color: #475569; display: block; text-transform: uppercase;">bKash</span>
+              </div>
+            </label>
+            <label style="cursor: pointer; position: relative;">
+              <input type="radio" name="addMoneyMethod" value="nagad" style="position: absolute; opacity: 0;" onchange="toggleAddMoneyFields('nagad')">
+              <div class="method-btn" style="padding: 1.25rem 0.5rem; border: 2.5px solid #f1f5f9; background: #f8fafc; border-radius: 18px; text-align: center; transition: all 0.2s;">
+                <span style="display: block; font-size: 1.5rem; margin-bottom: 0.4rem;">💸</span>
+                <span style="font-size: 0.75rem; font-weight: 800; color: #475569; display: block; text-transform: uppercase;">Nagad</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div id="addMoneyCardFields" style="margin-bottom: 2rem; background: #f8fafc; padding: 1.5rem; border-radius: 20px; border: 1px solid #f1f5f9;">
+          <div style="margin-bottom: 1.25rem;">
+            <label style="display: block; font-size: 0.75rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.6rem;">Cardholder Name</label>
+            <input type="text" id="cardholderNameModal" placeholder="Name on card" style="width: 100%; padding: 0.9rem 1.25rem; border-radius: 14px; border: 1.5px solid #e2e8f0; font-size: 1rem; font-weight: 600; color: #0f172a; outline: none;">
+          </div>
+          <div style="margin-bottom: 1.25rem;">
+            <label style="display: block; font-size: 0.75rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.6rem;">Card Number</label>
+            <input type="text" id="cardNumberModal" placeholder="1234 5678 9012 3456" maxlength="19" style="width: 100%; padding: 0.9rem 1.25rem; border-radius: 14px; border: 1.5px solid #e2e8f0; font-size: 1rem; font-weight: 700; color: #0f172a; font-family: monospace; outline: none;" oninput="this.value=this.value.replace(/[^0-9]/g,'').replace(/(.{4})/g,'$1 ').trim()">
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div>
+              <label style="display: block; font-size: 0.75rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.6rem;">Expiry</label>
+              <input type="text" id="cardExpiryModal" placeholder="MM/YY" maxlength="5" style="width: 100%; padding: 0.9rem 1.25rem; border-radius: 14px; border: 1.5px solid #e2e8f0; font-size: 1rem; font-weight: 700; color: #0f172a; outline: none;" oninput="this.value=this.value.replace(/[^0-9]/g,'').replace(/^(\d{2})(\d)/,'$1/$2')">
+            </div>
+            <div>
+              <label style="display: block; font-size: 0.75rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.6rem;">CVV</label>
+              <input type="password" id="cardCvvModal" placeholder="•••" maxlength="3" style="width: 100%; padding: 0.9rem 1.25rem; border-radius: 14px; border: 1.5px solid #e2e8f0; font-size: 1rem; font-weight: 700; color: #0f172a; outline: none;">
+            </div>
+          </div>
+        </div>
+
+        <div id="addMoneyMobileFields" style="margin-bottom: 2rem; display: none; background: #f8fafc; padding: 1.5rem; border-radius: 20px; border: 1px solid #f1f5f9;">
+          <label style="display: block; font-size: 0.75rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.5rem;">Mobile Number</label>
+          <input type="text" id="addMoneyMobileNumber" placeholder="017XXXXXXXX" style="width: 100%; padding: 1rem 1.25rem; border-radius: 12px; border: 1.5px solid #e2e8f0; font-size: 1.1rem; font-weight: 700; color: #0f172a; letter-spacing: 0.05em;">
+        </div>
+
+        <div style="display: flex; gap: 1rem;">
+          <button type="button" onclick="closeAddMoneyModal()" style="flex: 1; padding: 1rem; border-radius: 16px; font-weight: 700; background: #f1f5f9; color: #475569; border: none; cursor: pointer;">Cancel</button>
+          <button type="button" onclick="handleAddMoneySubmit()" style="flex: 1.8; padding: 1rem; border-radius: 16px; font-weight: 900; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; border: none; cursor: pointer; box-shadow: 0 8px 20px -5px rgba(99,102,241,0.4);">Pay Now</button>
+        </div>
+
+        <div style="text-align: center; margin-top: 1.25rem; display: flex; align-items: center; justify-content: center; gap: 0.5rem; color: #94a3b8; font-size: 0.8rem;">
+          <span>🔒</span> Secured by MockPay Gateway
+        </div>
+      </div>
+
+      <!-- Success View -->
+      <div id="addMoneySuccessView" style="display:none; padding: 3rem 2rem; text-align: center;">
+        <div style="font-size: 3.5rem; margin-bottom: 1rem;">🎉</div>
+        <h3 style="font-size: 1.5rem; font-weight: 900; color: #0f172a; margin-bottom: 0.5rem;">Payment Successful!</h3>
+        <p style="color: #64748b; margin-bottom: 0.5rem;">Your wallet has been topped up.</p>
+        <p id="addMoneyTxnRef" style="font-family: monospace; font-size: 0.85rem; color: #6366f1; background: #eef2ff; padding: 0.5rem 1rem; border-radius: 10px; display: inline-block; margin-bottom: 2rem;"></p>
+        <button onclick="document.getElementById('addMoneyModal').style.display='none'; document.getElementById('addMoneySuccessView').style.display='none'; document.getElementById('addMoneyFormView').style.display='block'; renderUserWallet();" style="width: 100%; padding: 1rem; border-radius: 16px; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; font-weight: 900; border: none; cursor: pointer;">Done</button>
+      </div>
+
+    </div>
+  </div>
+
   <!-- Subtle App Footer -->
   <div style="padding: 2rem; text-align: center; color: var(--text-muted); font-size: 0.8rem; border-top: 1px solid var(--border); background: var(--bg-card); margin-top: auto;">
     &copy; 2026 ReSale Marketplace. Platform Managed by Aononto Jahan. All Rights Reserved.
   </div>
 
+  <!-- Inline fallback: ensure modal function is available immediately -->
+  <script>
+    function toggleAddMoneyFields(method) {
+      if (method === 'card') {
+        document.getElementById('addMoneyCardFields').style.display = 'block';
+        document.getElementById('addMoneyMobileFields').style.display = 'none';
+      } else {
+        document.getElementById('addMoneyCardFields').style.display = 'none';
+        document.getElementById('addMoneyMobileFields').style.display = 'block';
+      }
+    }
+
+    function openAddMoneyModal() {
+      var modal = document.getElementById('addMoneyModal');
+      if (!modal) return;
+      document.getElementById('depositAmountModal').value = '';
+      
+      // Reset card fields
+      document.getElementById('cardholderNameModal').value = '';
+      document.getElementById('cardNumberModal').value = '';
+      document.getElementById('cardExpiryModal').value = '';
+      document.getElementById('cardCvvModal').value = '';
+      
+      // Reset mobile fields
+      document.getElementById('addMoneyMobileNumber').value = '';
+      
+      // Reset radio buttons to Card
+      var radio = document.querySelector('input[name="addMoneyMethod"][value="card"]');
+      if(radio) radio.checked = true;
+      toggleAddMoneyFields('card');
+
+      document.getElementById('addMoneyFormView').style.display = 'block';
+      document.getElementById('addMoneySuccessView').style.display = 'none';
+      modal.style.setProperty('display', 'flex', 'important');
+    }
+    function closeAddMoneyModal() {
+      var modal = document.getElementById('addMoneyModal');
+      if (modal) modal.style.display = 'none';
+    }
+  </script>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="js/api.js?v=3"></script>
-  <script src="js/app.js?v=3"></script>
+  <script src="js/api.js?v=6"></script>
+  <script src="js/app.js?v=6"></script>
 </body>
 
 </html>

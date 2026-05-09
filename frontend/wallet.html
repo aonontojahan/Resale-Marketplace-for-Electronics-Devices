@@ -380,8 +380,25 @@
 
           document.getElementById('coConfirmBtn').addEventListener('click', async () => {
             try {
+              // Extract delivery info
+              const deliveryData = {
+                  quantity: currentQty,
+                  delivery_name: document.getElementById('coFullName').value.trim(),
+                  delivery_region: document.getElementById('coRegion').value.trim(),
+                  delivery_phone: document.getElementById('coPhone').value.trim(),
+                  delivery_city: document.getElementById('coCity').value.trim(),
+                  delivery_area: document.getElementById('coArea').value.trim(),
+                  delivery_address_full: document.getElementById('coAddressFull').value.trim()
+              };
+
+              // Basic validation
+              if (!deliveryData.delivery_name || !deliveryData.delivery_phone || !deliveryData.delivery_address_full) {
+                  alert("Please provide at least your full name, phone number, and full address for delivery.");
+                  return;
+              }
+
               if (offerId) {
-                await window.api.finalizePayment(offerId, currentQty);
+                await window.api.finalizePayment(offerId, deliveryData);
                 alert("Success! Payment moved to Escrow at negotiated price.");
               } else {
                 alert("Purchasing at listing price is only available for direct buys. Please use Negotiation for now.");

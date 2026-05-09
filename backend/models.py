@@ -197,6 +197,14 @@ class Offer(Base):
     dispute_reason = Column(String, nullable=True)
     delivered_at = Column(DateTime(timezone=True), nullable=True)
     
+    # Specific Delivery Information for this order
+    delivery_name = Column(String, nullable=True)
+    delivery_phone = Column(String, nullable=True)
+    delivery_region = Column(String, nullable=True)
+    delivery_city = Column(String, nullable=True)
+    delivery_area = Column(String, nullable=True)
+    delivery_address_full = Column(String, nullable=True)
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
