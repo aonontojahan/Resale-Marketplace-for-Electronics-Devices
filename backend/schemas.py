@@ -75,6 +75,13 @@ class OfferResponse(OfferBase):
     quantity: int = 1
     status: str
     order_number: Optional[int] = None
+    tracking_info: Optional[str] = None
+    delivery_name: Optional[str] = None
+    delivery_phone: Optional[str] = None
+    delivery_region: Optional[str] = None
+    delivery_city: Optional[str] = None
+    delivery_area: Optional[str] = None
+    delivery_address_full: Optional[str] = None
     created_at: datetime
     
     class Config:
@@ -135,6 +142,15 @@ class WithdrawalRequest(BaseModel):
     account_number: Optional[str] = None
     bank_name: Optional[str] = None
     mobile_number: Optional[str] = None
+
+class EscrowPaymentRequest(BaseModel):
+    quantity: int = 1
+    delivery_name: Optional[str] = None
+    delivery_phone: Optional[str] = None
+    delivery_region: Optional[str] = None
+    delivery_city: Optional[str] = None
+    delivery_area: Optional[str] = None
+    delivery_address_full: Optional[str] = None
 
 
 # --- Product Schemas ---

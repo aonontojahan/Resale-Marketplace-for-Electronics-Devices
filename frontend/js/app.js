@@ -1815,17 +1815,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 div.innerHTML = `
                     <div style="background: #f0f9ff; border: 1.5px solid #0ea5e9; padding: 1.25rem; border-radius: 16px; border-left: 6px solid #0ea5e9; box-shadow: 0 10px 15px -3px rgba(14,165,233,0.1);">
-                        <div style="font-weight: 800; color: #0ea5e9; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
-                            <span style="font-size: 1.4rem;">🔐</span> Held in Escrow
+                        <div style="font-weight: 800; color: #0ea5e9; margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between;">
+                            <span style="display:flex; align-items:center; gap:0.5rem;"><span style="font-size: 1.4rem;">🔐</span> Held in Escrow</span>
+                            <span style="font-size:0.65rem; background: #e0f2fe; color: #0284c7; padding: 4px 10px; border-radius: 20px; font-weight: 800;">PAID</span>
                         </div>
                         <div style="background: #e0f2fe; border-radius: 12px; padding: 1rem; margin-bottom: 1.25rem; border-left: 4px solid #0ea5e9;">
                             <p style="margin: 0; font-size: 0.95rem; color: #0c4a6e; line-height: 1.5;">
-                                The payment is now safely held in Escrow. Once you receive and check the product, please release the funds to the seller.
+                                The payment is now safely held in Escrow. Once the product is received and checked, funds will be released to the seller.
                             </p>
                         </div>
                         ${user.role === 'buyer' ? `
-                        <div style="font-size: 0.85rem; color: #0ea5e9; font-weight: 700; background: #e0f2fe; padding: 0.5rem; text-align:center; border-radius:8px;">Payment Secured in Escrow</div>
-                        ` : `<div style="font-size: 0.85rem; color: #0ea5e9; font-weight: 700; background: #e0f2fe; padding: 0.5rem; text-align:center; border-radius:8px;">Buyer has Paid</div>`}
+                        <div style="font-size: 0.85rem; color: #0ea5e9; font-weight: 700; background: #e0f2fe; padding: 0.5rem; text-align:center; border-radius:8px; margin-bottom: 0.75rem;">Payment Secured in Escrow</div>
+                        ` : `
+                        <div style="background: white; border-radius: 12px; padding: 1rem; margin-bottom: 1rem; border: 1px dashed #bae6fd;">
+                            <p style="margin: 0 0 0.5rem 0; font-size: 0.75rem; font-weight: 800; color: #0369a1; text-transform: uppercase;">📦 Ship To:</p>
+                            <p style="margin: 0; font-size: 0.9rem; color: #0f172a; font-weight: 600;">Please check the invoice for exact shipping details.</p>
+                        </div>
+                        `}
+                        <button style="margin-top: 0.5rem; width:100%; background: #0ea5e9; color: white; border: none; padding: 0.8rem; border-radius: 10px; font-size: 0.9rem; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: 0 4px 6px -1px rgba(14,165,233,0.3);" onclick="handleDownloadReceipt('${activeSessionId}')">
+                            📄 Download Order Invoice
+                        </button>
                     </div>
                 `;
             } else if (msg.text && msg.text.includes("ORDER ALERT:")) {
@@ -1919,15 +1928,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 div.className = "message-system";
                 div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
 
-                // Attempt to parse data for invoice if present (for delivered history)
-                const data = {};
-                msg.text.split('\n').forEach(line => {
-                    if (line.includes(': ')) {
-                        const [k, v] = line.split(': ');
-                        data[k.trim().replace(/^📦 /, '')] = v.trim();
-                    }
-                });
-
                 div.innerHTML = `
                     <div style="background: #f0fdf4; border: 1.5px solid #22c55e; padding: 1.5rem; border-radius: 20px; border-left: 6px solid #22c55e; box-shadow: 0 10px 15px -3px rgba(34,197,94,0.1);">
                         <div style="font-weight: 800; color: #16a34a; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between;">
@@ -1946,10 +1946,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                         ` : `<div style="font-size: 0.85rem; color: #16a34a; font-weight: 700; background: #d1fae5; padding: 0.6rem; text-align:center; border-radius:10px;">Waiting for Buyer Confirmation</div>`}
                         
-                        ${Object.keys(data).length > 2 ? `
-                        <button style="margin-top: 1rem; width:100%; background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; padding: 0.6rem; border-radius: 10px; font-size: 0.85rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;" onclick="handleDownloadReceipt('${activeSessionId}', ${JSON.stringify(data).replace(/"/g, '&quot;')})">
+                        <button style="margin-top: 1rem; width:100%; background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; padding: 0.6rem; border-radius: 10px; font-size: 0.85rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;" onclick="handleDownloadReceipt('${activeSessionId}')">
                             📄 Download Final Invoice
-                        </button>` : ''}
+                        </button>
                     </div>
                 `;
             } else if (msg.text.startsWith("⚠️ DISPUTE RAISED:")) {
@@ -2923,125 +2922,199 @@ window.handleMarkShipped = async function (sessionId) {
     }
 };
 
-window.handleDownloadReceipt = function (sessionId, data) {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
+window.handleDownloadReceipt = async function (sessionId) {
+    try {
+        // Find the download button to show loading state if called from event
+        const btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+        const originalText = btn ? btn.innerHTML : '';
+        if (btn) btn.innerHTML = '⏳ Generating...';
 
-    // Premium Background/Border
-    doc.setDrawColor(99, 102, 241);
-    doc.setLineWidth(1.5);
-    doc.rect(5, 5, 200, 287);
+        // Fetch offers for session
+        const offers = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
+        const activeStatuses = ['paid', 'shipped', 'delivered', 'completed', 'auto_completed', 'refunded'];
+        const offer = offers.reverse().find(o => activeStatuses.includes(o.status));
+        
+        if (!offer) {
+            alert('No valid invoice found for this order yet.');
+            if (btn) btn.innerHTML = originalText;
+            return;
+        }
 
-    // Receipt Header
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(28);
-    doc.setTextColor(31, 41, 55);
+        // Fetch Product and Seller details
+        const product = await window.api.request(`/products/${offer.product_id}`, 'GET');
+        
+        // Define Dynamic Status Texts
+        let invoiceStatusText = "FUNDS IN ESCROW";
+        let footerText = "Funds are held in escrow until buyer confirms delivery.";
+        let statusColor = [14, 165, 233]; // Blue for escrow
+        
+        if (offer.status === 'completed' || offer.status === 'auto_completed') {
+            invoiceStatusText = "COMPLETED (FUNDS RELEASED)";
+            footerText = "This transaction is complete and funds have been released.";
+            statusColor = [34, 197, 94]; // Green
+        } else if (offer.status === 'refunded') {
+            invoiceStatusText = "CANCELLED / REFUNDED";
+            footerText = "This transaction was cancelled and funds were returned to the buyer.";
+            statusColor = [239, 68, 68]; // Red
+        } else if (offer.status === 'shipped') {
+            invoiceStatusText = "SHIPPED (IN TRANSIT)";
+        } else if (offer.status === 'delivered') {
+            invoiceStatusText = "DELIVERED (PENDING BUYER CONFIRMATION)";
+        }
 
-    const title = "RESALE MARKETPLACE";
-    const pageWidth = doc.internal.pageSize.getWidth();
-    doc.text(title, pageWidth / 2, 30, { align: "center" });
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
 
-    doc.setDrawColor(226, 232, 240);
-    doc.line(20, 38, 190, 38);
+        // Premium Background/Border
+        doc.setDrawColor(...statusColor);
+        doc.setLineWidth(1.5);
+        doc.rect(5, 5, 200, 287);
 
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.setTextColor(100, 116, 139);
-
-    const receiptId = (data['OrderID'] || '0').toString().padStart(5, '0');
-    doc.text(`RECEIPT NO: RS-${receiptId}`, 20, 45);
-    doc.text(`ISSUED DATE: ${new Date().toLocaleDateString().toUpperCase()}`, 145, 45);
-
-    // Section 1: Transaction Parties
-    doc.setFillColor(248, 250, 252);
-    doc.rect(20, 55, 170, 45, 'F');
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(12);
-    doc.setTextColor(31, 41, 55);
-    doc.text("SELLER DETAILS", 25, 65);
-    doc.text("BUYER DETAILS", 110, 65);
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.setTextColor(71, 85, 105);
-    doc.text(`Name: ${data['Seller'] || 'N/A'}`, 25, 75);
-    doc.text(`Phone: ${data['Phone'] || 'N/A'}`, 25, 82);
-
-    doc.text(`Name: ${data['Buyer'] || 'N/A'}`, 110, 75);
-    doc.text(`Phone: ${data['BuyerPhone'] || 'N/A'}`, 110, 82);
-
-    // Section 2: Logistics
-    doc.setFont("helvetica", "bold");
-    doc.text("LOGISTICS INFORMATION", 20, 115);
-    let y = 125;
-    const shipDetails = [
-        ["COURIER SERVICE:", data['Courier'] || 'N/A'],
-        ["TRACKING ID / AWB:", data['Tracking'] || 'N/A'],
-        ["DISPATCH DATE:", data['Date'] || 'N/A']
-    ];
-
-    shipDetails.forEach(([label, value]) => {
+        // Receipt Header
         doc.setFont("helvetica", "bold");
+        doc.setFontSize(28);
+        doc.setTextColor(31, 41, 55);
+        doc.text("RESALE MARKETPLACE", pageWidth / 2, 30, { align: "center" });
+
+        // Dynamic Status Badge
+        doc.setFontSize(10);
+        doc.setTextColor(...statusColor);
+        doc.text(`STATUS: ${invoiceStatusText}`, pageWidth / 2, 38, { align: "center" });
+
+        doc.setDrawColor(226, 232, 240);
+        doc.line(20, 45, 190, 45);
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
         doc.setTextColor(100, 116, 139);
-        doc.text(label, 20, y);
+
+        const receiptId = (offer.order_number || offer.id || '0').toString().padStart(5, '0');
+        doc.text(`INVOICE NO: RS-${receiptId}`, 20, 52);
+        doc.text(`ISSUED DATE: ${new Date(offer.created_at).toLocaleDateString().toUpperCase()}`, 145, 52);
+
+        // Section 1: Transaction Parties
+        doc.setFillColor(248, 250, 252);
+        doc.rect(20, 60, 170, 55, 'F');
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.setTextColor(31, 41, 55);
+        doc.text("SELLER DETAILS", 25, 70);
+        doc.text("SHIP TO (BUYER DETAILS)", 110, 70);
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.setTextColor(71, 85, 105);
+        doc.text(`Name: ${product.sellerName || 'N/A'}`, 25, 80);
+        doc.text(`Email: ${product.sellerEmail || 'N/A'}`, 25, 87);
+
+        // Buyer Delivery Info from the Offer record
+        doc.text(`Name: ${offer.delivery_name || 'N/A'}`, 110, 80);
+        doc.text(`Phone: ${offer.delivery_phone || 'N/A'}`, 110, 87);
+        doc.text(`Area: ${offer.delivery_area || 'N/A'}, ${offer.delivery_city || 'N/A'}`, 110, 94);
+        doc.setFontSize(8);
+        const splitAddress = doc.splitTextToSize(offer.delivery_address_full || 'N/A', 75);
+        doc.text(splitAddress, 110, 101);
+
+        // Section 2: Logistics (if available)
+        let y = 130;
+        if (offer.tracking_info) {
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(11);
+            doc.text("LOGISTICS INFORMATION", 20, y);
+            y += 10;
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(10);
+            
+            if (offer.tracking_info.includes('Courier:')) {
+                // Old multi-line format: split into two columns (and hide redundant OrderID)
+                const lines = offer.tracking_info.split('\n').filter(l => l.trim() && !l.includes('OrderID:'));
+                let col1Y = y;
+                let col2Y = y;
+                lines.forEach((line, index) => {
+                    if (index % 2 === 0) {
+                        doc.text(line.trim(), 20, col1Y);
+                        col1Y += 6;
+                    } else {
+                        doc.text(line.trim(), 110, col2Y);
+                        col2Y += 6;
+                    }
+                });
+                y = Math.max(col1Y, col2Y) + 5;
+            } else {
+                // Standard tracking info
+                const trackingText = `Tracking Info: ${offer.tracking_info}`;
+                const trackingLines = doc.splitTextToSize(trackingText, 170);
+                doc.text(trackingLines, 20, y);
+                y += (trackingLines.length * 6) + 5;
+            }
+        } else {
+            y += 5; // spacing if no tracking
+        }
+
+        // Section 3: Table
+        doc.setFillColor(30, 41, 59);
+        doc.rect(20, y, 170, 10, 'F');
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(255, 255, 255);
+        doc.text("DESCRIPTION", 25, y + 7);
+        doc.text("QTY", 140, y + 7);
+        doc.text("SUBTOTAL", 165, y + 7);
+
+        y += 18;
         doc.setFont("helvetica", "bold");
         doc.setTextColor(31, 41, 55);
-        doc.text(value, 75, y);
-        y += 8;
-    });
+        
+        // Handle long product titles
+        const titleLines = doc.splitTextToSize(product.title, 100);
+        doc.text(titleLines, 25, y);
+        
+        doc.text((offer.quantity || 1).toString(), 142, y);
 
-    // Section 3: Table
-    y += 10;
-    doc.setFillColor(30, 41, 59);
-    doc.rect(20, y, 170, 10, 'F');
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(255, 255, 255);
-    doc.text("DESCRIPTION", 25, y + 7);
-    doc.text("QTY", 140, y + 7);
-    doc.text("SUBTOTAL", 165, y + 7);
+        const priceInt = offer.offered_price;
+        doc.text(`Tk. ${(priceInt * (offer.quantity || 1)).toLocaleString()}`, 165, y);
 
-    y += 18;
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(31, 41, 55);
-    doc.text(data['Product'] || 'Electronic Device', 25, y);
-    doc.text((data['Quantity'] || 1).toString(), 142, y);
+        y += (titleLines.length * 5) + 7;
+        doc.setDrawColor(226, 232, 240);
+        doc.line(20, y, 190, y);
 
-    const rawPrice = (data['Price'] || '0').toString().replace(/^0+/, '');
-    const priceInt = parseInt(rawPrice, 10);
-    doc.text(`Tk. ${priceInt.toLocaleString()}`, 165, y);
+        y += 10;
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(100, 116, 139);
+        doc.text("DELIVERY CHARGE", 25, y);
+        doc.text("1", 142, y);
+        doc.text("Tk. 150", 165, y);
 
-    y += 12;
-    doc.setDrawColor(226, 232, 240);
-    doc.line(20, y, 190, y);
+        y += 15;
+        doc.setFillColor(248, 250, 252);
+        doc.rect(130, y, 60, 12, 'F');
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(14);
+        doc.setTextColor(31, 41, 55);
+        doc.text("TOTAL:", 135, y + 8);
 
-    y += 10;
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(100, 116, 139);
-    doc.text("DELIVERY CHARGE", 25, y);
-    doc.text("1", 142, y);
-    doc.text("Tk. 150", 165, y);
+        const totalAmount = (priceInt * (offer.quantity || 1)) + 150;
+        doc.setTextColor(...statusColor);
+        doc.text(`Tk. ${totalAmount.toLocaleString()}`, 155, y + 8);
 
-    y += 15;
-    doc.setFillColor(248, 250, 252);
-    doc.rect(130, y, 60, 12, 'F');
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    doc.setTextColor(31, 41, 55);
-    doc.text("TOTAL:", 135, y + 8);
+        // Footer at absolute bottom to prevent overlap
+        y = 275;
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(9);
+        doc.setTextColor(148, 163, 184);
+        doc.text("This is a system-generated invoice for the ReSale Marketplace.", pageWidth / 2, y, { align: "center" });
+        doc.text(footerText, pageWidth / 2, y + 5, { align: "center" });
 
-    const totalAmount = priceInt + 150;
-    doc.setTextColor(79, 70, 229);
-    doc.text(`Tk. ${totalAmount.toLocaleString()}`, 155, y + 8);
-
-    y = 265;
-    doc.setFont("helvetica", "italic");
-    doc.setFontSize(9);
-    doc.setTextColor(148, 163, 184);
-    doc.text("This is a system-generated receipt for the ReSale Escrow Transaction.", pageWidth / 2, y, { align: "center" });
-    doc.text("Funds are held in escrow until buyer confirms delivery.", pageWidth / 2, y + 5, { align: "center" });
-
-    doc.save(`ReSale_Receipt_RS-${receiptId}.pdf`);
+        doc.save(`ReSale_Invoice_RS-${receiptId}.pdf`);
+        
+        if (btn) btn.innerHTML = originalText;
+    } catch (err) {
+        console.error("Invoice Error:", err);
+        alert("Failed to generate invoice: " + err.message);
+        const btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
+        if (btn) btn.innerHTML = '📄 Download Order Invoice';
+    }
 };
 
 window.handleMarkDelivered = async function (sessionId) {
@@ -3164,9 +3237,13 @@ async function renderSellerReviews() {
                     <div style="background: var(--bg-card); border: 1px solid var(--border); padding: 1.5rem; border-radius: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='translateY(0)'">
                         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
                             <div style="display: flex; align-items: center; gap: 1rem;">
+                                ${r.buyer_profile_picture ? `
+                                <img src="http://localhost:8000${r.buyer_profile_picture}" alt="${r.buyer_name}" style="width: 45px; height: 45px; border-radius: 50%; object-fit: cover; border: 2px solid var(--border);">
+                                ` : `
                                 <div style="width: 45px; height: 45px; border-radius: 50%; background: linear-gradient(135deg, var(--primary), var(--accent-cyan)); color: white; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.1rem;">
                                     ${r.buyer_name ? r.buyer_name.charAt(0) : 'B'}
                                 </div>
+                                `}
                                 <div>
                                     <h4 style="margin: 0; font-size: 1rem; color: var(--secondary); font-weight: 700;">${r.buyer_name || 'Anonymous Buyer'}</h4>
                                     <div style="color: #f59e0b; font-size: 0.9rem; margin-top: 0.1rem;">
@@ -3484,7 +3561,7 @@ async function renderUserWallet() {
                 actionBtn.onclick = () => openWithdrawModal(updatedUser.wallet_balance);
             } else {
                 actionBtn.innerText = 'Add Money';
-                actionBtn.onclick = () => window.location.href = 'wallet.html';
+                actionBtn.onclick = () => openAddMoneyModal();
             }
         }
         const escrowTitle = document.getElementById('escrowTitle');
@@ -3524,6 +3601,77 @@ async function renderUserWallet() {
         listEl.innerHTML = `<p style="text-align: center; padding: 2rem; color: #ef4444;">Error: ${err.message}</p>`;
     }
 }
+
+// ─── ADD MONEY MODAL LOGIC ──────────────────────────────────────
+
+window.openAddMoneyModal = function() {
+    const modal = document.getElementById('addMoneyModal');
+    if (!modal) return;
+    // Reset form
+    document.getElementById('depositAmountModal').value = '';
+    document.getElementById('cardholderNameModal').value = '';
+    document.getElementById('cardNumberModal').value = '';
+    document.getElementById('cardExpiryModal').value = '';
+    document.getElementById('cardCvvModal').value = '';
+    document.getElementById('addMoneyMobileNumber').value = '';
+    
+    // Reset to card method by default
+    const radio = document.querySelector('input[name="addMoneyMethod"][value="card"]');
+    if (radio) {
+        radio.checked = true;
+        if (typeof toggleAddMoneyFields === 'function') toggleAddMoneyFields('card');
+    }
+
+    document.getElementById('addMoneyFormView').style.display = 'block';
+    document.getElementById('addMoneySuccessView').style.display = 'none';
+    modal.style.setProperty('display', 'flex', 'important');
+};
+
+window.handleAddMoneySubmit = async function() {
+    const amount = parseInt(document.getElementById('depositAmountModal').value);
+    
+    if (!amount || amount < 10) {
+        alert('Please enter a valid amount (minimum Tk. 10).');
+        return;
+    }
+
+    const methodRadio = document.querySelector('input[name="addMoneyMethod"]:checked');
+    const method = methodRadio ? methodRadio.value : 'card';
+
+    if (method === 'card') {
+        const cardholder = document.getElementById('cardholderNameModal').value.trim();
+        const cardNumber = document.getElementById('cardNumberModal').value.replace(/\s/g, '');
+        if (!cardholder) {
+            alert('Please enter the cardholder name.');
+            return;
+        }
+        if (cardNumber.length < 16) {
+            alert('Please enter a valid 16-digit card number.');
+            return;
+        }
+    } else {
+        const mobileNumber = document.getElementById('addMoneyMobileNumber').value.trim();
+        if (!mobileNumber || mobileNumber.length < 11) {
+            alert(`Please enter a valid ${method === 'bkash' ? 'bKash' : 'Nagad'} mobile number.`);
+            return;
+        }
+    }
+
+    const btn = document.querySelector('#addMoneyModal button[onclick="handleAddMoneySubmit()"]');
+    if (btn) { btn.innerText = 'Processing...'; btn.disabled = true; }
+
+    try {
+        await window.api.depositWallet(amount);
+        const txnId = Math.floor(Math.random() * 9000000) + 1000000;
+        document.getElementById('addMoneyTxnRef').innerText = `TXN-${txnId}`;
+        document.getElementById('addMoneyFormView').style.display = 'none';
+        document.getElementById('addMoneySuccessView').style.display = 'block';
+    } catch (err) {
+        alert('Deposit failed: ' + err.message);
+        if (btn) { btn.innerText = 'Pay Now'; btn.disabled = false; }
+    }
+};
+
 
 // ─── WITHDRAWAL LOGIC ─────────────────────────────────────────
 

@@ -114,8 +114,8 @@ const api = {
         return this.request(`/offers/${offerId}/reject`, 'POST');
     },
 
-    async finalizePayment(offerId, quantity = 1) {
-        return this.request(`/escrow/pay?offer_id=${offerId}&quantity=${quantity}`, 'POST');
+    async finalizePayment(offerId, deliveryData = {}) {
+        return this.request(`/escrow/pay?offer_id=${offerId}`, 'POST', deliveryData);
     },
 
     async releasePayment(offer_id) {

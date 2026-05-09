@@ -481,7 +481,7 @@ def reject_offer(
 @app.post("/escrow/pay")
 def finalize_payment(
     offer_id: int,
-    quantity: int = Query(1),
+    req: schemas.EscrowPaymentRequest,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
@@ -496,26 +496,34 @@ def finalize_payment(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    total_cost = offer.offered_price * quantity
+    total_cost = offer.offered_price * req.quantity
     final_total = total_cost + DELIVERY_FEE
 
     if current_user.wallet_balance < final_total:
         raise HTTPException(status_code=400, detail="Insufficient wallet balance")
 
     # Move funds
-    offer.quantity = quantity # Save quantity for later release
+    offer.quantity = req.quantity # Save quantity for later release
     current_user.wallet_balance -= final_total
     # HOLD FULL MONEY (Price + Delivery) in Escrow
     current_user.escrow_balance += final_total 
     
     offer.status = models.OfferStatus.PAID
     
+    # Save specific delivery details to this offer
+    offer.delivery_name = req.delivery_name
+    offer.delivery_phone = req.delivery_phone
+    offer.delivery_region = req.delivery_region
+    offer.delivery_city = req.delivery_city
+    offer.delivery_area = req.delivery_area
+    offer.delivery_address_full = req.delivery_address_full
+    
     # Assign sequential Order ID only upon payment
     max_order = db.query(func.max(models.Offer.order_number)).scalar() or 0
     offer.order_number = max_order + 1
     
     # Decrement inventory and sync status
-    product.inventory_quantity = max(0, product.inventory_quantity - quantity)
+    product.inventory_quantity = max(0, product.inventory_quantity - req.quantity)
     if product.inventory_quantity == 0:
         product.status = models.ProductStatus.SOLD
     
@@ -1801,6 +1809,7 @@ def get_seller_reviews(seller_id: int, db: Session = Depends(get_db)):
             "comment": r.comment,
             "created_at": r.created_at,
             "buyer_name": r.reviewer.full_name if r.reviewer else "Anonymous Buyer",
+            "buyer_profile_picture": r.reviewer.profile_pic_url if r.reviewer else None,
             "product_title": r.product.title if r.product else "Deleted Product"
         })
     return results
