@@ -3497,6 +3497,11 @@ async function renderPlatformWallet() {
         // Update balance
         balanceEl.innerText = `Tk. ${(adminData.wallet_balance || 0).toLocaleString('en-IN')}`;
 
+        const adminWithdrawBtn = document.getElementById('adminWithdrawBtn');
+        if (adminWithdrawBtn) {
+            adminWithdrawBtn.onclick = () => openWithdrawModal(adminData.wallet_balance || 0);
+        }
+
         // Fetch wallet transactions for the ledger
         const txs = await window.api.getWalletTransactions();
 
@@ -3741,6 +3746,7 @@ window.handleWithdrawSubmit = async function(e) {
         alert('Withdrawal has been successful!');
         document.getElementById('withdrawModal').style.display = 'none';
         renderUserWallet(); // Refresh balance
+        if (typeof renderPlatformWallet === 'function') renderPlatformWallet(); // Refresh admin revenue balance
     } catch (err) {
         alert('Withdrawal failed: ' + err.message);
     } finally {
@@ -4081,7 +4087,8 @@ window.handleDownloadAdminEarnings = async function() {
             if (y > 275) { doc.addPage(); y = 20; }
             doc.text(new Date(t.created_at).toLocaleDateString(), 25, y + 7);
             doc.text(t.transaction_type.replace('_', ' ').toUpperCase(), 60, y + 7);
-            doc.text(t.description.substring(0, 30), 95, y + 7);
+            const cleanDesc = t.description ? t.description.replace(/[^\x20-\x7E]/g, '').trim() : '';
+            doc.text(cleanDesc.substring(0, 30), 95, y + 7);
             doc.text(`Tk. ${t.amount.toLocaleString()}`, 165, y + 7);
             doc.line(20, y + 10, 190, y + 10);
             y += 10;
@@ -4090,6 +4097,104 @@ window.handleDownloadAdminEarnings = async function() {
         doc.save(`ReSale_Platform_Earnings_${periodStr}_${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (err) {
         alert("Failed to generate earnings report: " + err.message);
+    }
+};
+
+window.handleDownloadUserWallet = async function() {
+    try {
+        const startDateVal = document.getElementById('walletStartDate')?.value;
+        const endDateVal = document.getElementById('walletEndDate')?.value;
+        const periodStr = (startDateVal || 'ALL') + ' to ' + (endDateVal || 'ALL');
+
+        const txs = await window.api.getWalletTransactions();
+        let filteredTxs = txs;
+
+        if (startDateVal) {
+            const startDt = new Date(startDateVal);
+            filteredTxs = filteredTxs.filter(t => new Date(t.created_at) >= startDt);
+        }
+        if (endDateVal) {
+            const endDt = new Date(endDateVal);
+            endDt.setDate(endDt.getDate() + 1); // inclusive of end date
+            filteredTxs = filteredTxs.filter(t => new Date(t.created_at) < endDt);
+        }
+
+        if (filteredTxs.length === 0) return alert(`No wallet activity found for the selected period.`);
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        // Header
+        doc.setDrawColor(99, 102, 241);
+        doc.setLineWidth(1.5);
+        doc.rect(5, 5, 200, 287);
+        
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(24);
+        doc.setTextColor(99, 102, 241);
+        doc.text("ReSale. Escrow Wallet Ledger", 105, 25, { align: "center" });
+        
+        doc.setFontSize(12);
+        doc.setTextColor(100, 116, 139);
+        doc.text(`Official Wallet Report - ${periodStr.toUpperCase()}`, 105, 35, { align: "center" });
+        
+        doc.setFontSize(10);
+        doc.text(`Run Date: ${new Date().toLocaleString()}`, 20, 50);
+
+        const user = getUser();
+        doc.text(`Account: ${user.full_name} (${user.role.toUpperCase()})`, 20, 55);
+
+        const totalIn = filteredTxs.filter(t => t.amount > 0).reduce((acc, t) => acc + t.amount, 0);
+        const totalOut = filteredTxs.filter(t => t.amount < 0).reduce((acc, t) => acc + Math.abs(t.amount), 0);
+
+        doc.setFillColor(248, 250, 252);
+        doc.rect(20, 65, 170, 25, 'F');
+        doc.setDrawColor(226, 232, 240);
+        doc.rect(20, 65, 170, 25);
+        
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(31, 41, 55);
+        doc.text(`Total Inflow: Tk. ${totalIn.toLocaleString()}`, 30, 77);
+        doc.text(`Total Outflow: Tk. ${totalOut.toLocaleString()}`, 30, 84);
+
+        // Table Header
+        let y = 105;
+        doc.setFillColor(99, 102, 241);
+        doc.setTextColor(255, 255, 255);
+        doc.rect(20, y, 170, 10, 'F');
+        doc.text("DATE", 25, y + 7);
+        doc.text("TYPE", 60, y + 7);
+        doc.text("DESCRIPTION", 95, y + 7);
+        doc.text("AMOUNT", 165, y + 7);
+
+        y += 10;
+        doc.setTextColor(31, 41, 55);
+        doc.setFont("helvetica", "normal");
+        filteredTxs.forEach(t => {
+            if (y > 275) { doc.addPage(); y = 20; }
+            doc.text(new Date(t.created_at).toLocaleDateString(), 25, y + 7);
+            doc.text(t.transaction_type.replace('_', ' ').toUpperCase(), 60, y + 7);
+            
+            // Clean description of emojis and non-ASCII characters that break jsPDF spacing
+            const cleanDesc = t.description ? t.description.replace(/[^\x20-\x7E]/g, '').trim() : '';
+            // Handle long descriptions by wrapping them
+            const splitDesc = doc.splitTextToSize(cleanDesc, 65);
+            const lineCount = splitDesc.length;
+            
+            doc.text(splitDesc, 95, y + 7);
+            
+            const isNegative = t.transaction_type === 'withdrawal' || t.transaction_type === 'payment' || t.transaction_type === 'escrow_hold' || t.amount < 0;
+            const prefix = isNegative ? '-' : '+';
+            doc.text(`${prefix}Tk. ${Math.abs(t.amount).toLocaleString()}`, 165, y + 7);
+            
+            const rowHeight = 10 + (lineCount > 1 ? (lineCount - 1) * 5 : 0);
+            doc.line(20, y + rowHeight, 190, y + rowHeight);
+            y += rowHeight;
+        });
+
+        doc.save(`ReSale_Wallet_Ledger_${periodStr}_${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (err) {
+        alert("Failed to generate wallet report: " + err.message);
     }
 };
 
