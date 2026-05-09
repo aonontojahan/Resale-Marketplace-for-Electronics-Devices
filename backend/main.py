@@ -60,6 +60,34 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
+class NotificationManager:
+    """Manages global WebSocket connections for real-time unread badges/notifications."""
+    def __init__(self):
+        self.active_connections: Dict[int, List[WebSocket]] = {}
+
+    async def connect(self, websocket: WebSocket, user_id: int):
+        await websocket.accept()
+        if user_id not in self.active_connections:
+            self.active_connections[user_id] = []
+        self.active_connections[user_id].append(websocket)
+
+    def disconnect(self, websocket: WebSocket, user_id: int):
+        if user_id in self.active_connections:
+            self.active_connections[user_id].remove(websocket)
+            if not self.active_connections[user_id]:
+                del self.active_connections[user_id]
+
+    async def broadcast_notification(self, user_id: int):
+        """Sends a simple ping to the user to refresh their unread counts."""
+        if user_id in self.active_connections:
+            for connection in self.active_connections[user_id]:
+                try:
+                    await connection.send_json({"type": "new_message"})
+                except Exception:
+                    pass
+
+notification_manager = NotificationManager()
+
 _app_loop = None
 
 @app.on_event("startup")
@@ -142,11 +170,41 @@ async def websocket_endpoint(websocket: WebSocket, session_id: int, token: str =
                 await manager.send_personal_message(msg_dict, session.buyer_id)
                 if session.buyer_id != session.seller_id:
                     await manager.send_personal_message(msg_dict, session.seller_id)
+                
+                # ALSO notify the recipient via global notification channel for the badge update
+                recipient_id = session.buyer_id if user_id == session.seller_id else session.seller_id
+                await notification_manager.broadcast_notification(recipient_id)
     except WebSocketDisconnect:
         manager.disconnect(websocket, user_id)
     except Exception as e:
         print(f"WebSocket error for user {user_id}: {e}")
         manager.disconnect(websocket, user_id)
+    finally:
+        db.close()
+
+
+@app.websocket("/ws/notifications")
+async def notification_websocket_endpoint(websocket: WebSocket, token: str = Query(...), db: Session = Depends(get_db)):
+    """Global WebSocket for real-time unread badges/notifications."""
+    # Authenticate User
+    payload = auth.decode_access_token(token)
+    if not payload:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    email = payload.get("sub")
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if not user:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    await notification_manager.connect(websocket, user.id)
+    try:
+        while True:
+            # Keep connection alive; we don't expect messages from client
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        notification_manager.disconnect(websocket, user.id)
     finally:
         db.close()
 
@@ -165,8 +223,12 @@ def push_system_msg(msg: models.ChatMessage, buyer_id: int, seller_id: int):
     
     async def _send():
         await manager.send_personal_message(msg_dict, buyer_id)
+        # Notify global channel for badge update
+        await notification_manager.broadcast_notification(buyer_id)
+        
         if buyer_id != seller_id:
             await manager.send_personal_message(msg_dict, seller_id)
+            await notification_manager.broadcast_notification(seller_id)
             
     try:
         asyncio.run_coroutine_threadsafe(_send(), _app_loop)
