@@ -201,6 +201,9 @@ class ReviewResponse(ReviewBase):
     id: int
     reviewer_id: int
     seller_id: int
+    buyer_name: Optional[str] = None
+    buyer_profile_picture: Optional[str] = None
+    product_title: Optional[str] = None
     created_at: datetime
 
     class Config:

@@ -38,11 +38,74 @@
         <div class="hero-btns">
           <a href="#listings" class="btn-primary">Browse All Products</a>
           <a href="signup.html" class="btn-outline">Start Selling</a>
-          <a href="signup.html" class="btn-outline">Become a Buyer</a>
         </div>
       </div>
     </div>
   </section>
+
+  <!-- ===== QUICK CATEGORIES ===== -->
+  <section class="categories-section">
+    <div class="container">
+      <h2 class="section-title" style="text-align: center; margin-bottom: 2rem;">Shop by <span class="text-gradient">Category</span></h2>
+      <div class="category-grid">
+        <div class="category-card" data-category="phone">
+          <div class="cat-icon">📱</div>
+          <h4>Phones</h4>
+          <span>Smartphones & Accessories</span>
+        </div>
+        <div class="category-card" data-category="laptop">
+          <div class="cat-icon">💻</div>
+          <h4>Laptops</h4>
+          <span>MacBooks & PC Laptops</span>
+        </div>
+        <div class="category-card" data-category="camera">
+          <div class="cat-icon">📷</div>
+          <h4>Cameras</h4>
+          <span>DSLRs & Photography</span>
+        </div>
+        <div class="category-card" data-category="tablet">
+          <div class="cat-icon">📟</div>
+          <h4>Tablets</h4>
+          <span>iPads & Android Tablets</span>
+        </div>
+        <div class="category-card" data-category="other">
+          <div class="cat-icon">🔧</div>
+          <h4>Other</h4>
+          <span>Components & Gadgets</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== LIVE LISTINGS (Moved Up) ===== -->
+  <main class="container" id="listings" style="margin-bottom: 5rem;">
+    <div class="listings-header">
+      <h2 class="section-title" style="margin-bottom:0;">Live <span class="text-gradient">Products</span></h2>
+      <div class="listings-filter" id="listingsFilter">
+        <button class="filter-btn active" data-category="all" id="filterAll">All</button>
+        <button class="filter-btn" data-category="phone" id="filterPhone">📱 Phones</button>
+        <button class="filter-btn" data-category="laptop" id="filterLaptop">💻 Laptops</button>
+        <button class="filter-btn" data-category="camera" id="filterCamera">📷 Cameras</button>
+        <button class="filter-btn" data-category="tablet" id="filterTablet">📟 Tablets</button>
+        <button class="filter-btn" data-category="other" id="filterOther">🔧 Other</button>
+      </div>
+    </div>
+
+    <!-- Seller Store Header (shown when ?seller= is in URL) -->
+    <div id="sellerStoreHeader" style="display:none;"></div>
+
+    <div class="product-grid" id="listingsGrid">
+      <!-- Dynamically populated by app.js -->
+    </div>
+
+    <!-- Empty state -->
+    <div class="listings-empty" id="listingsEmpty" style="display:none;">
+      <div class="empty-icon">📭</div>
+      <h3>No Products Yet</h3>
+      <p>Be the first to upload your product! Sellers post here, admin approves, and buyers browse.</p>
+      <a href="signup.html" class="btn-primary" id="emptySignupBtn">Get Started →</a>
+    </div>
+  </main>
 
   <!-- ===== ABOUT (guest only) ===== -->
   <section id="about" class="about-section">
@@ -180,35 +243,6 @@
     </div>
   </section>
 
-  <!-- ===== LIVE LISTINGS ===== -->
-  <main class="container" id="listings">
-    <div class="listings-header">
-      <h2 class="section-title" style="margin-bottom:0;">Live <span class="text-gradient">Products</span></h2>
-      <div class="listings-filter" id="listingsFilter">
-        <button class="filter-btn active" data-category="all" id="filterAll">All</button>
-        <button class="filter-btn" data-category="phone" id="filterPhone">📱 Phones</button>
-        <button class="filter-btn" data-category="laptop" id="filterLaptop">💻 Laptops</button>
-        <button class="filter-btn" data-category="camera" id="filterCamera">📷 Cameras</button>
-        <button class="filter-btn" data-category="tablet" id="filterTablet">📟 Tablets</button>
-        <button class="filter-btn" data-category="other" id="filterOther">🔧 Other</button>
-      </div>
-    </div>
-
-    <!-- Seller Store Header (shown when ?seller= is in URL) -->
-    <div id="sellerStoreHeader" style="display:none;"></div>
-
-    <div class="product-grid" id="listingsGrid">
-      <!-- Dynamically populated by app.js -->
-    </div>
-
-    <!-- Empty state -->
-    <div class="listings-empty" id="listingsEmpty" style="display:none;">
-      <div class="empty-icon">📭</div>
-      <h3>No Products Yet</h3>
-      <p>Be the first to upload your product! Sellers post here, admin approves, and buyers browse.</p>
-      <a href="signup.html" class="btn-primary" id="emptySignupBtn">Get Started →</a>
-    </div>
-  </main>
 
   <!-- ===== FOOTER ===== -->
   <footer class="site-footer">
@@ -235,8 +269,8 @@
           <h4 class="footer-title">Legal &amp; Trust</h4>
           <ul class="footer-links">
             <li><a href="#safety">Safety Center</a></li>
-            <li><a href="escrow-policy.html#privacy">Privacy Policy</a></li>
-            <li><a href="escrow-policy.html#terms">Terms of Service</a></li>
+            <li><a href="privacy.html">Privacy Policy</a></li>
+            <li><a href="terms.html">Terms of Service</a></li>
             <li><a href="escrow-policy.html#dispute">Dispute Resolution</a></li>
           </ul>
         </div>

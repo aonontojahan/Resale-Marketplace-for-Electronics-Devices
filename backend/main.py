@@ -1460,8 +1460,20 @@ def create_review(
 
 @app.get("/reviews/seller/{seller_id}", response_model=List[schemas.ReviewResponse])
 def get_seller_reviews(seller_id: int, db: Session = Depends(get_db)):
-    """Fetch all reviews for a specific seller."""
-    return db.query(models.Review).filter(models.Review.seller_id == seller_id).all()
+    """Fetch all reviews for a specific seller, enriched with reviewer and product info."""
+    reviews = db.query(models.Review).options(
+        joinedload(models.Review.reviewer),
+        joinedload(models.Review.product)
+    ).filter(models.Review.seller_id == seller_id).all()
+    
+    results = []
+    for r in reviews:
+        resp = schemas.ReviewResponse.model_validate(r)
+        resp.buyer_name = r.reviewer.full_name if r.reviewer else "Anonymous Buyer"
+        resp.buyer_profile_picture = r.reviewer.profile_pic_url if r.reviewer else None
+        resp.product_title = r.product.title if r.product else "Purchased Item"
+        results.append(resp)
+    return results
 
 
 # ─── CHATS ────────────────────────────────────────────────────────────────────

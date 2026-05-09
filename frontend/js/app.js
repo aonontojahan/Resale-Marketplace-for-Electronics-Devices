@@ -1268,6 +1268,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         });
+
+        // Category cards (Quick filters on landing page)
+        const categoryCards = document.querySelectorAll('.category-card');
+        categoryCards.forEach(card => {
+            card.addEventListener('click', () => {
+                const cat = card.dataset.category;
+                
+                // Highlight the card
+                categoryCards.forEach(c => c.classList.remove('selected'));
+                card.classList.add('selected');
+
+                // Sync with the filter buttons
+                const targetBtn = document.querySelector(`#listingsFilter .filter-btn[data-category="${cat}"]`);
+                if (targetBtn) {
+                    filterBtns.forEach(b => b.classList.remove('active'));
+                    targetBtn.classList.add('active');
+                }
+
+                // Scroll to listings and filter
+                document.getElementById('listings').scrollIntoView({ behavior: 'smooth' });
+                renderPublicListings(cat);
+            });
+        });
     }
 
     // ──────────────────────────────────────────────────────────
