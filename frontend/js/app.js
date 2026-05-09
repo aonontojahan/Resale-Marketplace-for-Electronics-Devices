@@ -1029,7 +1029,7 @@ function updateNav() {
             `;
         }
 
-        const userAvatar = user.profile_pic_url 
+        const userAvatar = user.profile_pic_url
             ? `<img src="http://localhost:8000${user.profile_pic_url}" style="width:100%; height:100%; object-fit:cover; border-radius:50%;">`
             : user.initials;
 
@@ -1070,7 +1070,7 @@ function updateNav() {
                 const wsUrl = `${protocol}//localhost:8000/ws/notifications?token=${user.token}`;
                 const socket = new WebSocket(wsUrl);
                 window.globalNotificationSocket = socket;
-                
+
                 socket.onmessage = (event) => {
                     if (window.updateGlobalUnreadCount) window.updateGlobalUnreadCount();
                     if (window.renderSidebarList) window.renderSidebarList();
@@ -1159,7 +1159,7 @@ async function signupUser(name, phone, email, password, role, address_region, ad
 
     try {
         const result = await window.api.signup(formData);
-        
+
         if (role === 'seller') {
             // Clear loading state
             if (submitBtn) {
@@ -1171,7 +1171,7 @@ async function signupUser(name, phone, email, password, role, address_region, ad
         } else {
             // Instant login for buyers using the token returned from signup
             if (submitBtn) submitBtn.innerText = 'Logging you in...';
-            
+
             const user = result.user;
             const userData = {
                 ...user,
@@ -1268,6 +1268,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         });
+
+        // Category cards (Quick filters on landing page)
+        const categoryCards = document.querySelectorAll('.category-card');
+        categoryCards.forEach(card => {
+            card.addEventListener('click', () => {
+                const cat = card.dataset.category;
+                
+                // Highlight the card
+                categoryCards.forEach(c => c.classList.remove('selected'));
+                card.classList.add('selected');
+
+                // Sync with the filter buttons
+                const targetBtn = document.querySelector(`#listingsFilter .filter-btn[data-category="${cat}"]`);
+                if (targetBtn) {
+                    filterBtns.forEach(b => b.classList.remove('active'));
+                    targetBtn.classList.add('active');
+                }
+
+                // Scroll to listings and filter
+                document.getElementById('listings').scrollIntoView({ behavior: 'smooth' });
+                renderPublicListings(cat);
+            });
+        });
     }
 
     // ──────────────────────────────────────────────────────────
@@ -1341,7 +1364,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (role === 'seller' && sellerView) {
             sellerView.style.display = 'block';
             renderSellerListings('all');
-            
+
             // Re-bind dashboard menu for non-admin roles if needed
             if (menuListings) {
                 menuListings.addEventListener('click', (e) => {
@@ -1474,7 +1497,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (userWalletView) userWalletView.style.display = 'none';
 
                 reportsView.style.display = 'block';
-                renderSystemReports('all');
+                const startDateInput = document.getElementById('reportStartDate');
+                const endDateInput = document.getElementById('reportEndDate');
+                if (startDateInput) startDateInput.value = '';
+                if (endDateInput) endDateInput.value = '';
+                renderSystemReports();
             });
         }
 
@@ -1498,13 +1525,18 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // Report Period Selector
-        const reportPeriodSelect = document.getElementById('reportPeriodSelect');
-        if (reportPeriodSelect) {
-            reportPeriodSelect.addEventListener('change', () => {
-                renderSystemReports(reportPeriodSelect.value);
-            });
-        }
+        // Report Date Range Auto-filter
+        const reportStartDateInput = document.getElementById('reportStartDate');
+        const reportEndDateInput = document.getElementById('reportEndDate');
+
+        const updateReports = () => {
+            const startDate = reportStartDateInput?.value || null;
+            const endDate = reportEndDateInput?.value || null;
+            renderSystemReports(startDate, endDate);
+        };
+
+        if (reportStartDateInput) reportStartDateInput.addEventListener('change', updateReports);
+        if (reportEndDateInput) reportEndDateInput.addEventListener('change', updateReports);
 
         // Download Report Button
         const downloadReportBtn = document.getElementById('downloadReportBtn');
@@ -1945,10 +1977,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             <button class="btn-secondary" style="width:100%; background: transparent; border: 1.5px solid #ef4444; padding: 0.6rem; color: #ef4444; font-weight: 700; border-radius: 10px; cursor: pointer;" onclick="handleReportIssue('${activeSessionId}')">⚠ Report a Problem</button>
                         </div>
                         ` : `<div style="font-size: 0.85rem; color: #16a34a; font-weight: 700; background: #d1fae5; padding: 0.6rem; text-align:center; border-radius:10px;">Waiting for Buyer Confirmation</div>`}
-                        
-                        <button style="margin-top: 1rem; width:100%; background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; padding: 0.6rem; border-radius: 10px; font-size: 0.85rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;" onclick="handleDownloadReceipt('${activeSessionId}')">
-                            📄 Download Final Invoice
-                        </button>
                     </div>
                 `;
             } else if (msg.text.startsWith("⚠️ DISPUTE RAISED:")) {
@@ -2037,6 +2065,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div style="margin-top: 1rem; font-size: 0.8rem; color: #64748b; text-align: center; font-style: italic;">
                             The escrow period has ended and funds are now available in the seller's wallet.
                         </div>
+
+                        <button style="margin-top: 1rem; width:100%; background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; padding: 0.6rem; border-radius: 10px; font-size: 0.85rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;" onclick="handleDownloadReceipt('${activeSessionId}')">
+                            📄 Download Final Invoice
+                        </button>
                     </div>
                 `;
             } else if (msg.text.startsWith("⚖️ ADMIN RESOLUTION:")) {
@@ -2058,6 +2090,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div style="font-size: 0.8rem; color: #64748b; text-align: center;">
                             This decision is final and has been applied to both wallets.
                         </div>
+
+                        <button style="margin-top: 1rem; width:100%; background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; padding: 0.6rem; border-radius: 10px; font-size: 0.85rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;" onclick="handleDownloadReceipt('${activeSessionId}')">
+                            📄 Download Final Invoice
+                        </button>
                     </div>
                 `;
             } else if (msg.text.startsWith("⭐ Buyer left a") || msg.text.startsWith("🌟 REVIEW SUBMITTED:")) {
@@ -2080,7 +2116,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const ratingLine = lines.find(l => l.includes('Rating:')) || "";
                     const scoreMatch = ratingLine.match(/\((\d)\/5\)/);
                     if (scoreMatch) rating = parseInt(scoreMatch[1]);
-                    
+
                     const commentLine = lines.find(l => l.includes('Comment:'));
                     if (commentLine) comment = commentLine.replace('Comment: ', '').trim();
                     else {
@@ -2128,9 +2164,9 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 div.className = `message ${isMe ? 'user' : 'other'}`;
                 div.style.cssText = "display: flex; width: 100%; margin-bottom: 0.5rem;";
-                
-                const avatarUrl = msg.sender_profile_pic 
-                    ? `http://localhost:8000${msg.sender_profile_pic}` 
+
+                const avatarUrl = msg.sender_profile_pic
+                    ? `http://localhost:8000${msg.sender_profile_pic}`
                     : null;
                 const initials = msg.sender_name ? msg.sender_name.split(' ').map(n => n[0]).join('').toUpperCase() : '?';
 
@@ -2157,21 +2193,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
         async function initActiveChat(chat) {
             if (!chat) return;
-            
+
             // Sync activeSessionId with the provided chat
             activeSessionId = chat.id.toString();
-            
+
             // Context Logic: ALWAYS check URL first for the intended product context
             const urlParams = new URLSearchParams(window.location.search);
             const contextProductId = urlParams.get('product');
-            
+
             // Priority: URL Param > Last Session Context > Session Default
             window.currentChatProductId = contextProductId || window.currentChatProductId || chat.product_id;
-            
+
             console.log(`[Chat] Initializing session: ${activeSessionId} | Context Product: ${window.currentChatProductId}`);
 
             const otherParty = user.role === 'buyer' ? chat.seller : chat.buyer;
-            const otherPartyAvatar = otherParty.profile_pic_url 
+            const otherPartyAvatar = otherParty.profile_pic_url
                 ? `<img src="http://localhost:8000${otherParty.profile_pic_url}" style="width: 100%; height: 100%; object-fit: cover;">`
                 : (otherParty.full_name ? otherParty.full_name.split(' ').map(n => n[0]).join('').toUpperCase() : '?');
 
@@ -2232,11 +2268,11 @@ document.addEventListener('DOMContentLoaded', () => {
             window.api.getChatMessages(chat.id).then(messages => {
                 if (chatBox) chatBox.innerHTML = '';
                 messages.forEach(msg => appendMessage(msg));
-                
+
                 // Temporarily disable smooth scrolling to snap instantly to the bottom
                 chatBox.style.scrollBehavior = 'auto';
                 chatBox.scrollTop = chatBox.scrollHeight;
-                
+
                 // Re-enable CSS smooth scrolling after snap is complete
                 setTimeout(() => {
                     chatBox.style.removeProperty('scroll-behavior');
@@ -2267,9 +2303,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             // Smart scroll: only auto-scroll if user is already near the bottom
                             // Calculate BEFORE appending so huge cards don't break the math
                             const isNearBottom = chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight < 120;
-                            
+
                             appendMessage(msg);
-                            
+
                             if (isNearBottom) {
                                 setTimeout(() => { chatBox.scrollTop = chatBox.scrollHeight; }, 50);
                             }
@@ -2356,7 +2392,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const lastMsgSnippet = lastMsg ? (lastMsg.text.length > 25 ? lastMsg.text.substring(0, 22) + '...' : lastMsg.text) : 'No messages yet';
                     const lastMsgTime = lastMsg ? new Date(lastMsg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
 
-                    const otherPartyAvatar = otherParty.profile_pic_url 
+                    const otherPartyAvatar = otherParty.profile_pic_url
                         ? `<img src="http://localhost:8000${otherParty.profile_pic_url}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`
                         : `<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: var(--primary); color: white; border-radius: 50%; font-size: 0.8rem; font-weight: 800;">${otherParty.full_name.charAt(0).toUpperCase()}</div>`;
 
@@ -2427,7 +2463,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const lastMsg = chat.messages && chat.messages.length > 0 ? chat.messages[chat.messages.length - 1] : null;
                     const lastMsgSnippet = lastMsg ? (lastMsg.text.length > 25 ? lastMsg.text.substring(0, 22) + '...' : lastMsg.text) : 'No messages yet';
                     const lastMsgTime = lastMsg ? new Date(lastMsg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
-                    const otherPartyAvatar = otherParty.profile_pic_url 
+                    const otherPartyAvatar = otherParty.profile_pic_url
                         ? `<img src="http://localhost:8000${otherParty.profile_pic_url}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`
                         : `<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: var(--primary); color: white; border-radius: 50%; font-size: 0.8rem; font-weight: 800;">${otherParty.full_name.charAt(0).toUpperCase()}</div>`;
 
@@ -2467,7 +2503,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error('Failed to refresh sidebar order:', err);
             }
         }
-        
+
         window.renderSidebarList = renderSidebarList;
 
         // Initial load
@@ -2933,7 +2969,7 @@ window.handleDownloadReceipt = async function (sessionId) {
         const offers = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
         const activeStatuses = ['paid', 'shipped', 'delivered', 'completed', 'auto_completed', 'refunded'];
         const offer = offers.reverse().find(o => activeStatuses.includes(o.status));
-        
+
         if (!offer) {
             alert('No valid invoice found for this order yet.');
             if (btn) btn.innerHTML = originalText;
@@ -2942,12 +2978,12 @@ window.handleDownloadReceipt = async function (sessionId) {
 
         // Fetch Product and Seller details
         const product = await window.api.request(`/products/${offer.product_id}`, 'GET');
-        
+
         // Define Dynamic Status Texts
         let invoiceStatusText = "FUNDS IN ESCROW";
         let footerText = "Funds are held in escrow until buyer confirms delivery.";
         let statusColor = [14, 165, 233]; // Blue for escrow
-        
+
         if (offer.status === 'completed' || offer.status === 'auto_completed') {
             invoiceStatusText = "COMPLETED (FUNDS RELEASED)";
             footerText = "This transaction is complete and funds have been released.";
@@ -3001,7 +3037,8 @@ window.handleDownloadReceipt = async function (sessionId) {
         doc.setFontSize(11);
         doc.setTextColor(31, 41, 55);
         doc.text("SELLER DETAILS", 25, 70);
-        doc.text("SHIP TO (BUYER DETAILS)", 110, 70);
+        const buyerLabel = invoiceStatusText === "FUNDS IN ESCROW" ? "DELIVERY INFORMATION" : "DELEVERY DETAILS";
+        doc.text(buyerLabel, 110, 70);
 
         doc.setFont("helvetica", "normal");
         doc.setFontSize(10);
@@ -3026,7 +3063,7 @@ window.handleDownloadReceipt = async function (sessionId) {
             y += 10;
             doc.setFont("helvetica", "normal");
             doc.setFontSize(10);
-            
+
             if (offer.tracking_info.includes('Courier:')) {
                 // Old multi-line format: split into two columns (and hide redundant OrderID)
                 const lines = offer.tracking_info.split('\n').filter(l => l.trim() && !l.includes('OrderID:'));
@@ -3065,11 +3102,11 @@ window.handleDownloadReceipt = async function (sessionId) {
         y += 18;
         doc.setFont("helvetica", "bold");
         doc.setTextColor(31, 41, 55);
-        
+
         // Handle long product titles
         const titleLines = doc.splitTextToSize(product.title, 100);
         doc.text(titleLines, 25, y);
-        
+
         doc.text((offer.quantity || 1).toString(), 142, y);
 
         const priceInt = offer.offered_price;
@@ -3107,7 +3144,7 @@ window.handleDownloadReceipt = async function (sessionId) {
         doc.text(footerText, pageWidth / 2, y + 5, { align: "center" });
 
         doc.save(`ReSale_Invoice_RS-${receiptId}.pdf`);
-        
+
         if (btn) btn.innerHTML = originalText;
     } catch (err) {
         console.error("Invoice Error:", err);
@@ -3488,6 +3525,11 @@ async function renderPlatformWallet() {
         // Update balance
         balanceEl.innerText = `Tk. ${(adminData.wallet_balance || 0).toLocaleString('en-IN')}`;
 
+        const adminWithdrawBtn = document.getElementById('adminWithdrawBtn');
+        if (adminWithdrawBtn) {
+            adminWithdrawBtn.onclick = () => openWithdrawModal(adminData.wallet_balance || 0);
+        }
+
         // Fetch wallet transactions for the ledger
         const txs = await window.api.getWalletTransactions();
 
@@ -3537,7 +3579,7 @@ async function renderUserWallet() {
     const escrowEl = document.getElementById('userEscrowBalance');
     const listEl = document.getElementById('userWalletTransactionsList');
     const availTitle = document.getElementById('availableTitle');
-    
+
     if (!balanceEl || !escrowEl || !listEl) return;
 
     listEl.innerHTML = '<p style="text-align: center; padding: 2rem; color: var(--text-muted);">Fetching wallet data...</p>';
@@ -3549,7 +3591,7 @@ async function renderUserWallet() {
         const updatedUser = await window.api.getMe();
         balanceEl.innerText = 'Tk.' + (updatedUser.wallet_balance || 0).toLocaleString('en-IN');
         escrowEl.innerText = 'Tk.' + (updatedUser.escrow_balance || 0).toLocaleString('en-IN');
-        
+
         if (availTitle) {
             availTitle.innerText = updatedUser.role === 'buyer' ? 'Available for Deposit' : 'Available for Withdrawal';
         }
@@ -3570,8 +3612,8 @@ async function renderUserWallet() {
             escrowTitle.innerText = updatedUser.role === 'seller' ? 'Pending Clearance' : 'Funds in Escrow';
         }
         if (escrowDesc) {
-            escrowDesc.innerText = updatedUser.role === 'seller' 
-                ? 'Sales revenue awaiting final release from buyer escrow.' 
+            escrowDesc.innerText = updatedUser.role === 'seller'
+                ? 'Sales revenue awaiting final release from buyer escrow.'
                 : 'Securely held for your ongoing transactions.';
         }
 
@@ -3585,7 +3627,7 @@ async function renderUserWallet() {
             <div class="transaction-item" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid var(--border);">
                 <div>
                     <p style="font-weight: 700; margin: 0; font-size: 0.9rem;">${t.transaction_type.replace('_', ' ').toUpperCase()}</p>
-                    <small style="color: var(--text-muted); font-size: 0.75rem;">${new Date(t.created_at).toLocaleDateString()} at ${new Date(t.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</small>
+                    <small style="color: var(--text-muted); font-size: 0.75rem;">${new Date(t.created_at).toLocaleDateString()} at ${new Date(t.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
                 </div>
                 <div style="text-align: right;">
                     <p style="font-weight: 800; margin: 0; color: ${t.transaction_type === 'withdrawal' || t.transaction_type === 'payment' ? '#ef4444' : '#10b981'};">
@@ -3604,7 +3646,7 @@ async function renderUserWallet() {
 
 // ─── ADD MONEY MODAL LOGIC ──────────────────────────────────────
 
-window.openAddMoneyModal = function() {
+window.openAddMoneyModal = function () {
     const modal = document.getElementById('addMoneyModal');
     if (!modal) return;
     // Reset form
@@ -3614,7 +3656,7 @@ window.openAddMoneyModal = function() {
     document.getElementById('cardExpiryModal').value = '';
     document.getElementById('cardCvvModal').value = '';
     document.getElementById('addMoneyMobileNumber').value = '';
-    
+
     // Reset to card method by default
     const radio = document.querySelector('input[name="addMoneyMethod"][value="card"]');
     if (radio) {
@@ -3627,9 +3669,9 @@ window.openAddMoneyModal = function() {
     modal.style.setProperty('display', 'flex', 'important');
 };
 
-window.handleAddMoneySubmit = async function() {
+window.handleAddMoneySubmit = async function () {
     const amount = parseInt(document.getElementById('depositAmountModal').value);
-    
+
     if (!amount || amount < 10) {
         alert('Please enter a valid amount (minimum Tk. 10).');
         return;
@@ -3675,10 +3717,10 @@ window.handleAddMoneySubmit = async function() {
 
 // ─── WITHDRAWAL LOGIC ─────────────────────────────────────────
 
-window.openWithdrawModal = function(maxBalance) {
+window.openWithdrawModal = function (maxBalance) {
     const modal = document.getElementById('withdrawModal');
     if (!modal) return;
-    
+
     modal.style.display = 'flex';
     document.getElementById('withdrawAmount').max = maxBalance;
     document.getElementById('withdrawMaxHint').innerText = `Maximum available: Tk. ${maxBalance.toLocaleString()}`;
@@ -3687,7 +3729,7 @@ window.openWithdrawModal = function(maxBalance) {
     toggleWithdrawFields('bank');
 };
 
-window.toggleWithdrawFields = function(method) {
+window.toggleWithdrawFields = function (method) {
     const bankFields = document.getElementById('bankFields');
     const mobileFields = document.getElementById('mobileFields');
     if (method === 'bank') {
@@ -3705,17 +3747,17 @@ window.toggleWithdrawFields = function(method) {
     }
 };
 
-window.handleWithdrawSubmit = async function(e) {
+window.handleWithdrawSubmit = async function (e) {
     e.preventDefault();
     const btn = e.target.querySelector('button[type="submit"]');
     const amount = parseInt(document.getElementById('withdrawAmount').value);
     const method = document.querySelector('input[name="withdrawMethod"]:checked').value;
-    
+
     const data = {
         amount: amount,
         method: method
     };
-    
+
     if (method === 'bank') {
         data.account_number = document.getElementById('bankAccountNumber').value;
         data.bank_name = document.getElementById('bankName').value;
@@ -3732,6 +3774,7 @@ window.handleWithdrawSubmit = async function(e) {
         alert('Withdrawal has been successful!');
         document.getElementById('withdrawModal').style.display = 'none';
         renderUserWallet(); // Refresh balance
+        if (typeof renderPlatformWallet === 'function') renderPlatformWallet(); // Refresh admin revenue balance
     } catch (err) {
         alert('Withdrawal failed: ' + err.message);
     } finally {
@@ -3742,31 +3785,31 @@ window.handleWithdrawSubmit = async function(e) {
 
 // ─── SYSTEM REPORTS ───────────────────────────────────────────
 
-async function renderSystemReports(period = 'all') {
+async function renderSystemReports(startDate = null, endDate = null) {
     const container = document.getElementById('reportHistoryTableContainer');
     const summaryGrid = document.getElementById('reportSummaryCards');
     const typeLabel = document.getElementById('reportTypeLabel');
     if (!container || !summaryGrid) return;
 
     container.innerHTML = '<p style="text-align:center; padding: 3rem; color: var(--text-muted);">Aggregating data and generating report...</p>';
-    
+
     const user = getUser();
     if (!user) return;
     const role = user.role || 'buyer';
-    
+
     try {
         let reportData;
         if (role === 'admin') {
-            reportData = await window.api.getAdminReport(period);
+            reportData = await window.api.getAdminReport(startDate, endDate);
             renderAdminReports(reportData, container, summaryGrid, typeLabel);
         } else if (role === 'seller') {
-            reportData = await window.api.getSellerReport(period);
+            reportData = await window.api.getSellerReport(startDate, endDate);
             renderSellerReports(reportData, container, summaryGrid, typeLabel);
         } else {
-            reportData = await window.api.getBuyerReport(period);
+            reportData = await window.api.getBuyerReport(startDate, endDate);
             renderBuyerReports(reportData, container, summaryGrid, typeLabel);
         }
-        
+
         window.currentReportData = { ...reportData, role: role };
 
     } catch (err) {
@@ -3887,7 +3930,7 @@ function getProfessionalStatus(status, role) {
 }
 
 function getStatusColor(status) {
-    switch(status.toLowerCase()) {
+    switch (status.toLowerCase()) {
         case 'completed': case 'auto_completed': return '#10b981';
         case 'paid': case 'processing': case 'shipped': case 'delivered': return '#3b82f6';
         case 'pending': return '#f59e0b';
@@ -3896,7 +3939,7 @@ function getStatusColor(status) {
     }
 }
 
-window.handleDownloadReport = function() {
+window.handleDownloadReport = function () {
     const data = window.currentReportData;
     if (!data) return alert("Please load the report data before downloading.");
 
@@ -3915,7 +3958,7 @@ window.handleDownloadReport = function() {
     doc.setFontSize(22);
     doc.setTextColor(31, 41, 55);
     doc.text("ReSale Marketplace", 105, 20, { align: "center" });
-    
+
     let reportTitle = "";
     if (role === 'admin') reportTitle = "EXECUTIVE PLATFORM OVERSIGHT REPORT";
     else if (role === 'seller') reportTitle = "OFFICIAL SOLD HISTORY REPORT";
@@ -3929,7 +3972,8 @@ window.handleDownloadReport = function() {
     doc.setFontSize(10);
     doc.setTextColor(100, 116, 139);
     doc.text(`Generated on: ${new Date().toLocaleString()}`, 20, 45);
-    doc.text(`Generated by: ${user.full_name}`, 20, 50);
+    const roleName = role.charAt(0).toUpperCase() + role.slice(1);
+    doc.text(`${roleName} Name: ${user.full_name}`, 20, 50);
     doc.text(`Reporting Period: ${data.summary.period.toUpperCase()}`, 20, 55);
 
     // Summary Box
@@ -3971,22 +4015,22 @@ window.handleDownloadReport = function() {
     doc.setTextColor(31, 41, 55);
     doc.setFont("helvetica", "normal");
     data.history.forEach((item, index) => {
-        if (y > 270) { 
-            doc.addPage(); 
+        if (y > 270) {
+            doc.addPage();
             doc.setDrawColor(99, 102, 241);
             doc.setLineWidth(1.5);
-            doc.rect(5, 5, 200, 287); 
-            y = 20; 
+            doc.rect(5, 5, 200, 287);
+            y = 20;
         }
         const rowId = `RS-${(item.order_number || 0).toString().padStart(5, '0')}`;
         const amount = role === 'admin' ? (item.total_amount || 0) : (role === 'seller' ? (item.net_earnings || item.price) : item.price);
-        
+
         doc.text(rowId, 25, y + 7);
         doc.text(item.product_title.substring(0, 25), 50, y + 7);
         doc.text(new Date(item.date).toLocaleDateString(), 110, y + 7);
         doc.text(item.status.substring(0, 12).toUpperCase(), 140, y + 7);
         doc.text(`Tk. ${amount.toLocaleString()}`, 165, y + 7);
-        
+
         doc.setDrawColor(241, 245, 249);
         doc.line(20, y + 10, 190, y + 10);
         y += 10;
@@ -4000,45 +4044,47 @@ window.handleDownloadReport = function() {
     doc.save(`ReSale_Report_${role}_${data.summary.period}.pdf`);
 };
 
-window.handleDownloadAdminEarnings = async function(period) {
+window.handleDownloadAdminEarnings = async function () {
     try {
+        const startDateVal = document.getElementById('adminReportStartDate')?.value;
+        const endDateVal = document.getElementById('adminReportEndDate')?.value;
+        const periodStr = (startDateVal || 'ALL') + ' to ' + (endDateVal || 'ALL');
+
         const txs = await window.api.getWalletTransactions();
-        const now = new Date();
         let filteredTxs = txs.filter(t => t.transaction_type === 'platform_revenue' || t.transaction_type === 'withdrawal');
 
-        if (period === 'daily') {
-            filteredTxs = filteredTxs.filter(t => new Date(t.created_at).toDateString() === now.toDateString());
-        } else if (period === 'weekly') {
-            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-            filteredTxs = filteredTxs.filter(t => new Date(t.created_at) >= weekAgo);
-        } else if (period === 'monthly') {
-            filteredTxs = filteredTxs.filter(t => new Date(t.created_at).getMonth() === now.getMonth() && new Date(t.created_at).getFullYear() === now.getFullYear());
-        } else if (period === 'yearly') {
-            filteredTxs = filteredTxs.filter(t => new Date(t.created_at).getFullYear() === now.getFullYear());
+        if (startDateVal) {
+            const startDt = new Date(startDateVal);
+            filteredTxs = filteredTxs.filter(t => new Date(t.created_at) >= startDt);
+        }
+        if (endDateVal) {
+            const endDt = new Date(endDateVal);
+            endDt.setDate(endDt.getDate() + 1); // inclusive of end date
+            filteredTxs = filteredTxs.filter(t => new Date(t.created_at) < endDt);
         }
 
-        if (filteredTxs.length === 0) return alert(`No platform earnings found for the selected ${period} period.`);
+        if (filteredTxs.length === 0) return alert(`No platform earnings found for the selected period.`);
 
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
-        
+
         // Header
         doc.setDrawColor(16, 185, 129);
         doc.setLineWidth(1.5);
         doc.rect(5, 5, 200, 287);
-        
+
         doc.setFont("helvetica", "bold");
         doc.setFontSize(24);
         doc.setTextColor(16, 185, 129);
         doc.text("ReSale. Earnings Ledger", 105, 25, { align: "center" });
-        
+
         doc.setFontSize(12);
         doc.setTextColor(100, 116, 139);
-        doc.text(`Official Revenue Report - ${period.toUpperCase()}`, 105, 35, { align: "center" });
-        
+        doc.text(`Official Revenue Report - ${periodStr.toUpperCase()}`, 105, 35, { align: "center" });
+
         doc.setFontSize(10);
         doc.text(`Run Date: ${new Date().toLocaleString()}`, 20, 50);
-        
+
         const totalRev = filteredTxs.filter(t => t.transaction_type === 'platform_revenue').reduce((acc, t) => acc + t.amount, 0);
         const totalWithdraw = filteredTxs.filter(t => t.transaction_type === 'withdrawal').reduce((acc, t) => acc + t.amount, 0);
 
@@ -4046,7 +4092,7 @@ window.handleDownloadAdminEarnings = async function(period) {
         doc.rect(20, 60, 170, 25, 'F');
         doc.setDrawColor(226, 232, 240);
         doc.rect(20, 60, 170, 25);
-        
+
         doc.setFont("helvetica", "bold");
         doc.setTextColor(31, 41, 55);
         doc.text(`Total Period Revenue: Tk. ${totalRev.toLocaleString()}`, 30, 72);
@@ -4069,15 +4115,114 @@ window.handleDownloadAdminEarnings = async function(period) {
             if (y > 275) { doc.addPage(); y = 20; }
             doc.text(new Date(t.created_at).toLocaleDateString(), 25, y + 7);
             doc.text(t.transaction_type.replace('_', ' ').toUpperCase(), 60, y + 7);
-            doc.text(t.description.substring(0, 30), 95, y + 7);
+            const cleanDesc = t.description ? t.description.replace(/[^\x20-\x7E]/g, '').trim() : '';
+            doc.text(cleanDesc.substring(0, 30), 95, y + 7);
             doc.text(`Tk. ${t.amount.toLocaleString()}`, 165, y + 7);
             doc.line(20, y + 10, 190, y + 10);
             y += 10;
         });
 
-        doc.save(`ReSale_Platform_Earnings_${period}_${new Date().toISOString().split('T')[0]}.pdf`);
+        doc.save(`ReSale_Platform_Earnings_${periodStr}_${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (err) {
         alert("Failed to generate earnings report: " + err.message);
+    }
+};
+
+window.handleDownloadUserWallet = async function () {
+    try {
+        const startDateVal = document.getElementById('walletStartDate')?.value;
+        const endDateVal = document.getElementById('walletEndDate')?.value;
+        const periodStr = (startDateVal || 'ALL') + ' to ' + (endDateVal || 'ALL');
+
+        const txs = await window.api.getWalletTransactions();
+        let filteredTxs = txs;
+
+        if (startDateVal) {
+            const startDt = new Date(startDateVal);
+            filteredTxs = filteredTxs.filter(t => new Date(t.created_at) >= startDt);
+        }
+        if (endDateVal) {
+            const endDt = new Date(endDateVal);
+            endDt.setDate(endDt.getDate() + 1); // inclusive of end date
+            filteredTxs = filteredTxs.filter(t => new Date(t.created_at) < endDt);
+        }
+
+        if (filteredTxs.length === 0) return alert(`No wallet activity found for the selected period.`);
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+
+        // Header
+        doc.setDrawColor(99, 102, 241);
+        doc.setLineWidth(1.5);
+        doc.rect(5, 5, 200, 287);
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(24);
+        doc.setTextColor(99, 102, 241);
+        doc.text("ReSale. Escrow Wallet Ledger", 105, 25, { align: "center" });
+
+        doc.setFontSize(12);
+        doc.setTextColor(100, 116, 139);
+        doc.text(`Official Wallet Report - ${periodStr.toUpperCase()}`, 105, 35, { align: "center" });
+
+        doc.setFontSize(10);
+        doc.text(`Run Date: ${new Date().toLocaleString()}`, 20, 50);
+
+        const user = getUser();
+        doc.text(`Account: ${user.full_name} (${user.role.toUpperCase()})`, 20, 55);
+
+        const totalIn = filteredTxs.filter(t => t.amount > 0).reduce((acc, t) => acc + t.amount, 0);
+        const totalOut = filteredTxs.filter(t => t.amount < 0).reduce((acc, t) => acc + Math.abs(t.amount), 0);
+
+        doc.setFillColor(248, 250, 252);
+        doc.rect(20, 65, 170, 25, 'F');
+        doc.setDrawColor(226, 232, 240);
+        doc.rect(20, 65, 170, 25);
+
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(31, 41, 55);
+        doc.text(`Total Inflow: Tk. ${totalIn.toLocaleString()}`, 30, 77);
+        doc.text(`Total Outflow: Tk. ${totalOut.toLocaleString()}`, 30, 84);
+
+        // Table Header
+        let y = 105;
+        doc.setFillColor(99, 102, 241);
+        doc.setTextColor(255, 255, 255);
+        doc.rect(20, y, 170, 10, 'F');
+        doc.text("DATE", 25, y + 7);
+        doc.text("TYPE", 60, y + 7);
+        doc.text("DESCRIPTION", 95, y + 7);
+        doc.text("AMOUNT", 165, y + 7);
+
+        y += 10;
+        doc.setTextColor(31, 41, 55);
+        doc.setFont("helvetica", "normal");
+        filteredTxs.forEach(t => {
+            if (y > 275) { doc.addPage(); y = 20; }
+            doc.text(new Date(t.created_at).toLocaleDateString(), 25, y + 7);
+            doc.text(t.transaction_type.replace('_', ' ').toUpperCase(), 60, y + 7);
+
+            // Clean description of emojis and non-ASCII characters that break jsPDF spacing
+            const cleanDesc = t.description ? t.description.replace(/[^\x20-\x7E]/g, '').trim() : '';
+            // Handle long descriptions by wrapping them
+            const splitDesc = doc.splitTextToSize(cleanDesc, 65);
+            const lineCount = splitDesc.length;
+
+            doc.text(splitDesc, 95, y + 7);
+
+            const isNegative = t.transaction_type === 'withdrawal' || t.transaction_type === 'payment' || t.transaction_type === 'escrow_hold' || t.amount < 0;
+            const prefix = isNegative ? '-' : '+';
+            doc.text(`${prefix}Tk. ${Math.abs(t.amount).toLocaleString()}`, 165, y + 7);
+
+            const rowHeight = 10 + (lineCount > 1 ? (lineCount - 1) * 5 : 0);
+            doc.line(20, y + rowHeight, 190, y + rowHeight);
+            y += rowHeight;
+        });
+
+        doc.save(`ReSale_Wallet_Ledger_${periodStr}_${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (err) {
+        alert("Failed to generate wallet report: " + err.message);
     }
 };
 

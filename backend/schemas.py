@@ -105,6 +105,7 @@ class MessageResponse(MessageBase):
     id: int
     session_id: int
     sender_id: int
+    sender_name: Optional[str] = None
     sender_profile_pic: Optional[str] = None
     is_read: bool = False
     created_at: datetime
@@ -200,6 +201,9 @@ class ReviewResponse(ReviewBase):
     id: int
     reviewer_id: int
     seller_id: int
+    buyer_name: Optional[str] = None
+    buyer_profile_picture: Optional[str] = None
+    product_title: Optional[str] = None
     created_at: datetime
 
     class Config:

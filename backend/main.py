@@ -1,5 +1,6 @@
 import os
 import asyncio
+import json
 import shutil
 import uuid
 from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, Form, File, UploadFile, Query
@@ -31,7 +32,7 @@ app.mount("/uploads", StaticFiles(directory="backend/uploads"), name="uploads")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Adjust this in production
-    allow_credentials=True,
+    allow_credentials=False, # Credentials (cookies) not needed for Bearer tokens; incompatible with "*"
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -59,12 +60,154 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
+class NotificationManager:
+    """Manages global WebSocket connections for real-time unread badges/notifications."""
+    def __init__(self):
+        self.active_connections: Dict[int, List[WebSocket]] = {}
+
+    async def connect(self, websocket: WebSocket, user_id: int):
+        await websocket.accept()
+        if user_id not in self.active_connections:
+            self.active_connections[user_id] = []
+        self.active_connections[user_id].append(websocket)
+
+    def disconnect(self, websocket: WebSocket, user_id: int):
+        if user_id in self.active_connections:
+            self.active_connections[user_id].remove(websocket)
+            if not self.active_connections[user_id]:
+                del self.active_connections[user_id]
+
+    async def broadcast_notification(self, user_id: int):
+        """Sends a simple ping to the user to refresh their unread counts."""
+        if user_id in self.active_connections:
+            for connection in self.active_connections[user_id]:
+                try:
+                    await connection.send_json({"type": "new_message"})
+                except Exception:
+                    pass
+
+notification_manager = NotificationManager()
+
 _app_loop = None
 
 @app.on_event("startup")
 def on_startup():
     global _app_loop
     _app_loop = asyncio.get_running_loop()
+
+@app.websocket("/ws/chat/{session_id}")
+async def websocket_endpoint(websocket: WebSocket, session_id: int, token: str = Query(None)):
+    """
+    Real-time chat handler. Authenticates user via token and connects to session.
+    """
+    if not token:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    # Authenticate User
+    payload = auth.decode_access_token(token)
+    if not payload:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    email = payload.get("sub")
+    db = next(get_db())
+    user = db.query(models.User).filter(models.User.email == email).first()
+    
+    if not user:
+        db.close()
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    user_id = user.id
+    await manager.connect(websocket, user_id)
+    
+    try:
+        while True:
+            # Handle both JSON and Raw Text
+            raw_text = await websocket.receive_text()
+            try:
+                data = json.loads(raw_text)
+                text = data.get("text")
+            except (json.JSONDecodeError, AttributeError):
+                text = raw_text
+            
+            if text:
+                # Use session_id from the URL path for security
+                # Fetch session and verify user is a participant
+                session = db.query(models.ChatSession).filter(
+                    (models.ChatSession.id == session_id) &
+                    ((models.ChatSession.buyer_id == user_id) | (models.ChatSession.seller_id == user_id))
+                ).first()
+                
+                if not session:
+                    continue
+
+                # Save message to DB
+                new_msg = models.ChatMessage(
+                    session_id=session_id,
+                    sender_id=user_id,
+                    text=text
+                )
+                db.add(new_msg)
+                
+                # Update session activity
+                session.updated_at = func.now()
+                db.add(session)
+                db.commit()
+                db.refresh(new_msg)
+                
+                # Push to both parties with sender info for rendering
+                msg_dict = {
+                    "id": new_msg.id,
+                    "session_id": session_id,
+                    "sender_id": user_id,
+                    "sender_name": user.full_name,
+                    "sender_profile_pic": user.profile_pic_url,
+                    "text": text,
+                    "created_at": new_msg.created_at.isoformat()
+                }
+                await manager.send_personal_message(msg_dict, session.buyer_id)
+                if session.buyer_id != session.seller_id:
+                    await manager.send_personal_message(msg_dict, session.seller_id)
+                
+                # ALSO notify the recipient via global notification channel for the badge update
+                recipient_id = session.buyer_id if user_id == session.seller_id else session.seller_id
+                await notification_manager.broadcast_notification(recipient_id)
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, user_id)
+    except Exception as e:
+        print(f"WebSocket error for user {user_id}: {e}")
+        manager.disconnect(websocket, user_id)
+    finally:
+        db.close()
+
+
+@app.websocket("/ws/notifications")
+async def notification_websocket_endpoint(websocket: WebSocket, token: str = Query(...), db: Session = Depends(get_db)):
+    """Global WebSocket for real-time unread badges/notifications."""
+    # Authenticate User
+    payload = auth.decode_access_token(token)
+    if not payload:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    email = payload.get("sub")
+    user = db.query(models.User).filter(models.User.email == email).first()
+    if not user:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    await notification_manager.connect(websocket, user.id)
+    try:
+        while True:
+            # Keep connection alive; we don't expect messages from client
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        notification_manager.disconnect(websocket, user.id)
+    finally:
+        db.close()
+
 
 def push_system_msg(msg: models.ChatMessage, buyer_id: int, seller_id: int):
     global _app_loop
@@ -80,8 +223,12 @@ def push_system_msg(msg: models.ChatMessage, buyer_id: int, seller_id: int):
     
     async def _send():
         await manager.send_personal_message(msg_dict, buyer_id)
+        # Notify global channel for badge update
+        await notification_manager.broadcast_notification(buyer_id)
+        
         if buyer_id != seller_id:
             await manager.send_personal_message(msg_dict, seller_id)
+            await notification_manager.broadcast_notification(seller_id)
             
     try:
         asyncio.run_coroutine_threadsafe(_send(), _app_loop)
@@ -749,9 +896,12 @@ def _perform_fund_release(db: Session, offer: models.Offer, is_auto: bool = Fals
         text=f"{status_text} ({p_title}): Tk.{seller_amount:,d} has been moved to the seller's wallet."
     )
     db.add(system_msg)
+    db.flush() # Ensure system_msg gets an ID first
+    push_system_msg(system_msg, offer.buyer_id, offer.seller_id)
     
     if not is_auto:
         # Only prompt for review on manual release to avoid spamming if buyer is away
+        # This now happens AFTER the system message is pushed
         review_prompt = models.ChatMessage(
             session_id=offer.session_id,
             sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1,
@@ -759,9 +909,8 @@ def _perform_fund_release(db: Session, offer: models.Offer, is_auto: bool = Fals
         )
         db.add(review_prompt)
         db.flush()
-    push_system_msg(system_msg, offer.buyer_id, offer.seller_id)
-    if not is_auto:
         push_system_msg(review_prompt, offer.buyer_id, offer.seller_id)
+    
     return seller_amount, commission
 
 @app.post("/escrow/release/{offer_id}")
@@ -994,6 +1143,8 @@ def resolve_dispute(
         text=msg_text
     )
     db.add(admin_msg)
+    db.flush()
+    push_system_msg(admin_msg, offer.buyer_id, offer.seller_id)
 
     # Trigger Review Prompt for Buyer (Dynamic Card in Chat - After Dispute)
     review_prompt = models.ChatMessage(
@@ -1003,7 +1154,6 @@ def resolve_dispute(
     )
     db.add(review_prompt)
     db.flush()
-    push_system_msg(admin_msg, offer.buyer_id, offer.seller_id)
     push_system_msg(review_prompt, offer.buyer_id, offer.seller_id)
 
     db.commit()
@@ -1341,6 +1491,188 @@ def admin_user_action(user_id: int, action_req: schemas.UserActionRequest, db: S
     return user
 
 
+# ─── REVIEWS ──────────────────────────────────────────────────────────────────
+
+@app.post("/reviews", response_model=schemas.ReviewResponse, status_code=status.HTTP_201_CREATED)
+def create_review(
+    review_in: schemas.ReviewCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Creates a new review for a product/seller.
+    In a real system, we'd verify the buyer actually purchased the item.
+    """
+    # Find the product to get the seller_id
+    product = db.query(models.Product).filter(models.Product.id == review_in.product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    new_review = models.Review(
+        reviewer_id=current_user.id,
+        seller_id=product.seller_id,
+        product_id=review_in.product_id,
+        rating=review_in.rating,
+        comment=review_in.comment
+    )
+    db.add(new_review)
+    db.commit()
+    db.refresh(new_review)
+    return new_review
+
+@app.get("/reviews/seller/{seller_id}", response_model=List[schemas.ReviewResponse])
+def get_seller_reviews(seller_id: int, db: Session = Depends(get_db)):
+    """Fetch all reviews for a specific seller, enriched with reviewer and product info."""
+    reviews = db.query(models.Review).options(
+        joinedload(models.Review.reviewer),
+        joinedload(models.Review.product)
+    ).filter(models.Review.seller_id == seller_id).all()
+    
+    results = []
+    for r in reviews:
+        resp = schemas.ReviewResponse.model_validate(r)
+        resp.buyer_name = r.reviewer.full_name if r.reviewer else "Anonymous Buyer"
+        resp.buyer_profile_picture = r.reviewer.profile_pic_url if r.reviewer else None
+        resp.product_title = r.product.title if r.product else "Purchased Item"
+        results.append(resp)
+    return results
+
+
+# ─── CHATS ────────────────────────────────────────────────────────────────────
+
+@app.post("/chats", response_model=schemas.ChatSessionResponse)
+def create_chat(
+    chat_in: schemas.ChatSessionCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Initialize a chat session between buyer and seller.
+    Returns existing session if it already exists.
+    """
+    # Check for existing session
+    session = db.query(models.ChatSession).filter(
+        ((models.ChatSession.buyer_id == chat_in.buyer_id) & (models.ChatSession.seller_id == chat_in.seller_id)) |
+        ((models.ChatSession.buyer_id == chat_in.seller_id) & (models.ChatSession.seller_id == chat_in.buyer_id))
+    ).first()
+
+    if not session:
+        session = models.ChatSession(
+            product_id=chat_in.product_id,
+            buyer_id=chat_in.buyer_id,
+            seller_id=chat_in.seller_id
+        )
+        db.add(session)
+        db.commit()
+        db.refresh(session)
+    else:
+        # Re-activate if hidden
+        session.deleted_by_buyer = 0
+        session.deleted_by_seller = 0
+        if chat_in.product_id:
+            session.product_id = chat_in.product_id
+        db.commit()
+        db.refresh(session)
+
+    return session
+
+@app.get("/chats", response_model=List[schemas.ChatSessionResponse])
+def get_chats(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """List all chat sessions involving the user."""
+    if current_user.id != user_id and current_user.role != models.UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    sessions = db.query(models.ChatSession).options(
+        joinedload(models.ChatSession.buyer),
+        joinedload(models.ChatSession.seller),
+        joinedload(models.ChatSession.product),
+        joinedload(models.ChatSession.messages)
+    ).filter(
+        (models.ChatSession.buyer_id == user_id) | (models.ChatSession.seller_id == user_id)
+    ).all()
+
+    # Filter out hidden/deleted sessions and populate response fields
+    results = []
+    for s in sessions:
+        if s.buyer_id == user_id and s.deleted_by_buyer == 1: continue
+        if s.seller_id == user_id and s.deleted_by_seller == 1: continue
+        
+        # Build the response with extra fields
+        resp = schemas.ChatSessionResponse.model_validate(s)
+        resp.product_title = s.product.title if s.product else "Enquiry"
+        resp.product_price = s.product.price if s.product else None
+        
+        # Avatar URL logic
+        if s.product:
+            if s.product.image_url:
+                resp.product_image_url = s.product.image_url
+            elif s.product.images:
+                resp.product_image_url = s.product.images[0].image_url
+            
+        # Unread Count calculation
+        resp.unread_count = db.query(models.ChatMessage).filter(
+            models.ChatMessage.session_id == s.id,
+            models.ChatMessage.sender_id != user_id,
+            models.ChatMessage.is_read == 0
+        ).count()
+        
+        results.append(resp)
+
+    results.sort(key=lambda x: x.updated_at or x.created_at, reverse=True)
+    return results
+
+@app.get("/chats/{session_id}/messages", response_model=List[schemas.MessageResponse])
+def get_chat_messages(session_id: int, db: Session = Depends(get_db)):
+    """Retrieve history for a specific chat, enriched with sender info."""
+    messages = db.query(models.ChatMessage).options(
+        joinedload(models.ChatMessage.sender)
+    ).filter(
+        models.ChatMessage.session_id == session_id
+    ).order_by(models.ChatMessage.created_at.asc(), models.ChatMessage.id.asc()).all()
+    
+    results = []
+    for m in messages:
+        resp = schemas.MessageResponse.model_validate(m)
+        resp.sender_name = m.sender.full_name if m.sender else "Unknown"
+        resp.sender_profile_pic = m.sender.profile_pic_url if m.sender else None
+        results.append(resp)
+    return results
+
+@app.post("/chats/{session_id}/read")
+def mark_chat_read(session_id: int, user_id: int, db: Session = Depends(get_db)):
+    """Mark incoming messages as read."""
+    db.query(models.ChatMessage).filter(
+        models.ChatMessage.session_id == session_id,
+        models.ChatMessage.sender_id != user_id
+    ).update({models.ChatMessage.is_read: 1})
+    db.commit()
+    return {"message": "Read"}
+
+@app.delete("/chats/{session_id}")
+def delete_chat(
+    session_id: int,
+    user_id: int = Query(...),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Hide a chat session from the user's list."""
+    session = db.query(models.ChatSession).filter(models.ChatSession.id == session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Chat not found")
+
+    if session.buyer_id == user_id:
+        session.deleted_by_buyer = 1
+    elif session.seller_id == user_id:
+        session.deleted_by_seller = 1
+    
+    db.commit()
+    return {"message": "Hidden"}
+
+
 # ─── STATS ────────────────────────────────────────────────────────────────────
 
 @app.get("/stats")
@@ -1390,531 +1722,144 @@ def get_platform_stats(db: Session = Depends(get_db)):
     }
 
 
-# ─── REPORTS ─────────────────────────────────────────────────────────────────
-
 @app.get("/reports/seller", response_model=schemas.SellerReportResponse)
 def get_seller_report(
-    period: str = "all", 
-    db: Session = Depends(get_db), 
+    start_date: str = Query(None, description="Start date (YYYY-MM-DD)"),
+    end_date: str = Query(None, description="End date (YYYY-MM-DD)"),
+    db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    """Generates a detailed sales report for the seller."""
-    # Filter: Only show items that have been paid (have an order number)
+    """Generates a report of a seller's transaction history."""
+    if current_user.role != models.UserRole.SELLER:
+        raise HTTPException(status_code=403, detail="Seller access required")
+
+    # Only show items that have been paid (have an order number)
     query = db.query(models.Offer).filter(
         models.Offer.seller_id == current_user.id,
         models.Offer.order_number != None
     )
-    
-    # Filter by period if needed
-    if period == "monthly":
-        start_date = datetime.now(timezone.utc) - timedelta(days=30)
-        query = query.filter(models.Offer.created_at >= start_date)
-    elif period == "weekly":
-        start_date = datetime.now(timezone.utc) - timedelta(days=7)
-        query = query.filter(models.Offer.created_at >= start_date)
-        
+
+    if start_date:
+        try:
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            query = query.filter(models.Offer.created_at >= start_dt)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid start_date format. Use YYYY-MM-DD")
+            
+    if end_date:
+        try:
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d").replace(tzinfo=timezone.utc) + timedelta(days=1)
+            query = query.filter(models.Offer.created_at < end_dt)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid end_date format. Use YYYY-MM-DD")
+
     offers = query.order_by(models.Offer.created_at.desc()).all()
-    
+
     history = []
+    total_count = 0
     total_amount = 0
-    completed_count = 0
-    
+
     for o in offers:
-        # Count ONLY fully completed sales in the summary (as requested)
-        is_completed = o.status in [models.OfferStatus.COMPLETED, models.OfferStatus.AUTO_COMPLETED]
+        item_total = (o.offered_price * o.quantity)
+        commission = int(item_total * COMMISSION_RATE)
+        net_earnings = item_total - commission
         
-        offered_price = o.offered_price or 0
-        quantity = o.quantity or 1
-        
-        commission = int(offered_price * quantity * COMMISSION_RATE)
-        net_earnings = (offered_price * quantity) - commission
-        
-        if is_completed:
+        is_success = o.status in (models.OfferStatus.COMPLETED, models.OfferStatus.AUTO_COMPLETED)
+        if is_success or o.status in (models.OfferStatus.PAID, models.OfferStatus.PROCESSING, models.OfferStatus.SHIPPED, models.OfferStatus.DELIVERED):
+            total_count += 1
             total_amount += net_earnings
-            completed_count += 1
             
         history.append(schemas.SellerReportItem(
             order_id=o.id,
             order_number=o.order_number,
             product_title=o.product.title if o.product else "Deleted Product",
-            price=offered_price,
-            quantity=quantity,
+            price=o.offered_price,
+            quantity=o.quantity,
             commission=commission,
             net_earnings=net_earnings,
             status=o.status,
             date=o.created_at
         ))
-        
+
     return schemas.SellerReportResponse(
         summary=schemas.ReportSummary(
-            total_count=completed_count,
+            total_count=total_count,
             total_amount=total_amount,
-            period=period
+            period=f"{start_date or 'ALL'} to {end_date or 'ALL'}"
         ),
         history=history
     )
 
+
 @app.get("/reports/buyer", response_model=schemas.BuyerReportResponse)
 def get_buyer_report(
-    period: str = "all", 
-    db: Session = Depends(get_db), 
+    start_date: str = Query(None, description="Start date (YYYY-MM-DD)"),
+    end_date: str = Query(None, description="End date (YYYY-MM-DD)"),
+    db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    """Generates a detailed purchase report for the buyer."""
-    # Filter: Only show items that have been paid (have an order number)
+    """Generates a report of a buyer's purchase history."""
+    if current_user.role != models.UserRole.BUYER:
+        raise HTTPException(status_code=403, detail="Buyer access required")
+
+    # Only show items that have been paid (have an order number)
     query = db.query(models.Offer).filter(
         models.Offer.buyer_id == current_user.id,
         models.Offer.order_number != None
     )
-    
-    if period == "monthly":
-        start_date = datetime.now(timezone.utc) - timedelta(days=30)
-        query = query.filter(models.Offer.created_at >= start_date)
-    elif period == "weekly":
-        start_date = datetime.now(timezone.utc) - timedelta(days=7)
-        query = query.filter(models.Offer.created_at >= start_date)
-        
+
+    if start_date:
+        try:
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            query = query.filter(models.Offer.created_at >= start_dt)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid start_date format. Use YYYY-MM-DD")
+            
+    if end_date:
+        try:
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d").replace(tzinfo=timezone.utc) + timedelta(days=1)
+            query = query.filter(models.Offer.created_at < end_dt)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid end_date format. Use YYYY-MM-DD")
+
     offers = query.order_by(models.Offer.created_at.desc()).all()
-    
+
     history = []
-    total_spent = 0
-    completed_count = 0
-    
+    total_count = 0
+    total_amount = 0
+
     for o in offers:
-        # Count ONLY fully completed purchases in the summary (as requested)
-        is_completed = o.status in [models.OfferStatus.COMPLETED, models.OfferStatus.AUTO_COMPLETED]
+        item_total = (o.offered_price * o.quantity)
         
-        offered_price = o.offered_price or 0
-        quantity = o.quantity or 1
-        item_total = (offered_price * quantity) + DELIVERY_FEE
-        
-        if is_completed:
-            total_spent += item_total
-            completed_count += 1
+        is_success = o.status in (models.OfferStatus.COMPLETED, models.OfferStatus.AUTO_COMPLETED)
+        if is_success or o.status in (models.OfferStatus.PAID, models.OfferStatus.PROCESSING, models.OfferStatus.SHIPPED, models.OfferStatus.DELIVERED):
+            total_count += 1
+            total_amount += item_total
             
         history.append(schemas.BuyerReportItem(
             order_id=o.id,
             order_number=o.order_number,
             product_title=o.product.title if o.product else "Deleted Product",
-            price=offered_price,
-            quantity=quantity,
+            price=o.offered_price,
+            quantity=o.quantity,
             status=o.status,
             date=o.created_at
         ))
-        
+
     return schemas.BuyerReportResponse(
         summary=schemas.ReportSummary(
-            total_count=completed_count,
-            total_amount=total_spent,
-            period=period
+            total_count=total_count,
+            total_amount=total_amount,
+            period=f"{start_date or 'ALL'} to {end_date or 'ALL'}"
         ),
         history=history
     )
 
-
-# ─── CHATS ────────────────────────────────────────────────────────────────────
-
-@app.post("/chats", response_model=schemas.ChatSessionResponse)
-def create_chat(chat_in: schemas.ChatSessionCreate, db: Session = Depends(get_db)):
-    """Create or retrieve a unified chat session between buyer and seller."""
-    existing_chat = db.query(models.ChatSession).filter(
-        models.ChatSession.buyer_id == chat_in.buyer_id,
-        models.ChatSession.seller_id == chat_in.seller_id
-    ).first()
-
-    if existing_chat:
-        # Reset ONLY the buyer's flag — buyer is the one initiating the conversation
-        # Do NOT reset the seller's flag here; seller may have intentionally hidden it
-        existing_chat.deleted_by_buyer = 0
-        
-        # Optionally update the product_id if provided (as the new 'context')
-        if chat_in.product_id:
-            existing_chat.product_id = chat_in.product_id
-            
-        db.commit()
-        db.refresh(existing_chat)
-        
-        resp = schemas.ChatSessionResponse.model_validate(existing_chat)
-        if existing_chat.product:
-            resp.product_title = existing_chat.product.title
-            resp.product_price = existing_chat.product.price
-            resp.product_image_url = existing_chat.product.image_url
-        return resp
-
-    new_chat = models.ChatSession(
-        product_id=chat_in.product_id,
-        buyer_id=chat_in.buyer_id,
-        seller_id=chat_in.seller_id
-    )
-    db.add(new_chat)
-    db.commit()
-    db.refresh(new_chat)
-
-    resp = schemas.ChatSessionResponse.model_validate(new_chat)
-    if new_chat.product:
-        resp.product_title = new_chat.product.title
-        resp.product_price = new_chat.product.price
-        resp.product_image_url = new_chat.product.image_url
-    return resp
-
-
-@app.get("/chats", response_model=List[schemas.ChatSessionResponse])
-def get_user_chats(
-    user_id: int, 
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
-):
-    """Fetch all chat sessions for a specific user, filtering out sessions they've hidden."""
-    if current_user.id != user_id:
-        raise HTTPException(status_code=403, detail="Forbidden")
-
-    query = db.query(models.ChatSession).options(
-        joinedload(models.ChatSession.buyer),
-        joinedload(models.ChatSession.seller),
-        joinedload(models.ChatSession.product)
-    ).filter(
-        (models.ChatSession.buyer_id == user_id) | (models.ChatSession.seller_id == user_id)
-    )
-    
-    # Filter: Don't show if deleted by the requester
-    query = query.filter(
-        ~((models.ChatSession.buyer_id == user_id) & (models.ChatSession.deleted_by_buyer == 1)),
-        ~((models.ChatSession.seller_id == user_id) & (models.ChatSession.deleted_by_seller == 1))
-    )
-    
-    chats = query.order_by(models.ChatSession.updated_at.desc()).all()
-
-    results = []
-    for chat in chats:
-        try:
-            resp = schemas.ChatSessionResponse.model_validate(chat)
-            if chat.product:
-                resp.product_title = chat.product.title
-                resp.product_price = chat.product.price
-                resp.product_image_url = chat.product.image_url
-            
-            # Efficient unread count
-            unread = db.query(models.ChatMessage).filter(
-                models.ChatMessage.session_id == chat.id,
-                models.ChatMessage.sender_id != user_id,
-                models.ChatMessage.is_read == 0
-            ).count()
-            resp.unread_count = unread
-            results.append(resp)
-        except Exception as e:
-            print(f"Error validating chat {chat.id}: {e}")
-            continue # Skip corrupted entries
-    return results
-
-
-@app.delete("/chats/{session_id}")
-def delete_chat(
-    session_id: int, 
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
-):
-    """Hide a chat session from the current user's view."""
-    chat = db.query(models.ChatSession).filter(models.ChatSession.id == session_id).first()
-    if not chat:
-        raise HTTPException(status_code=404, detail="Chat session not found")
-    
-    if current_user.id == chat.buyer_id:
-        chat.deleted_by_buyer = 1
-    elif current_user.id == chat.seller_id:
-        chat.deleted_by_seller = 1
-    else:
-        raise HTTPException(status_code=403, detail="Forbidden")
-
-    # If both parties deleted, permanently remove it
-    if chat.deleted_by_buyer == 1 and chat.deleted_by_seller == 1:
-        db.delete(chat)
-        message = "Chat permanently deleted"
-    else:
-        message = "Chat hidden from your view"
-
-    db.commit()
-    return {"status": "success", "message": message}
-
-
-@app.post("/chats/{session_id}/read")
-def mark_chat_read(session_id: int, user_id: int, db: Session = Depends(get_db)):
-    """Mark all messages in a session as read for the recipient."""
-    db.query(models.ChatMessage).filter(
-        models.ChatMessage.session_id == session_id,
-        models.ChatMessage.sender_id != user_id,
-        models.ChatMessage.is_read == 0
-    ).update({models.ChatMessage.is_read: 1}, synchronize_session=False)
-    db.commit()
-    return {"status": "success"}
-
-
-@app.get("/chats/{session_id}/messages", response_model=List[schemas.MessageResponse])
-def get_chat_messages(session_id: int, db: Session = Depends(get_db)):
-    """Fetch message history for a chat session."""
-    messages = db.query(models.ChatMessage).options(joinedload(models.ChatMessage.sender)).filter(
-        models.ChatMessage.session_id == session_id
-    ).order_by(models.ChatMessage.created_at).all()
-    
-    results = []
-    for m in messages:
-        resp = schemas.MessageResponse.model_validate(m)
-        resp.sender_profile_pic = m.sender.profile_pic_url if m.sender else None
-        results.append(resp)
-    return results
-
-
-@app.websocket("/ws/chat/{session_id}")
-async def websocket_chat(websocket: WebSocket, session_id: int, token: str, db: Session = Depends(get_db)):
-    """WebSocket endpoint for real-time messaging."""
-    payload = auth.decode_access_token(token)
-    if not payload:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-        return
-
-    email = payload.get("sub")
-    user = db.query(models.User).filter(models.User.email == email).first()
-    if not user:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-        return
-
-    chat_session = db.query(models.ChatSession).filter(models.ChatSession.id == session_id).first()
-    if not chat_session:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-        return
-
-    if user.id not in [chat_session.buyer_id, chat_session.seller_id]:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-        return
-
-    await manager.connect(websocket, user.id)
-    try:
-        while True:
-            data = await websocket.receive_text()
-
-            new_msg = models.ChatMessage(
-                session_id=session_id,
-                sender_id=user.id,
-                text=data
-            )
-            db.add(new_msg)
-            db.commit()
-            db.refresh(new_msg)
-
-            msg_dict = {
-                "id": new_msg.id,
-                "session_id": new_msg.session_id,
-                "sender_id": new_msg.sender_id,
-                "sender_profile_pic": user.profile_pic_url,
-                "text": new_msg.text,
-                "created_at": new_msg.created_at.isoformat()
-            }
-
-            chat_session.updated_at = func.now()
-            db.add(chat_session)
-            db.commit()
-
-            await manager.send_personal_message(msg_dict, chat_session.buyer_id)
-            if chat_session.buyer_id != chat_session.seller_id:
-                await manager.send_personal_message(msg_dict, chat_session.seller_id)
-    except WebSocketDisconnect:
-        manager.disconnect(websocket, user.id)
-
-@app.websocket("/ws/notifications")
-async def websocket_notifications(websocket: WebSocket, token: str, db: Session = Depends(get_db)):
-    """Global WebSocket endpoint for real-time notifications across all pages."""
-    payload = auth.decode_access_token(token)
-    if not payload:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-        return
-
-    email = payload.get("sub")
-    user = db.query(models.User).filter(models.User.email == email).first()
-    if not user:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-        return
-
-    await manager.connect(websocket, user.id)
-    try:
-        while True:
-            # Keep connection alive
-            _ = await websocket.receive_text()
-    except WebSocketDisconnect:
-        manager.disconnect(websocket, user.id)
-
-
-# ─── REVIEWS ──────────────────────────────────────────────────────────────────
-
-@app.post("/reviews", response_model=schemas.ReviewResponse)
-def create_review(
-    review: schemas.ReviewCreate,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
-):
-    """Create a new review for a seller."""
-    product = db.query(models.Product).filter(models.Product.id == review.product_id).first()
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
-
-    # RESTRICTION: Only buyers who have a processed transaction (completed or refunded) can review
-    purchase = db.query(models.Offer).filter(
-        models.Offer.product_id == review.product_id,
-        models.Offer.buyer_id == current_user.id,
-        models.Offer.status.in_([
-            models.OfferStatus.COMPLETED, 
-            models.OfferStatus.AUTO_COMPLETED, 
-            models.OfferStatus.REFUNDED
-        ])
-    ).first()
-
-    if not purchase:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only review a seller after a transaction has been completed or resolved."
-        )
-
-    new_review = models.Review(
-        reviewer_id=current_user.id,
-        seller_id=product.seller_id,
-        product_id=review.product_id,
-        rating=review.rating,
-        comment=review.comment
-    )
-    db.add(new_review)
-    
-    # Add system message to chat to notify both parties
-    msg_text = f"⭐ Buyer left a {review.rating}-star review: \"{review.comment}\""
-    
-    review_msg = models.ChatMessage(
-        session_id=purchase.session_id,
-        sender_id=1, # System User
-        text=msg_text
-    )
-    db.add(review_msg)
-    db.flush()
-    push_system_msg(review_msg, purchase.buyer_id, purchase.seller_id)
-    
-    db.commit()
-    db.refresh(new_review)
-    return new_review
-
-@app.get("/reviews/seller/{seller_id}")
-def get_seller_reviews(seller_id: int, db: Session = Depends(get_db)):
-    """Fetch all reviews received by a seller."""
-    reviews = db.query(models.Review).filter(models.Review.seller_id == seller_id).order_by(models.Review.created_at.desc()).all()
-    results = []
-    for r in reviews:
-        results.append({
-            "id": r.id,
-            "rating": r.rating,
-            "comment": r.comment,
-            "created_at": r.created_at,
-            "buyer_name": r.reviewer.full_name if r.reviewer else "Anonymous Buyer",
-            "buyer_profile_picture": r.reviewer.profile_pic_url if r.reviewer else None,
-            "product_title": r.product.title if r.product else "Deleted Product"
-        })
-    return results
-
-
-# ─── REPORTS ──────────────────────────────────────────────────────────────────
-
-@app.get("/reports/seller", response_model=schemas.SellerReportResponse)
-def get_seller_report(
-    period: str = Query("all", pattern="^(all|monthly|weekly)$"),
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
-):
-    """Generates a performance report for the seller."""
-    query = db.query(models.Offer).filter(models.Offer.seller_id == current_user.id)
-    
-    if period == "monthly":
-        query = query.filter(models.Offer.created_at >= datetime.now(timezone.utc) - timedelta(days=30))
-    elif period == "weekly":
-        query = query.filter(models.Offer.created_at >= datetime.now(timezone.utc) - timedelta(days=7))
-        
-    offers = query.order_by(models.Offer.created_at.desc()).all()
-    
-    history = []
-    total_revenue = 0
-    total_orders = 0
-    
-    for o in offers:
-        is_success = o.status in (models.OfferStatus.COMPLETED, models.OfferStatus.AUTO_COMPLETED)
-        item_revenue = (o.offered_price * o.quantity)
-        commission = int(item_revenue * COMMISSION_RATE)
-        net_earnings = (item_revenue - commission) + DELIVERY_FEE
-        
-        if is_success:
-            total_revenue += net_earnings
-            total_orders += 1
-            
-        history.append(schemas.SellerReportItem(
-            order_id=o.id,
-            product_title=o.product.title,
-            date=o.created_at,
-            price=o.offered_price,
-            quantity=o.quantity,
-            status=o.status,
-            net_earnings=net_earnings
-        ))
-        
-    return schemas.SellerReportResponse(
-        summary=schemas.ReportSummary(
-            total_count=total_orders,
-            total_amount=total_revenue,
-            period=period
-        ),
-        history=history
-    )
-
-@app.get("/reports/buyer", response_model=schemas.BuyerReportResponse)
-def get_buyer_report(
-    period: str = Query("all", pattern="^(all|monthly|weekly)$"),
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
-):
-    """Generates a purchase history report for the buyer."""
-    query = db.query(models.Offer).filter(models.Offer.buyer_id == current_user.id)
-    
-    if period == "monthly":
-        query = query.filter(models.Offer.created_at >= datetime.now(timezone.utc) - timedelta(days=30))
-    elif period == "weekly":
-        query = query.filter(models.Offer.created_at >= datetime.now(timezone.utc) - timedelta(days=7))
-        
-    offers = query.order_by(models.Offer.created_at.desc()).all()
-    
-    history = []
-    total_spent = 0
-    total_items = 0
-    
-    for o in offers:
-        is_success = o.status in (models.OfferStatus.COMPLETED, models.OfferStatus.AUTO_COMPLETED)
-        total_price = (o.offered_price * o.quantity) + DELIVERY_FEE
-        
-        if is_success:
-            total_spent += total_price
-            total_items += 1
-            
-        history.append(schemas.BuyerReportItem(
-            order_id=o.id,
-            product_title=o.product.title,
-            date=o.created_at,
-            price=o.offered_price,
-            quantity=o.quantity,
-            status=o.status
-        ))
-        
-    return schemas.BuyerReportResponse(
-        summary=schemas.ReportSummary(
-            total_count=total_items,
-            total_amount=total_spent,
-            period=period
-        ),
-        history=history
-    )
 
 @app.get("/reports/admin", response_model=schemas.AdminReportResponse)
 def get_admin_report(
-    period: str = Query("all", pattern="^(all|monthly|weekly)$"),
+    start_date: str = Query(None, description="Start date (YYYY-MM-DD)"),
+    end_date: str = Query(None, description="End date (YYYY-MM-DD)"),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
@@ -1934,10 +1879,20 @@ def get_admin_report(
 
     # Offers query: Only show items that have been paid (have an order number)
     query = db.query(models.Offer).filter(models.Offer.order_number != None)
-    if period == "monthly":
-        query = query.filter(models.Offer.created_at >= datetime.now(timezone.utc) - timedelta(days=30))
-    elif period == "weekly":
-        query = query.filter(models.Offer.created_at >= datetime.now(timezone.utc) - timedelta(days=7))
+    
+    if start_date:
+        try:
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            query = query.filter(models.Offer.created_at >= start_dt)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid start_date format. Use YYYY-MM-DD")
+            
+    if end_date:
+        try:
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d").replace(tzinfo=timezone.utc) + timedelta(days=1)
+            query = query.filter(models.Offer.created_at < end_dt)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid end_date format. Use YYYY-MM-DD")
     
     offers = query.order_by(models.Offer.created_at.desc()).all()
     
@@ -1975,7 +1930,7 @@ def get_admin_report(
             total_gtv=total_gmv,
             total_revenue=total_revenue,
             active_escrow=active_escrow,
-            period=period
+            period=f"{start_date or 'ALL'} to {end_date or 'ALL'}"
         ),
         history=history
     )
