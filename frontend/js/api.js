@@ -46,6 +46,27 @@ const api = {
     // ─── Auth ───────────────────────────────────────────────────────────────
 
     async signup(userData) {
+        // Check if userData is FormData
+        if (userData instanceof FormData) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/auth/signup`, {
+                    method: 'POST',
+                    body: userData
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    const errorDetail = data.detail;
+                    const errorMessage = Array.isArray(errorDetail) 
+                        ? errorDetail.map(err => err.msg).join(', ') 
+                        : (errorDetail || 'Something went wrong');
+                    throw new Error(errorMessage);
+                }
+                return data;
+            } catch (error) {
+                console.error('Signup Error:', error);
+                throw error;
+            }
+        }
         return this.request("/auth/signup", "POST", userData);
     },
 
@@ -65,6 +86,10 @@ const api = {
 
     async getWalletTransactions() {
         return this.request('/wallet/transactions', 'GET');
+    },
+
+    async requestWithdrawal(data) {
+        return this.request('/wallet/withdraw', 'POST', data);
     },
 
     // ─── Offers & Negotiation ──────────────────────────────────────────
@@ -203,17 +228,19 @@ const api = {
     },
 
     // ─── Reviews ────────────────────────────────────────────────────────────
+    async createReview(reviewData) {
+        return this.request("/reviews", "POST", reviewData);
+    },
+
+    async getSellerReviews(sellerId) {
+        return this.request(`/reviews/seller/${sellerId}`, "GET");
+    },
 
     // ─── Reports ────────────────────────────────────────────────────────────
 
-    async getSellerReport(period = 'all') {
-        return this.request(`/reports/seller?period=${period}`, 'GET');
-    },
-
-    async getBuyerReport(period = 'all') {
-        return this.request(`/reports/buyer?period=${period}`, 'GET');
-    },
-
+    async getSellerReport(period = 'all') { return await this.request(`/reports/seller?period=${period}`, 'GET'); },
+    async getBuyerReport(period = 'all') { return await this.request(`/reports/buyer?period=${period}`, 'GET'); },
+    async getAdminReport(period = 'all') { return await this.request(`/reports/admin?period=${period}`, 'GET'); },
     async checkAutoRelease() {
         return this.request('/escrow/check-auto-release', 'POST');
     }
