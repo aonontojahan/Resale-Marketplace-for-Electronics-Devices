@@ -834,9 +834,12 @@ def _perform_fund_release(db: Session, offer: models.Offer, is_auto: bool = Fals
         text=f"{status_text} ({p_title}): Tk.{seller_amount:,d} has been moved to the seller's wallet."
     )
     db.add(system_msg)
+    db.flush() # Ensure system_msg gets an ID first
+    push_system_msg(system_msg, offer.buyer_id, offer.seller_id)
     
     if not is_auto:
         # Only prompt for review on manual release to avoid spamming if buyer is away
+        # This now happens AFTER the system message is pushed
         review_prompt = models.ChatMessage(
             session_id=offer.session_id,
             sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1,
@@ -844,9 +847,8 @@ def _perform_fund_release(db: Session, offer: models.Offer, is_auto: bool = Fals
         )
         db.add(review_prompt)
         db.flush()
-    push_system_msg(system_msg, offer.buyer_id, offer.seller_id)
-    if not is_auto:
         push_system_msg(review_prompt, offer.buyer_id, offer.seller_id)
+    
     return seller_amount, commission
 
 @app.post("/escrow/release/{offer_id}")
@@ -1079,6 +1081,8 @@ def resolve_dispute(
         text=msg_text
     )
     db.add(admin_msg)
+    db.flush()
+    push_system_msg(admin_msg, offer.buyer_id, offer.seller_id)
 
     # Trigger Review Prompt for Buyer (Dynamic Card in Chat - After Dispute)
     review_prompt = models.ChatMessage(
@@ -1088,7 +1092,6 @@ def resolve_dispute(
     )
     db.add(review_prompt)
     db.flush()
-    push_system_msg(admin_msg, offer.buyer_id, offer.seller_id)
     push_system_msg(review_prompt, offer.buyer_id, offer.seller_id)
 
     db.commit()
@@ -1555,7 +1558,7 @@ def get_chat_messages(session_id: int, db: Session = Depends(get_db)):
         joinedload(models.ChatMessage.sender)
     ).filter(
         models.ChatMessage.session_id == session_id
-    ).order_by(models.ChatMessage.created_at.asc()).all()
+    ).order_by(models.ChatMessage.created_at.asc(), models.ChatMessage.id.asc()).all()
     
     results = []
     for m in messages:
