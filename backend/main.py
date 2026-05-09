@@ -66,6 +66,57 @@ def on_startup():
     global _app_loop
     _app_loop = asyncio.get_running_loop()
 
+@app.websocket("/ws/{user_id}")
+async def websocket_endpoint(websocket: WebSocket, user_id: int):
+    """
+    Real-time chat handler. Connects users and processes incoming messages.
+    """
+    await manager.connect(websocket, user_id)
+    try:
+        while True:
+            data = await websocket.receive_json()
+            if "session_id" in data and "text" in data:
+                session_id = data["session_id"]
+                text = data["text"]
+                
+                db = next(get_db())
+                try:
+                    # Save to DB
+                    new_msg = models.ChatMessage(
+                        session_id=session_id,
+                        sender_id=user_id,
+                        text=text
+                    )
+                    db.add(new_msg)
+                    
+                    # Update session activity
+                    session = db.query(models.ChatSession).filter(models.ChatSession.id == session_id).first()
+                    if session:
+                        session.updated_at = func.now()
+                        db.add(session)
+                        db.commit()
+                        db.refresh(new_msg)
+                        
+                        # Push to both parties
+                        msg_dict = {
+                            "id": new_msg.id,
+                            "session_id": session_id,
+                            "sender_id": user_id,
+                            "text": text,
+                            "created_at": new_msg.created_at.isoformat()
+                        }
+                        await manager.send_personal_message(msg_dict, session.buyer_id)
+                        if session.buyer_id != session.seller_id:
+                            await manager.send_personal_message(msg_dict, session.seller_id)
+                finally:
+                    db.close()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, user_id)
+    except Exception as e:
+        print(f"WebSocket error for user {user_id}: {e}")
+        manager.disconnect(websocket, user_id)
+
+
 def push_system_msg(msg: models.ChatMessage, buyer_id: int, seller_id: int):
     global _app_loop
     if not _app_loop: return
@@ -1339,6 +1390,141 @@ def admin_user_action(user_id: int, action_req: schemas.UserActionRequest, db: S
     db.commit()
     db.refresh(user)
     return user
+
+
+# ─── REVIEWS ──────────────────────────────────────────────────────────────────
+
+@app.post("/reviews", response_model=schemas.ReviewResponse, status_code=status.HTTP_201_CREATED)
+def create_review(
+    review_in: schemas.ReviewCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Creates a new review for a product/seller.
+    In a real system, we'd verify the buyer actually purchased the item.
+    """
+    # Find the product to get the seller_id
+    product = db.query(models.Product).filter(models.Product.id == review_in.product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    new_review = models.Review(
+        reviewer_id=current_user.id,
+        seller_id=product.seller_id,
+        product_id=review_in.product_id,
+        rating=review_in.rating,
+        comment=review_in.comment
+    )
+    db.add(new_review)
+    db.commit()
+    db.refresh(new_review)
+    return new_review
+
+@app.get("/reviews/seller/{seller_id}", response_model=List[schemas.ReviewResponse])
+def get_seller_reviews(seller_id: int, db: Session = Depends(get_db)):
+    """Fetch all reviews for a specific seller."""
+    return db.query(models.Review).filter(models.Review.seller_id == seller_id).all()
+
+
+# ─── CHATS ────────────────────────────────────────────────────────────────────
+
+@app.post("/chats", response_model=schemas.ChatSessionResponse)
+def create_chat(
+    chat_in: schemas.ChatSessionCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    Initialize a chat session between buyer and seller.
+    Returns existing session if it already exists.
+    """
+    # Check for existing session
+    session = db.query(models.ChatSession).filter(
+        ((models.ChatSession.buyer_id == chat_in.buyer_id) & (models.ChatSession.seller_id == chat_in.seller_id)) |
+        ((models.ChatSession.buyer_id == chat_in.seller_id) & (models.ChatSession.seller_id == chat_in.buyer_id))
+    ).first()
+
+    if not session:
+        session = models.ChatSession(
+            product_id=chat_in.product_id,
+            buyer_id=chat_in.buyer_id,
+            seller_id=chat_in.seller_id
+        )
+        db.add(session)
+        db.commit()
+        db.refresh(session)
+    else:
+        # Re-activate if hidden
+        session.deleted_by_buyer = 0
+        session.deleted_by_seller = 0
+        if chat_in.product_id:
+            session.product_id = chat_in.product_id
+        db.commit()
+        db.refresh(session)
+
+    return session
+
+@app.get("/chats", response_model=List[schemas.ChatSessionResponse])
+def get_chats(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """List all chat sessions involving the user."""
+    if current_user.id != user_id and current_user.role != models.UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    sessions = db.query(models.ChatSession).filter(
+        (models.ChatSession.buyer_id == user_id) | (models.ChatSession.seller_id == user_id)
+    ).all()
+
+    # Filter out hidden/deleted sessions
+    active_sessions = []
+    for s in sessions:
+        if s.buyer_id == user_id and s.deleted_by_buyer == 1: continue
+        if s.seller_id == user_id and s.deleted_by_seller == 1: continue
+        active_sessions.append(s)
+
+    active_sessions.sort(key=lambda x: x.updated_at or x.created_at, reverse=True)
+    return active_sessions
+
+@app.get("/chats/{session_id}/messages", response_model=List[schemas.MessageResponse])
+def get_chat_messages(session_id: int, db: Session = Depends(get_db)):
+    """Retrieve history for a specific chat."""
+    return db.query(models.ChatMessage).filter(
+        models.ChatMessage.session_id == session_id
+    ).order_by(models.ChatMessage.created_at.asc()).all()
+
+@app.post("/chats/{session_id}/read")
+def mark_chat_read(session_id: int, user_id: int, db: Session = Depends(get_db)):
+    """Mark incoming messages as read."""
+    db.query(models.ChatMessage).filter(
+        models.ChatMessage.session_id == session_id,
+        models.ChatMessage.sender_id != user_id
+    ).update({models.ChatMessage.is_read: 1})
+    db.commit()
+    return {"message": "Read"}
+
+@app.delete("/chats/{session_id}")
+def delete_chat(
+    session_id: int,
+    user_id: int = Query(...),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Hide a chat session from the user's list."""
+    session = db.query(models.ChatSession).filter(models.ChatSession.id == session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Chat not found")
+
+    if session.buyer_id == user_id:
+        session.deleted_by_buyer = 1
+    elif session.seller_id == user_id:
+        session.deleted_by_seller = 1
+    
+    db.commit()
+    return {"message": "Hidden"}
 
 
 # ─── STATS ────────────────────────────────────────────────────────────────────
