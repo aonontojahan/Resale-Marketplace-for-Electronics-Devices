@@ -3,6 +3,7 @@
 //  Handles: Auth, Nav, Listings (localStorage), Role Views, Modal
 // =============================================================
 
+console.log("[App] app.js initialized");
 // ─── Session Management ─────────────────────────────────────
 
 function getUser() {
@@ -742,7 +743,7 @@ function handleMessageClick(id, sellerId) {
     // Create or retrieve existing chat session via API
     window.api.createChat(id, user.id, sellerId)
         .then(session => {
-            window.location.href = `chat.html?session=${session.id}`;
+            window.location.href = `chat.html?session=${session.id}&product=${id}`;
         })
         .catch(err => {
             alert("Could not initialize chat session: " + err.message);
@@ -780,6 +781,8 @@ async function renderAdminUsers(role) {
 
         if (role === 'pending_sellers') {
             users = users.filter(u => u.account_status === 'pending_verification');
+        } else if (role === 'sellers') {
+            users = users.filter(u => u.account_status === 'active');
         }
 
         if (users.length === 0) {
@@ -807,9 +810,6 @@ async function renderAdminUsers(role) {
             if (isPending && u.role === 'seller') {
                 verificationSection = `
                 <div style="margin-top: 1rem; padding: 1rem; background: rgba(255,255,255,0.05); border-radius: 8px;">
-                    <div style="margin-top: 0.75rem; font-size: 0.85rem; color: var(--text-muted); background: rgba(0,0,0,0.2); padding: 0.75rem; border-radius: 6px;">
-                        <p style="margin:0;"><strong>🆔 NID Number:</strong> ${u.nid_number || 'Not Provided'}</p>
-                    </div>
                     <div style="margin-top: 1rem; display: flex; gap: 0.5rem;">
                         <button class="btn-primary" style="background:linear-gradient(135deg,#10b981,#059669); flex:1;" onclick="applyVerification('${u.id}', 'approve_seller')">✅ Approve Account</button>
                         <button class="btn-outline" style="border-color:#ef4444; color:#ef4444; flex:1;" onclick="applyVerification('${u.id}', 'permanent_ban')">❌ Reject & Ban</button>
@@ -820,8 +820,8 @@ async function renderAdminUsers(role) {
             return `
             <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; transition: transform 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)';" onmouseout="this.style.transform='translateY(0)';">
                 <div style="display: flex; align-items: flex-start; gap: 1.5rem;">
-                    <div style="width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue)); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.5rem; flex-shrink: 0; box-shadow: 0 4px 6px rgba(0,0,0,0.2);">
-                        ${u.full_name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
+                    <div style="width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue)); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.5rem; flex-shrink: 0; box-shadow: 0 4px 6px rgba(0,0,0,0.2); overflow: hidden;">
+                        ${u.profile_pic_url ? `<img src="http://localhost:8000${u.profile_pic_url}" style="width: 100%; height: 100%; object-fit: cover;">` : u.full_name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()}
                     </div>
                     <div style="flex: 1;">
                         <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom: 0.25rem;">
@@ -1007,42 +1007,50 @@ function updateNav() {
 
     const user = getUser();
     const currentPath = window.location.pathname;
+    const searchContainer = document.querySelector('.search-container');
+    const searchBar = document.getElementById('globalSearchBar');
+    const role = user ? (user.role || 'buyer') : 'guest';
 
     if (user) {
-        const role = user.role || 'buyer';
         let navHtml = '';
 
-        const searchBar = document.getElementById('globalSearchBar');
         if (role === 'admin') {
-            if (searchBar) searchBar.parentElement.style.display = 'none';
             navHtml += `
                 <a href="profile.html" class="${currentPath.includes('profile') ? 'active' : ''}">Admin Panel</a>
             `;
         } else if (role === 'seller') {
-            if (searchBar) searchBar.parentElement.style.display = 'none';
             navHtml += `
                 <a href="profile.html" class="${currentPath.includes('profile') ? 'active' : ''}">My Products</a>
             `;
         } else {
             // Buyer
-            if (searchBar) searchBar.parentElement.style.display = 'block';
             navHtml += `
                 <a href="index.html" class="${currentPath.includes('index') || currentPath === '/' ? 'active' : ''}">Browse</a>
             `;
         }
 
+        const userAvatar = user.profile_pic_url 
+            ? `<img src="http://localhost:8000${user.profile_pic_url}" style="width:100%; height:100%; object-fit:cover; border-radius:50%;">`
+            : user.initials;
+
+        if (user.role !== 'admin') {
+            navHtml += `
+                <a href="chat.html" class="nav-messages-btn" title="Messages" id="navMessagesBtn" style="font-size: 0.9rem; font-weight: 600; text-decoration: none;">
+                    Messages
+                    <span class="unread-badge" id="navUnreadBadge" style="display:none;">0</span>
+                </a>
+            `;
+        }
 
         navHtml += `
-            <a href="profile.html" class="nav-user-container">
+            <a href="profile.html" class="nav-user-container" title="${user.full_name}">
                 <div class="nav-user">
-                    <span class="nav-username">${user.full_name.split(' ')[0]}</span>
-                    <div class="nav-avatar">${user.initials}</div>
+                    <div class="nav-avatar">${userAvatar}</div>
                 </div>
             </a>
         `;
         nav.innerHTML = navHtml;
 
-        // Dynamic Footer and Empty State Updates
         const emptyBtn = document.getElementById('emptySignupBtn');
         if (emptyBtn) {
             if (role === 'seller') {
@@ -1053,41 +1061,56 @@ function updateNav() {
             }
         }
 
-        // Update Footer dynamically
         updateFooter();
 
-        // Initial unread count update
         if (role !== 'admin') {
             updateGlobalUnreadCount();
-            
-            // Connect to global notifications WebSocket
             if (!window.globalNotificationSocket) {
-                // Determine ws protocol based on location
                 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
                 const wsUrl = `${protocol}//localhost:8000/ws/notifications?token=${user.token}`;
                 const socket = new WebSocket(wsUrl);
                 window.globalNotificationSocket = socket;
                 
                 socket.onmessage = (event) => {
-                    console.log("[Global] Notification received");
                     if (window.updateGlobalUnreadCount) window.updateGlobalUnreadCount();
                     if (window.renderSidebarList) window.renderSidebarList();
                 };
-                
-                socket.onclose = () => {
-                    window.globalNotificationSocket = null;
-                };
+                socket.onclose = () => { window.globalNotificationSocket = null; };
             }
         }
     } else {
-        const searchBar = document.getElementById('globalSearchBar');
-        if (searchBar) searchBar.parentElement.style.display = 'block';
         nav.innerHTML = `
-            <a href="index.html#about">About Us</a>
+            <a href="index.html" class="${currentPath.includes('index') || currentPath === '/' ? 'active' : ''}">Browse</a>
             <a href="index.html#escrow">How It Works</a>
-            <a href="login.html" class="${window.location.pathname.includes('login') ? 'active' : ''}">Login</a>
-            <a href="signup.html" class="${window.location.pathname.includes('signup') ? 'active' : ''}">Sign Up</a>
+            <a href="login.html" class="${currentPath.includes('login') ? 'active' : ''}">Login</a>
+            <a href="signup.html" class="${currentPath.includes('signup') ? 'active' : ''}">Sign Up</a>
         `;
+    }
+
+    // --- Global Search Bar Visibility & Placement ---
+    // Ensure this runs AFTER nav.innerHTML is set to prevent it from being wiped out.
+    if (role !== 'admin') {
+        if (searchContainer) {
+            searchContainer.style.display = 'flex';
+            if (!searchContainer.querySelector('.search-btn')) {
+                const btn = document.createElement('div');
+                btn.className = 'search-btn';
+                btn.innerHTML = '🔍';
+                btn.onclick = () => {
+                    const q = searchBar ? searchBar.value.trim() : '';
+                    if (q) window.location.href = `index.html?search=${encodeURIComponent(q)}#listings`;
+                };
+                searchContainer.appendChild(btn);
+                if (searchBar) {
+                    searchBar.onkeyup = (e) => { if (e.key === 'Enter') btn.click(); };
+                }
+            }
+            if (searchContainer.parentElement !== nav) {
+                nav.prepend(searchContainer);
+            }
+        }
+    } else {
+        if (searchContainer) searchContainer.style.display = 'none';
     }
 }
 
@@ -1115,31 +1138,56 @@ async function loginUser(email, password, role) {
     }
 }
 
-async function signupUser(name, phone, email, password, role, address_region, address_city, address_area, address_full) {
-    const signupData = {
-        full_name: name,
-        phone_number: phone,
-        email: email,
-        password: password,
-        role: role,
-        address_region: address_region,
-        address_city: address_city,
-        address_area: address_area,
-        address_full: address_full
-    };
+async function signupUser(name, phone, email, password, role, address_region, address_city, address_area, address_full, profilePicFile) {
+    const submitBtn = document.querySelector('#signupForm button[type="submit"]');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerText = 'Creating Account...';
+    }
+
+    const formData = new FormData();
+    formData.append('full_name', name);
+    formData.append('phone_number', phone);
+    formData.append('email', email);
+    formData.append('password', password);
+    formData.append('role', role);
+    if (address_region) formData.append('address_region', address_region);
+    if (address_city) formData.append('address_city', address_city);
+    if (address_area) formData.append('address_area', address_area);
+    if (address_full) formData.append('address_full', address_full);
+    if (profilePicFile) formData.append('profile_pic', profilePicFile);
 
     try {
-        await window.api.signup(signupData);
+        const result = await window.api.signup(formData);
+        
         if (role === 'seller') {
-            alert('🎉 Sign-up successful! Your account is now pending admin approval. You can login once verified.');
+            // Clear loading state
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerText = 'Create Account →';
+            }
+            alert('📋 Registration Successful!\n\nYour seller account is now in the "Admin Approval Stage". Our team will verify your details shortly. You can log in once your account is approved.');
             window.location.href = 'login.html';
         } else {
-            await loginUser(email, password, role);
+            // Instant login for buyers using the token returned from signup
+            if (submitBtn) submitBtn.innerText = 'Logging you in...';
+            
+            const user = result.user;
+            const userData = {
+                ...user,
+                initials: user.full_name.split(' ').map(n => n[0]).join('').toUpperCase(),
+                token: result.access_token
+            };
+            localStorage.setItem('resale_user', JSON.stringify(userData));
+            window.location.href = 'profile.html';
         }
     } catch (error) {
         console.error("Signup Error:", error);
-        const errorMsg = error.detail ? (Array.isArray(error.detail) ? error.detail.map(d => d.msg).join(', ') : error.detail) : error.message;
-        alert('Signup failed: ' + errorMsg);
+        alert('Signup failed: ' + error.message);
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerText = 'Create Account →';
+        }
     }
 }
 
@@ -1241,6 +1289,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const sellerView = document.getElementById('sellerView');
     const buyerView = document.getElementById('buyerView');
     const adminView = document.getElementById('adminView');
+    const reportsView = document.getElementById('reportsView');
+    const menuReports = document.getElementById('menuReports');
 
     if (sellerView || buyerView || adminView) {
         if (!user) {
@@ -1258,30 +1308,54 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (userNameEl) userNameEl.innerText = user.full_name;
         if (userEmailEl) userEmailEl.innerText = user.email;
-        if (userInitialsEl) userInitialsEl.innerText = user.initials;
+        if (userInitialsEl) {
+            if (user.profile_pic_url) {
+                userInitialsEl.innerHTML = `<img src="http://localhost:8000${user.profile_pic_url}" style="width:100%; height:100%; object-fit:cover;">`;
+                userInitialsEl.style.overflow = 'hidden';
+                userInitialsEl.style.background = 'white';
+            } else {
+                userInitialsEl.innerText = user.initials;
+            }
+        }
         if (userRoleBadgeEl) {
-            userRoleBadgeEl.innerHTML = `<span class="badge-role badge-${role}">${role}</span>`;
+            userRoleBadgeEl.innerHTML = '';
         }
 
         // Hide wallet/messages for admin
-        const walletMenu = document.querySelector('.profile-menu-item[href="wallet.html"]');
-        const chatMenu = document.querySelector('.profile-menu-item[href="chat.html"]');
+        const menuWallet = document.getElementById('menuWallet');
+        const menuReports = document.getElementById('menuReports');
+        const menuListings = document.getElementById('menuListings');
         const platformWalletMenu = document.getElementById('menuPlatformWallet');
+        const userWalletView = document.getElementById('userWalletView');
+        const platformWalletView = document.getElementById('platformWalletView');
 
         if (role === 'admin') {
-            if (walletMenu) walletMenu.style.display = 'none';
-            if (chatMenu) chatMenu.style.display = 'none';
+            if (menuWallet) menuWallet.style.display = 'none';
             if (platformWalletMenu) platformWalletMenu.style.display = 'block';
         } else {
-            if (walletMenu) walletMenu.style.display = 'flex';
-            if (chatMenu) chatMenu.style.display = 'flex';
+            if (menuWallet) menuWallet.style.display = 'block';
             if (platformWalletMenu) platformWalletMenu.style.display = 'none';
         }
 
-        // Show the correct view
+        // Show the correct initial view
         if (role === 'seller' && sellerView) {
             sellerView.style.display = 'block';
             renderSellerListings('all');
+            
+            // Re-bind dashboard menu for non-admin roles if needed
+            if (menuListings) {
+                menuListings.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    document.querySelectorAll('.profile-menu-item').forEach(m => m.classList.remove('active'));
+                    menuListings.classList.add('active');
+                    if (sellerView) sellerView.style.display = 'block';
+                    if (buyerView) buyerView.style.display = 'none';
+                    if (adminView) adminView.style.display = 'none';
+                    if (reportsView) reportsView.style.display = 'none';
+                    const userWalletView = document.getElementById('userWalletView');
+                    if (userWalletView) userWalletView.style.display = 'none';
+                });
+            }
 
             // Seller status tabs
             const tabs = document.querySelectorAll('#sellerStatusTabs .status-tab');
@@ -1318,6 +1392,20 @@ document.addEventListener('DOMContentLoaded', () => {
             buyerView.style.display = 'block';
             renderBuyerListings('all');
 
+            if (menuListings) {
+                menuListings.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    document.querySelectorAll('.profile-menu-item').forEach(m => m.classList.remove('active'));
+                    menuListings.classList.add('active');
+                    if (buyerView) buyerView.style.display = 'block';
+                    if (sellerView) sellerView.style.display = 'none';
+                    if (adminView) adminView.style.display = 'none';
+                    if (reportsView) reportsView.style.display = 'none';
+                    const userWalletView = document.getElementById('userWalletView');
+                    if (userWalletView) userWalletView.style.display = 'none';
+                });
+            }
+
             // Buyer category filter
             const filterBtns = document.querySelectorAll('#buyerFilter .filter-btn');
             filterBtns.forEach(btn => {
@@ -1346,27 +1434,84 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             // Handle Dashboard vs Platform Wallet switching
-            const menuListings = document.getElementById('menuListings');
-            const platformWalletView = document.getElementById('platformWalletView');
 
             if (menuListings && platformWalletMenu) {
                 menuListings.addEventListener('click', (e) => {
                     e.preventDefault();
+                    document.querySelectorAll('.profile-menu-item').forEach(m => m.classList.remove('active'));
                     menuListings.classList.add('active');
-                    platformWalletMenu.classList.remove('active');
                     adminView.style.display = 'block';
                     platformWalletView.style.display = 'none';
+                    if (reportsView) reportsView.style.display = 'none';
+                    const userWalletView = document.getElementById('userWalletView');
+                    if (userWalletView) userWalletView.style.display = 'none';
                 });
 
                 platformWalletMenu.addEventListener('click', (e) => {
                     e.preventDefault();
+                    document.querySelectorAll('.profile-menu-item').forEach(m => m.classList.remove('active'));
                     platformWalletMenu.classList.add('active');
-                    menuListings.classList.remove('active');
                     adminView.style.display = 'none';
                     platformWalletView.style.display = 'block';
+                    if (reportsView) reportsView.style.display = 'none';
                     renderPlatformWallet();
                 });
             }
+        }
+
+        // System Reports Switching (Accessible by all roles)
+        if (menuReports && reportsView) {
+            menuReports.addEventListener('click', (e) => {
+                e.preventDefault();
+                document.querySelectorAll('.profile-menu-item').forEach(m => m.classList.remove('active'));
+                menuReports.classList.add('active');
+
+                // Hide all other views
+                if (sellerView) sellerView.style.display = 'none';
+                if (buyerView) buyerView.style.display = 'none';
+                if (adminView) adminView.style.display = 'none';
+                if (platformWalletView) platformWalletView.style.display = 'none';
+                if (userWalletView) userWalletView.style.display = 'none';
+
+                reportsView.style.display = 'block';
+                renderSystemReports('all');
+            });
+        }
+
+        // Wallet View Switching (Integrated)
+        if (menuWallet && userWalletView) {
+            menuWallet.addEventListener('click', (e) => {
+                e.preventDefault();
+                document.querySelectorAll('.profile-menu-item').forEach(m => m.classList.remove('active'));
+                menuWallet.classList.add('active');
+
+                // Hide all other views
+                if (sellerView) sellerView.style.display = 'none';
+                if (buyerView) buyerView.style.display = 'none';
+                if (adminView) adminView.style.display = 'none';
+                if (reportsView) reportsView.style.display = 'none';
+                const platformWalletView = document.getElementById('platformWalletView');
+                if (platformWalletView) platformWalletView.style.display = 'none';
+
+                userWalletView.style.display = 'block';
+                renderUserWallet();
+            });
+        }
+
+        // Report Period Selector
+        const reportPeriodSelect = document.getElementById('reportPeriodSelect');
+        if (reportPeriodSelect) {
+            reportPeriodSelect.addEventListener('change', () => {
+                renderSystemReports(reportPeriodSelect.value);
+            });
+        }
+
+        // Download Report Button
+        const downloadReportBtn = document.getElementById('downloadReportBtn');
+        if (downloadReportBtn) {
+            downloadReportBtn.addEventListener('click', () => {
+                handleDownloadReport();
+            });
         }
     }
 
@@ -1499,6 +1644,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (roleSelector) {
         const tabs = roleSelector.querySelectorAll('.role-tab');
         const roleInput = document.getElementById('selectedRole');
+        const deliveryInfoSection = document.getElementById('deliveryInfoSection');
 
         tabs.forEach(tab => {
             tab.addEventListener('click', () => {
@@ -1506,6 +1652,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 tab.classList.add('active');
                 const role = tab.dataset.role;
                 if (roleInput) roleInput.value = role;
+
+                if (deliveryInfoSection) {
+                    deliveryInfoSection.style.display = (role === 'seller') ? 'none' : 'block';
+                }
             });
         });
     }
@@ -1536,7 +1686,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const address_area = document.getElementById('address_area') ? document.getElementById('address_area').value : null;
             const address_full = document.getElementById('address_full') ? document.getElementById('address_full').value : null;
 
-            signupUser(name, phone, email, pass, role, address_region, address_city, address_area, address_full);
+            signupUser(name, phone, email, pass, role, address_region, address_city, address_area, address_full, document.getElementById('profile_pic').files[0]);
         });
     }
 
@@ -1619,7 +1769,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>` : ''}
                     </div>
                 `;
-            } else if (msg.text.startsWith("✅ OFFER ACCEPTED:")) {
+            } else if (msg.text && msg.text.includes("OFFER ACCEPTED:")) {
                 div.className = "message-system";
                 div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
                 const priceMatch = msg.text.match(/Tk.([\d,]+)/);
@@ -1640,7 +1790,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         ` : `<div style="font-size: 0.85rem; color: #059669; font-weight: 700; background: #d1fae5; padding: 0.5rem; text-align:center; border-radius:8px;">Ready for Buyer Payment</div>`}
                     </div>
                 `;
-            } else if (msg.text.startsWith("❌ OFFER DECLINED:") || msg.text.startsWith("❌ OFFER REJECTED:")) {
+            } else if (msg.text && (msg.text.includes("OFFER DECLINED:") || msg.text.includes("OFFER REJECTED:"))) {
                 div.className = "message-system";
                 div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
 
@@ -1678,48 +1828,51 @@ document.addEventListener('DOMContentLoaded', () => {
                         ` : `<div style="font-size: 0.85rem; color: #0ea5e9; font-weight: 700; background: #e0f2fe; padding: 0.5rem; text-align:center; border-radius:8px;">Buyer has Paid</div>`}
                     </div>
                 `;
-            } else if (msg.text.startsWith("📢 ORDER ALERT:")) {
+            } else if (msg.text && msg.text.includes("ORDER ALERT:")) {
                 div.className = "message-system";
                 div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
 
                 div.innerHTML = `
                     <div style="background: #fffbeb; border: 1.5px solid #f59e0b; padding: 1.25rem; border-radius: 16px; border-left: 6px solid #f59e0b; box-shadow: 0 10px 15px -3px rgba(245,158,11,0.1);">
                         <div style="font-weight: 800; color: #d97706; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
-                            <span style="font-size: 1.4rem;">📢</span> Action Required: Ship Item
+                            <span style="font-size: 1.4rem;">📢</span> Action Required: Prepare Shipment
                         </div>
                         <div style="background: #fffbeb; border-radius: 12px; padding: 1rem; margin-bottom: 1.25rem; border-left: 4px solid #f59e0b;">
                             <p style="margin: 0; font-size: 0.95rem; color: #92400e; line-height: 1.5;">
-                                The buyer has made the payment. Please prepare the item and update the shipping status.
+                                The buyer has completed the payment. Please start processing the order to update the status.
                             </p>
                         </div>
                         ${user.role === 'seller' ? `
                         <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                            <button style="flex:1; background: #f59e0b; color: white; padding: 0.6rem; border-radius: 8px; font-weight: 700; border: none; cursor: pointer;" onclick="handleMarkProcessing('${activeSessionId}')">Mark Processing</button>
+                            <button style="flex:1; background: #f59e0b; color: white; padding: 0.75rem; border-radius: 10px; font-weight: 800; border: none; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.filter='brightness(1.1)'" onmouseout="this.style.filter='none'" onclick="handleMarkProcessing('${activeSessionId}')">Start Processing Order</button>
                         </div>
-                        ` : `<div style="font-size: 0.85rem; color: #d97706; font-weight: 700; background: #fef3c7; padding: 0.5rem; text-align:center; border-radius:8px;">Waiting for Seller to Ship</div>`}
+                        ` : `<div style="font-size: 0.85rem; color: #d97706; font-weight: 700; background: #fef3c7; padding: 0.5rem; text-align:center; border-radius:8px;">Waiting for Seller to Process Order</div>`}
                     </div>
                 `;
-            } else if (msg.text.startsWith("⚙️ ORDER PROCESSING:")) {
+            } else if (msg.text && msg.text.includes("ORDER PROCESSING")) {
                 div.className = "message-system";
                 div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
                 div.innerHTML = `
-                    <div style="background: #fdf4ff; border: 1.5px solid #d946ef; padding: 1.25rem; border-radius: 16px; border-left: 6px solid #d946ef;">
-                        <div style="font-weight: 800; color: #c026d3; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
-                            <span style="font-size: 1.4rem;">⚙️</span> Order Processing
+                    <div style="background: #fdf4ff; border: 1.5px solid #d946ef; padding: 1.5rem; border-radius: 20px; border-left: 6px solid #d946ef; box-shadow: 0 10px 15px -3px rgba(217,70,239,0.05);">
+                        <div style="font-weight: 800; color: #c026d3; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between;">
+                            <span style="display:flex; align-items:center; gap:0.5rem;"><span style="font-size: 1.4rem;">⚙️</span> Order Processing</span>
+                            <span style="font-size:0.65rem; background: #fae8ff; color: #d946ef; padding: 4px 10px; border-radius: 20px; font-weight: 800;">PREPARING</span>
                         </div>
-                        <div style="background: #fdf4ff; border-radius: 12px; padding: 1rem; margin-bottom: 1rem; border-left: 4px solid #d946ef;">
+                        <div style="background: #fdf4ff; border-radius: 12px; padding: 1rem; margin-bottom: 1.25rem; border-left: 4px solid #d946ef;">
                             <p style="margin: 0; font-size: 0.95rem; color: #86198f; line-height: 1.5;">
-                                The seller is currently preparing the item for shipment.
+                                The seller is currently preparing the item for shipment. Quality checks and packaging are in progress.
                             </p>
                         </div>
                         ${user.role === 'seller' ? `
-                        <div style="margin-top: 1rem;">
-                            <button style="width:100%; background: #d946ef; color: white; padding: 0.6rem; border-radius: 8px; font-weight: 700; border: none; cursor: pointer;" onclick="handleMarkShipped('${activeSessionId}')">Mark as Shipped</button>
+                        <div style="display: flex; gap: 0.75rem;">
+                            <button style="flex:1; background: #d946ef; color: white; padding: 0.75rem; border-radius: 10px; font-weight: 800; border: none; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(217,70,239,0.2);" onclick="handleMarkShipped('${activeSessionId}')">
+                                🚚 Mark Shipment Done
+                            </button>
                         </div>
-                        ` : ''}
+                        ` : `<div style="font-size: 0.85rem; color: #c026d3; font-weight: 700; background: #fae8ff; padding: 0.6rem; text-align:center; border-radius:10px;">Seller is packing your item...</div>`}
                     </div>
                 `;
-            } else if (msg.text.startsWith("🚚 ORDER SHIPPED:")) {
+            } else if (msg.text && msg.text.includes("ORDER SHIPPED")) {
                 div.className = "message-system";
                 div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
 
@@ -1728,63 +1881,75 @@ document.addEventListener('DOMContentLoaded', () => {
                 msg.text.split('\n').forEach(line => {
                     if (line.includes(': ')) {
                         const [k, v] = line.split(': ');
-                        data[k.trim()] = v.trim();
+                        data[k.trim().replace(/^🚚 /, '')] = v.trim();
                     }
                 });
 
                 div.innerHTML = `
-                    <div style="background: white; border: 1px solid #e2e8f0; padding: 1.5rem; border-radius: 20px; border-top: 6px solid #6366f1; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05);">
+                    <div style="background: white; border: 1.5px solid #e2e8f0; padding: 1.5rem; border-radius: 20px; border-top: 6px solid #6366f1; box-shadow: 0 12px 20px -5px rgba(0,0,0,0.08);">
                         <div style="font-weight: 800; color: #1e293b; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between;">
                             <span style="display: flex; align-items: center; gap: 0.5rem;"><span style="font-size: 1.4rem;">🚚</span> Order Dispatched</span>
-                            <span style="font-size: 0.65rem; background: #eef2ff; color: #6366f1; padding: 4px 10px; border-radius: 20px; text-transform: uppercase;">In Transit</span>
+                            <span style="font-size: 0.65rem; background: #eef2ff; color: #6366f1; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; font-weight: 800;">In Transit</span>
                         </div>
-                        <div style="font-size: 0.85rem; color: #475569; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; padding: 1rem; background: #f8fafc; border-radius: 12px; margin-bottom: 1.25rem;">
+                        <div style="font-size: 0.85rem; color: #475569; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; padding: 1rem; background: #f8fafc; border-radius: 12px; margin-bottom: 1.25rem; border: 1px solid #f1f5f9;">
                             <div>
-                                <p style="margin: 0; color: #94a3b8; font-size: 0.7rem; font-weight: 700; text-transform: uppercase;">Courier</p>
+                                <p style="margin: 0; color: #94a3b8; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Courier</p>
                                 <p style="margin: 0.2rem 0 0 0; font-weight: 700; color: #1e293b;">${data['Courier'] || 'N/A'}</p>
                             </div>
                             <div>
-                                <p style="margin: 0; color: #94a3b8; font-size: 0.7rem; font-weight: 700; text-transform: uppercase;">Tracking ID</p>
+                                <p style="margin: 0; color: #94a3b8; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Tracking ID</p>
                                 <p style="margin: 0.2rem 0 0 0; font-weight: 700; color: #1e293b; font-family: monospace;">${data['Tracking'] || 'N/A'}</p>
                             </div>
                             <div style="grid-column: span 2;">
-                                <p style="margin: 0; color: #94a3b8; font-size: 0.7rem; font-weight: 700; text-transform: uppercase;">Dispatch Date</p>
+                                <p style="margin: 0; color: #94a3b8; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Dispatch Date</p>
                                 <p style="margin: 0.2rem 0 0 0; font-weight: 700; color: #1e293b;">${data['Date'] || 'N/A'}</p>
                             </div>
                         </div>
                         
                         <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                            <button style="background: #1e293b; color: white; border: none; padding: 0.75rem; border-radius: 10px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem; transition: all 0.2s;" onmouseover="this.style.background='#334155'" onmouseout="this.style.background='#1e293b'" onclick="handleDownloadReceipt('${activeSessionId}', ${JSON.stringify(data).replace(/"/g, '&quot;')})">
-                                📥 Download Official Receipt
-                            </button>
-                            
                             ${user.role === 'seller' ? `
-                            <button style="background: #6366f1; color: white; padding: 0.75rem; border-radius: 10px; font-weight: 700; border: none; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(99,102,241,0.2);" onclick="handleMarkDelivered('${activeSessionId}')">
-                                Mark as Delivered
+                            <button style="background: #6366f1; color: white; padding: 0.75rem; border-radius: 10px; font-weight: 800; border: none; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(99,102,241,0.2);" onclick="handleMarkDelivered('${activeSessionId}')">
+                                ✅ Mark Delivery Done
                             </button>
-                            ` : ''}
+                            ` : `<div style="font-size: 0.8rem; color: #6366f1; text-align: center; font-weight: 600; font-style: italic;">Your item is on its way!</div>`}
                         </div>
                     </div>
                 `;
-            } else if (msg.text.startsWith("📦 ORDER DELIVERED:")) {
+            } else if (msg.text && msg.text.includes("ORDER DELIVERED")) {
                 div.className = "message-system";
                 div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
+
+                // Attempt to parse data for invoice if present (for delivered history)
+                const data = {};
+                msg.text.split('\n').forEach(line => {
+                    if (line.includes(': ')) {
+                        const [k, v] = line.split(': ');
+                        data[k.trim().replace(/^📦 /, '')] = v.trim();
+                    }
+                });
+
                 div.innerHTML = `
-                    <div style="background: #f0fdf4; border: 1.5px solid #22c55e; padding: 1.25rem; border-radius: 16px; border-left: 6px solid #22c55e;">
-                        <div style="font-weight: 800; color: #16a34a; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
-                            <span style="font-size: 1.4rem;">📦</span> Order Delivered
+                    <div style="background: #f0fdf4; border: 1.5px solid #22c55e; padding: 1.5rem; border-radius: 20px; border-left: 6px solid #22c55e; box-shadow: 0 10px 15px -3px rgba(34,197,94,0.1);">
+                        <div style="font-weight: 800; color: #16a34a; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between;">
+                            <span style="display:flex; align-items:center; gap:0.5rem;"><span style="font-size: 1.4rem;">📦</span> Order Delivered</span>
+                            <span style="font-size:0.65rem; background: #d1fae5; color: #059669; padding: 4px 10px; border-radius: 20px; font-weight: 800;">RECEIVED</span>
                         </div>
                         <div style="background: #f0fdf4; border-radius: 12px; padding: 1rem; margin-bottom: 1.25rem; border-left: 4px solid #22c55e;">
                             <p style="margin: 0; font-size: 0.95rem; color: #14532d; line-height: 1.5;">
-                                The seller has marked the order as delivered. Please check the product and release payment.
+                                The item has reached its destination. Please confirm receipt to release the funds from escrow.
                             </p>
                         </div>
                         ${user.role === 'buyer' ? `
                         <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                            <button class="btn-primary" style="width:100%; background: #22c55e; border: none; padding: 0.8rem; color: white; font-weight: 800; border-radius: 10px; cursor: pointer;" onclick="handleReleaseFunds('${activeSessionId}')">Confirm Receipt & Release Funds</button>
+                            <button class="btn-primary" style="width:100%; background: #22c55e; border: none; padding: 0.8rem; color: white; font-weight: 800; border-radius: 10px; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(34,197,94,0.3);" onclick="handleReleaseFunds('${activeSessionId}')">Confirm Receipt & Release Funds</button>
                             <button class="btn-secondary" style="width:100%; background: transparent; border: 1.5px solid #ef4444; padding: 0.6rem; color: #ef4444; font-weight: 700; border-radius: 10px; cursor: pointer;" onclick="handleReportIssue('${activeSessionId}')">⚠ Report a Problem</button>
                         </div>
-                        ` : `<div style="font-size: 0.85rem; color: #16a34a; font-weight: 700; background: #d1fae5; padding: 0.5rem; text-align:center; border-radius:8px;">Waiting for Buyer Confirmation</div>`}
+                        ` : `<div style="font-size: 0.85rem; color: #16a34a; font-weight: 700; background: #d1fae5; padding: 0.6rem; text-align:center; border-radius:10px;">Waiting for Buyer Confirmation</div>`}
+                        
+                        ${Object.keys(data).length > 2 ? `
+                        <button style="margin-top: 1rem; width:100%; background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; padding: 0.6rem; border-radius: 10px; font-size: 0.85rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;" onclick="handleDownloadReceipt('${activeSessionId}', ${JSON.stringify(data).replace(/"/g, '&quot;')})">
+                            📄 Download Final Invoice
+                        </button>` : ''}
                     </div>
                 `;
             } else if (msg.text.startsWith("⚠️ DISPUTE RAISED:")) {
@@ -1856,22 +2021,22 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     `;
                 }
-            } else if (msg.text.startsWith("✅ FUNDS RELEASED:")) {
+            } else if (msg.text.includes("FUNDS RELEASED") || msg.text.includes("SYSTEM AUTO-RELEASE")) {
                 div.className = "message-system";
                 div.style.cssText = "align-self: center; width: 85%; margin: 1.5rem 0;";
-                const details = msg.text.replace("✅ FUNDS RELEASED:", "").trim();
+                const details = msg.text.trim();
                 div.innerHTML = `
-                    <div style="background: white; border: 1px solid #d1fae5; padding: 1.5rem; border-radius: 20px; border-top: 6px solid #10b981; box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.05);">
+                    <div style="background: white; border: 1.5px solid #d1fae5; padding: 1.5rem; border-radius: 20px; border-top: 6px solid #10b981; box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.05);">
                         <div style="font-weight: 800; color: #1e293b; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between;">
                             <span style="display: flex; align-items: center; gap: 0.5rem;"><span style="font-size: 1.4rem;">💰</span> Funds Released</span>
                             <span style="font-size: 0.65rem; background: #d1fae5; color: #059669; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; font-weight: 800;">Completed</span>
                         </div>
-                        <div style="background: #f0fdf4; border-radius: 12px; padding: 1.25rem; text-align: center;">
-                            <p style="margin: 0; font-size: 1rem; color: #166534; font-weight: 700; line-height: 1.4;">${details}</p>
+                        <div style="background: #f0fdf4; border-radius: 12px; padding: 1.25rem; text-align: center; border-left: 4px solid #10b981;">
+                            <p style="margin: 0; font-size: 0.95rem; color: #166534; font-weight: 700; line-height: 1.4;">${details}</p>
                         </div>
                         
                         <div style="margin-top: 1rem; font-size: 0.8rem; color: #64748b; text-align: center; font-style: italic;">
-                            Transaction successful. Thank you for using ReSale!
+                            The escrow period has ended and funds are now available in the seller's wallet.
                         </div>
                     </div>
                 `;
@@ -1962,23 +2127,59 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 `;
             } else {
-                div.className = `message ${isMe ? 'user' : 'seller'}`;
-                div.innerText = msg.text;
+                div.className = `message ${isMe ? 'user' : 'other'}`;
+                div.style.cssText = "display: flex; width: 100%; margin-bottom: 0.5rem;";
+                
+                const avatarUrl = msg.sender_profile_pic 
+                    ? `http://localhost:8000${msg.sender_profile_pic}` 
+                    : null;
+                const initials = msg.sender_name ? msg.sender_name.split(' ').map(n => n[0]).join('').toUpperCase() : '?';
+
+                div.innerHTML = `
+                    <div style="display: flex; align-items: flex-end; gap: 8px; width: 100%; ${isMe ? 'flex-direction: row-reverse;' : ''}">
+                        ${!isMe ? `
+                        <div style="width: 32px; height: 32px; border-radius: 50%; overflow: hidden; flex-shrink: 0; background: #eef2ff; border: 1.5px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 800; color: #6366f1;">
+                            ${avatarUrl ? `<img src="${avatarUrl}" style="width: 100%; height: 100%; object-fit: cover;">` : initials}
+                        </div>` : ''}
+                        
+                        <div style="padding: 10px 16px; border-radius: 20px; font-size: 0.95rem; line-height: 1.4; box-shadow: 0 1px 2px rgba(0,0,0,0.08); 
+                            width: fit-content; max-width: calc(100% - 40px); word-break: break-word; display: inline-block;
+                            ${isMe ? 'background: #6366f1; color: white; border-bottom-right-radius: 4px;' : 'background: #f1f5f9; color: #1e293b; border-bottom-left-radius: 4px;'}">
+                            ${msg.text}
+                        </div>
+                    </div>
+                `;
             }
             chatBox.appendChild(div);
         }
 
-        function initActiveChat(chat) {
+
+
+
+        async function initActiveChat(chat) {
             if (!chat) return;
+            
+            // Sync activeSessionId with the provided chat
             activeSessionId = chat.id.toString();
-            window.currentChatProductId = chat.product_id;
-            console.log(`[Chat] Initializing session: ${activeSessionId}`);
+            
+            // Context Logic: ALWAYS check URL first for the intended product context
+            const urlParams = new URLSearchParams(window.location.search);
+            const contextProductId = urlParams.get('product');
+            
+            // Priority: URL Param > Last Session Context > Session Default
+            window.currentChatProductId = contextProductId || window.currentChatProductId || chat.product_id;
+            
+            console.log(`[Chat] Initializing session: ${activeSessionId} | Context Product: ${window.currentChatProductId}`);
 
             const otherParty = user.role === 'buyer' ? chat.seller : chat.buyer;
+            const otherPartyAvatar = otherParty.profile_pic_url 
+                ? `<img src="http://localhost:8000${otherParty.profile_pic_url}" style="width: 100%; height: 100%; object-fit: cover;">`
+                : (otherParty.full_name ? otherParty.full_name.split(' ').map(n => n[0]).join('').toUpperCase() : '?');
+
             if (chatHeader) {
                 chatHeader.innerHTML = `
-                  <div style="width: 42px; height: 42px; background: #eef2ff; border-radius: 50%; border: 2px solid #6366f1; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #6366f1;">
-                    ${otherParty.full_name ? otherParty.full_name.split(' ').map(n => n[0]).join('').toUpperCase() : '?'}
+                  <div style="width: 42px; height: 42px; background: #eef2ff; border-radius: 50%; border: 2px solid #6366f1; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #6366f1; overflow: hidden;">
+                    ${otherPartyAvatar}
                   </div>
                   <div>
                     <p style="font-weight: 700; color: #1e293b; margin: 0;">${otherParty.full_name}</p>
@@ -1991,22 +2192,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const bannerContainer = document.getElementById('chatListingBanner');
             if (bannerContainer) {
-                const productTitle = chat.product_title || 'Product Discussion';
-                const productPrice = chat.product_price || '0';
-                const imgSrc = chat.product_image_url ? `http://localhost:8000${chat.product_image_url}` : '';
+                let displayTitle = chat.product_title || 'Product Discussion';
+                let displayPrice = chat.product_price || '0';
+                let displayImg = chat.product_image_url;
+
+                // Use the active context product ID to fetch fresh details
+                const activeProdId = window.currentChatProductId;
+                if (activeProdId) {
+                    try {
+                        const product = await window.api.getProduct(activeProdId);
+                        if (product) {
+                            displayTitle = product.title;
+                            displayPrice = product.price;
+                            displayImg = product.image_url;
+                        }
+                    } catch (e) { console.error("Banner context fetch failed", e); }
+                }
+
+                const imgSrc = displayImg ? (displayImg.startsWith('http') ? displayImg : `http://localhost:8000${displayImg.startsWith('/') ? '' : '/'}${displayImg}`) : '';
                 const imgHtml = imgSrc ? `<img src="${imgSrc}" style="width: 44px; height: 44px; object-fit: cover; border-radius: 8px;">` : `<div style="width: 44px; height: 44px; background: #e2e8f0; border-radius: 8px; display:flex; align-items:center; justify-content:center;">📦</div>`;
 
                 bannerContainer.innerHTML = `
                     <div style="display:flex; align-items:center; gap: 1rem; flex: 1;">
                         ${imgHtml}
                         <div>
-                            <div style="font-weight: 600; font-size: 0.9rem; line-height: 1.2;">${productTitle}</div>
-                            <div style="color: var(--primary); font-weight: 700; font-size: 1rem;">Tk.${Number(productPrice).toLocaleString('en-IN')}</div>
+                            <div style="font-weight: 600; font-size: 0.9rem; line-height: 1.2;">${displayTitle}</div>
+                            <div style="color: var(--primary); font-weight: 700; font-size: 1rem;">Tk.${Number(displayPrice).toLocaleString('en-IN')}</div>
                         </div>
                     </div>
                     <div style="display: flex; gap: 0.5rem;">
-                        ${user.role === 'buyer' ? `<button class="btn-secondary" style="padding: 0.55rem 1rem; font-size: 0.85rem;" onclick="openOfferModal('${chat.id}', '${chat.product_id}')">🤝 Make Offer</button>` : ''}
-                        ${user.role === 'buyer' ? `<button class="btn-primary" style="padding: 0.55rem 1rem; font-size: 0.85rem;" onclick="handleBuyClick('${chat.product_id}')">🛒 Buy Now</button>` : ''}
+                        ${user.role === 'buyer' ? `<button class="btn-secondary" style="padding: 0.55rem 1rem; font-size: 0.85rem;" onclick="openOfferModal('${chat.id}', '${window.currentChatProductId}')">🤝 Make Offer</button>` : ''}
+                        ${user.role === 'buyer' ? `<button class="btn-primary" style="padding: 0.55rem 1rem; font-size: 0.85rem;" onclick="handleBuyClick('${window.currentChatProductId}')">🛒 Buy Now</button>` : ''}
                     </div>
                 `;
                 bannerContainer.style.display = 'flex';
@@ -2141,10 +2357,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     const lastMsgSnippet = lastMsg ? (lastMsg.text.length > 25 ? lastMsg.text.substring(0, 22) + '...' : lastMsg.text) : 'No messages yet';
                     const lastMsgTime = lastMsg ? new Date(lastMsg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
 
+                    const otherPartyAvatar = otherParty.profile_pic_url 
+                        ? `<img src="http://localhost:8000${otherParty.profile_pic_url}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`
+                        : `<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: var(--primary); color: white; border-radius: 50%; font-size: 0.8rem; font-weight: 800;">${otherParty.full_name.charAt(0).toUpperCase()}</div>`;
+
                     const item = document.createElement('div');
                     item.className = `chat-list-item ${activeClass} ${unreadClass}`.trim();
                     item.style.position = 'relative';
                     item.innerHTML = `
+                      <div class="sidebar-avatar" style="width: 45px; height: 45px; flex-shrink: 0; position: relative;">
+                         ${otherPartyAvatar}
+                         ${isActive ? '<span style="position: absolute; bottom: 0; right: 0; width: 12px; height: 12px; background: #10b981; border: 2px solid white; border-radius: 50%;"></span>' : ''}
+                      </div>
                       <div class="chat-info" style="flex:1; min-width:0;">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
                             <div style="display:flex; align-items:center; gap:0.5rem; min-width:0;">
@@ -2172,14 +2396,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (activeSessionId) {
                     const currentChat = chats.find(c => c.id.toString() === activeSessionId);
                     if (currentChat) {
-                        initActiveChat(currentChat);
+                        await initActiveChat(currentChat);
                         window.api.markChatRead(currentChat.id, user.id).catch(err => console.error(err));
                     }
                 }
                 updateGlobalUnreadCount();
             } catch (err) {
                 console.error('Failed to load chat sidebar:', err);
-                if (sidebar) sidebar.innerHTML = '<div style="padding:1rem;color:red;">Could not load chats.</div>';
+                if (sidebar) sidebar.innerHTML = `<div style="padding:1rem;color:#ef4444;font-size:0.85rem;text-align:center;">Could not load chats. <br><small>${err.message}</small></div>`;
             }
         }
 
@@ -2204,10 +2428,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     const lastMsg = chat.messages && chat.messages.length > 0 ? chat.messages[chat.messages.length - 1] : null;
                     const lastMsgSnippet = lastMsg ? (lastMsg.text.length > 25 ? lastMsg.text.substring(0, 22) + '...' : lastMsg.text) : 'No messages yet';
                     const lastMsgTime = lastMsg ? new Date(lastMsg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                    const otherPartyAvatar = otherParty.profile_pic_url 
+                        ? `<img src="http://localhost:8000${otherParty.profile_pic_url}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`
+                        : `<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: var(--primary); color: white; border-radius: 50%; font-size: 0.8rem; font-weight: 800;">${otherParty.full_name.charAt(0).toUpperCase()}</div>`;
+
                     const item = document.createElement('div');
                     item.className = `chat-list-item ${activeClass} ${unreadClass}`.trim();
                     item.style.position = 'relative';
                     item.innerHTML = `
+                      <div class="sidebar-avatar" style="width: 45px; height: 45px; flex-shrink: 0; position: relative;">
+                         ${otherPartyAvatar}
+                         ${isActive ? '<span style="position: absolute; bottom: 0; right: 0; width: 12px; height: 12px; background: #10b981; border: 2px solid white; border-radius: 50%;"></span>' : ''}
+                      </div>
                       <div class="chat-info" style="flex:1; min-width:0;">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
                             <div style="display:flex; align-items:center; gap:0.5rem; min-width:0;">
@@ -2527,9 +2759,7 @@ window.handleAcceptOffer = async function (sessionId) {
         if (!pendingOffer) return alert("No pending offer found.");
 
         await window.api.acceptOffer(pendingOffer.id);
-
-        // The backend automatically sends the "Offer Accepted" message, so we don't need to send it manually here.
-        alert("Offer accepted!");
+        // System card will appear automatically via WebSocket
     } catch (e) {
         alert("Failed: " + e.message);
     }
@@ -2543,9 +2773,7 @@ window.handleRejectOffer = async function (sessionId) {
         if (!pendingOffer) return alert("No pending offer found.");
 
         await window.api.rejectOffer(pendingOffer.id);
-
-        // The backend automatically sends the "Offer Rejected" message, so we don't need to send it manually here.
-        alert("Offer rejected.");
+        // System card will appear automatically via WebSocket
     } catch (e) {
         alert("Failed: " + e.message);
     }
@@ -2659,13 +2887,13 @@ window.handleMarkShipped = async function (sessionId) {
 
         // Populate inputs
         document.getElementById('shipSellerName').value = chat.seller.full_name;
-        document.getElementById('shipSellerPhone').value = chat.seller.phone;
+        document.getElementById('shipSellerPhone').value = chat.seller.phone_number || '';
         document.getElementById('shipProductName').value = chat.product_title;
         document.getElementById('shipProductPrice').value = `Tk.${Number(activeOffer.offered_price).toLocaleString('en-IN')}`;
         document.getElementById('shipProductQty').value = activeOffer.quantity || 1;
 
         document.getElementById('shipBuyerName').value = chat.buyer.full_name;
-        document.getElementById('shipBuyerPhone').value = chat.buyer.phone;
+        document.getElementById('shipBuyerPhone').value = chat.buyer.phone_number || '';
 
         document.getElementById('shipDate').value = new Date().toISOString().split('T')[0];
 
@@ -2823,9 +3051,6 @@ window.handleMarkDelivered = async function (sessionId) {
         if (!activeOffer) return alert("Order must be SHIPPED to be delivered.");
 
         await window.api.request(`/escrow/deliver/${activeOffer.id}`, 'POST');
-        if (window.currentChatSocket && window.currentChatSocket.readyState === WebSocket.OPEN) {
-            window.currentChatSocket.send('Item delivered!');
-        }
     } catch (e) {
         alert(e.message);
     }
@@ -2981,12 +3206,15 @@ async function updateGlobalUnreadCount() {
         // Update sidebar badge on profile.html
         const sidebarBadge = document.getElementById('sidebarUnreadBadge');
         if (sidebarBadge) {
-            if (totalUnread > 0) {
-                sidebarBadge.innerText = totalUnread > 9 ? '9+' : totalUnread;
-                sidebarBadge.style.display = 'flex';
-            } else {
-                sidebarBadge.style.display = 'none';
-            }
+            sidebarBadge.innerText = totalUnread > 9 ? '9+' : totalUnread;
+            sidebarBadge.style.display = totalUnread > 0 ? 'flex' : 'none';
+        }
+
+        // Update navbar badge
+        const navBadge = document.getElementById('navUnreadBadge');
+        if (navBadge) {
+            navBadge.innerText = totalUnread > 9 ? '9+' : totalUnread;
+            navBadge.style.display = totalUnread > 0 ? 'flex' : 'none';
         }
     } catch (err) {
         console.error("Unread count update failed:", err);
@@ -3224,5 +3452,485 @@ async function renderPlatformWallet() {
     }
 }
 window.renderPlatformWallet = renderPlatformWallet;
+
+// ─── USER WALLET (Integrated) ───────────────────────────────────
+
+async function renderUserWallet() {
+    const balanceEl = document.getElementById('userWalletBalance');
+    const escrowEl = document.getElementById('userEscrowBalance');
+    const listEl = document.getElementById('userWalletTransactionsList');
+    const availTitle = document.getElementById('availableTitle');
+    
+    if (!balanceEl || !escrowEl || !listEl) return;
+
+    listEl.innerHTML = '<p style="text-align: center; padding: 2rem; color: var(--text-muted);">Fetching wallet data...</p>';
+
+    const user = getUser();
+    if (!user) return;
+
+    try {
+        const updatedUser = await window.api.getMe();
+        balanceEl.innerText = 'Tk.' + (updatedUser.wallet_balance || 0).toLocaleString('en-IN');
+        escrowEl.innerText = 'Tk.' + (updatedUser.escrow_balance || 0).toLocaleString('en-IN');
+        
+        if (availTitle) {
+            availTitle.innerText = updatedUser.role === 'buyer' ? 'Available for Deposit' : 'Available for Withdrawal';
+        }
+        const actionBtn = document.getElementById('walletActionBtn');
+        if (actionBtn) {
+            if (updatedUser.role === 'seller') {
+                actionBtn.innerText = 'Withdraw Balance';
+                actionBtn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+                actionBtn.onclick = () => openWithdrawModal(updatedUser.wallet_balance);
+            } else {
+                actionBtn.innerText = 'Add Money';
+                actionBtn.onclick = () => window.location.href = 'wallet.html';
+            }
+        }
+        const escrowTitle = document.getElementById('escrowTitle');
+        const escrowDesc = document.getElementById('escrowDesc');
+        if (escrowTitle) {
+            escrowTitle.innerText = updatedUser.role === 'seller' ? 'Pending Clearance' : 'Funds in Escrow';
+        }
+        if (escrowDesc) {
+            escrowDesc.innerText = updatedUser.role === 'seller' 
+                ? 'Sales revenue awaiting final release from buyer escrow.' 
+                : 'Securely held for your ongoing transactions.';
+        }
+
+        const txs = await window.api.getWalletTransactions();
+        if (txs.length === 0) {
+            listEl.innerHTML = '<p style="text-align: center; padding: 2rem; color: var(--text-muted);">No wallet activity found yet.</p>';
+            return;
+        }
+
+        listEl.innerHTML = txs.slice(0, 10).map(t => `
+            <div class="transaction-item" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid var(--border);">
+                <div>
+                    <p style="font-weight: 700; margin: 0; font-size: 0.9rem;">${t.transaction_type.replace('_', ' ').toUpperCase()}</p>
+                    <small style="color: var(--text-muted); font-size: 0.75rem;">${new Date(t.created_at).toLocaleDateString()} at ${new Date(t.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</small>
+                </div>
+                <div style="text-align: right;">
+                    <p style="font-weight: 800; margin: 0; color: ${t.transaction_type === 'withdrawal' || t.transaction_type === 'payment' ? '#ef4444' : '#10b981'};">
+                        ${t.transaction_type === 'withdrawal' || t.transaction_type === 'payment' ? '-' : '+'} Tk.${t.amount.toLocaleString()}
+                    </p>
+                    <small style="color: var(--text-muted); font-size: 0.7rem;">ID: #TXN-${t.id.toString().padStart(5, '0')}</small>
+                </div>
+            </div>
+        `).join('');
+
+    } catch (err) {
+        console.error("Wallet load failed:", err);
+        listEl.innerHTML = `<p style="text-align: center; padding: 2rem; color: #ef4444;">Error: ${err.message}</p>`;
+    }
+}
+
+// ─── WITHDRAWAL LOGIC ─────────────────────────────────────────
+
+window.openWithdrawModal = function(maxBalance) {
+    const modal = document.getElementById('withdrawModal');
+    if (!modal) return;
+    
+    modal.style.display = 'flex';
+    document.getElementById('withdrawAmount').max = maxBalance;
+    document.getElementById('withdrawMaxHint').innerText = `Maximum available: Tk. ${maxBalance.toLocaleString()}`;
+    // Reset form
+    document.getElementById('withdrawForm').reset();
+    toggleWithdrawFields('bank');
+};
+
+window.toggleWithdrawFields = function(method) {
+    const bankFields = document.getElementById('bankFields');
+    const mobileFields = document.getElementById('mobileFields');
+    if (method === 'bank') {
+        bankFields.style.display = 'block';
+        mobileFields.style.display = 'none';
+        document.getElementById('bankAccountNumber').required = true;
+        document.getElementById('bankName').required = true;
+        document.getElementById('mobileNumber').required = false;
+    } else {
+        bankFields.style.display = 'none';
+        mobileFields.style.display = 'block';
+        document.getElementById('bankAccountNumber').required = false;
+        document.getElementById('bankName').required = false;
+        document.getElementById('mobileNumber').required = true;
+    }
+};
+
+window.handleWithdrawSubmit = async function(e) {
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type="submit"]');
+    const amount = parseInt(document.getElementById('withdrawAmount').value);
+    const method = document.querySelector('input[name="withdrawMethod"]:checked').value;
+    
+    const data = {
+        amount: amount,
+        method: method
+    };
+    
+    if (method === 'bank') {
+        data.account_number = document.getElementById('bankAccountNumber').value;
+        data.bank_name = document.getElementById('bankName').value;
+    } else {
+        data.mobile_number = document.getElementById('mobileNumber').value;
+    }
+
+    const originalText = btn.innerText;
+    btn.innerText = 'Processing...';
+    btn.disabled = true;
+
+    try {
+        await window.api.requestWithdrawal(data);
+        alert('Withdrawal has been successful!');
+        document.getElementById('withdrawModal').style.display = 'none';
+        renderUserWallet(); // Refresh balance
+    } catch (err) {
+        alert('Withdrawal failed: ' + err.message);
+    } finally {
+        btn.innerText = originalText;
+        btn.disabled = false;
+    }
+};
+
+// ─── SYSTEM REPORTS ───────────────────────────────────────────
+
+async function renderSystemReports(period = 'all') {
+    const container = document.getElementById('reportHistoryTableContainer');
+    const summaryGrid = document.getElementById('reportSummaryCards');
+    const typeLabel = document.getElementById('reportTypeLabel');
+    if (!container || !summaryGrid) return;
+
+    container.innerHTML = '<p style="text-align:center; padding: 3rem; color: var(--text-muted);">Aggregating data and generating report...</p>';
+    
+    const user = getUser();
+    if (!user) return;
+    const role = user.role || 'buyer';
+    
+    try {
+        let reportData;
+        if (role === 'admin') {
+            reportData = await window.api.getAdminReport(period);
+            renderAdminReports(reportData, container, summaryGrid, typeLabel);
+        } else if (role === 'seller') {
+            reportData = await window.api.getSellerReport(period);
+            renderSellerReports(reportData, container, summaryGrid, typeLabel);
+        } else {
+            reportData = await window.api.getBuyerReport(period);
+            renderBuyerReports(reportData, container, summaryGrid, typeLabel);
+        }
+        
+        window.currentReportData = { ...reportData, role: role };
+
+    } catch (err) {
+        console.error("Report generation failed:", err);
+        container.innerHTML = `<p style="text-align:center; padding: 3rem; color: #ef4444;">Error generating report: ${err.message}</p>`;
+    }
+}
+
+function renderAdminReports(data, container, summaryGrid, typeLabel) {
+    const { summary, history } = data;
+
+    summaryGrid.innerHTML = `
+        <div class="stat-card glass-card" style="padding: 1.5rem; border-left: 5px solid var(--primary);">
+            <p style="color: var(--text-muted); font-size: 0.75rem; font-weight: 700; margin: 0 0 0.5rem; text-transform: uppercase;">Total Active Users</p>
+            <h3 style="font-size: 1.8rem; font-weight: 800; margin: 0; color: var(--secondary);">${summary.total_users || 0}</h3>
+        </div>
+        <div class="stat-card glass-card" style="padding: 1.5rem; border-left: 5px solid #10b981;">
+            <p style="color: var(--text-muted); font-size: 0.75rem; font-weight: 700; margin: 0 0 0.5rem; text-transform: uppercase;">Total Marketplace GTV</p>
+            <h3 style="font-size: 1.8rem; font-weight: 800; margin: 0; color: #10b981;">Tk. ${(summary.total_gtv || 0).toLocaleString()}</h3>
+        </div>
+    `;
+
+    if (history.length === 0) {
+        container.innerHTML = '<p style="text-align:center; padding: 4rem; color: var(--text-muted);">No system-wide activity recorded for this period.</p>';
+        return;
+    }
+    container.innerHTML = renderCommonHistoryTable(history, 'admin');
+}
+
+function renderSellerReports(data, container, summaryGrid, typeLabel) {
+    const { summary, history } = data;
+
+    summaryGrid.innerHTML = `
+        <div class="stat-card glass-card" style="padding: 1.5rem; border-left: 5px solid var(--primary);">
+            <p style="color: var(--text-muted); font-size: 0.75rem; font-weight: 700; margin: 0 0 0.5rem; text-transform: uppercase;">Items Sold</p>
+            <h3 style="font-size: 1.8rem; font-weight: 800; margin: 0; color: var(--secondary);">${summary.total_count}</h3>
+        </div>
+        <div class="stat-card glass-card" style="padding: 1.5rem; border-left: 5px solid #10b981;">
+            <p style="color: var(--text-muted); font-size: 0.75rem; font-weight: 700; margin: 0 0 0.5rem; text-transform: uppercase;">Net Earnings</p>
+            <h3 style="font-size: 1.8rem; font-weight: 800; margin: 0; color: #10b981;">Tk. ${summary.total_amount.toLocaleString()}</h3>
+        </div>
+    `;
+
+    if (history.length === 0) {
+        container.innerHTML = '<p style="text-align:center; padding: 4rem; color: var(--text-muted);">No sales activity recorded.</p>';
+        return;
+    }
+
+    container.innerHTML = renderCommonHistoryTable(history, 'seller');
+}
+
+function renderBuyerReports(data, container, summaryGrid, typeLabel) {
+    const { summary, history } = data;
+
+    summaryGrid.innerHTML = `
+        <div class="stat-card glass-card" style="padding: 1.5rem; border-left: 5px solid var(--primary);">
+            <p style="color: var(--text-muted); font-size: 0.75rem; font-weight: 700; margin: 0 0 0.5rem; text-transform: uppercase;">Total Items Purchased</p>
+            <h3 style="font-size: 1.8rem; font-weight: 800; margin: 0; color: var(--secondary);">${summary.total_count}</h3>
+        </div>
+        <div class="stat-card glass-card" style="padding: 1.5rem; border-left: 5px solid #f59e0b;">
+            <p style="color: var(--text-muted); font-size: 0.75rem; font-weight: 700; margin: 0 0 0.5rem; text-transform: uppercase;">Total Spent</p>
+            <h3 style="font-size: 1.8rem; font-weight: 800; margin: 0; color: #f59e0b;">Tk. ${summary.total_amount.toLocaleString()}</h3>
+        </div>
+    `;
+
+    if (history.length === 0) {
+        container.innerHTML = '<p style="text-align:center; padding: 4rem; color: var(--text-muted);">No purchase activity found.</p>';
+        return;
+    }
+
+    container.innerHTML = renderCommonHistoryTable(history, 'buyer');
+}
+
+function renderCommonHistoryTable(history, role) {
+    return `
+        <table style="width: 100%; border-collapse: collapse; min-width: 600px;">
+            <thead>
+                <tr style="text-align: left; border-bottom: 2px solid var(--border);">
+                    <th style="padding: 1rem 0.5rem; color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase;">ID</th>
+                    <th style="padding: 1rem 0.5rem; color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase;">Device</th>
+                    <th style="padding: 1rem 0.5rem; color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase;">Date</th>
+                    <th style="padding: 1rem 0.5rem; color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase;">Price</th>
+                    <th style="padding: 1rem 0.5rem; color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase;">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${history.map(item => `
+                    <tr style="border-bottom: 1px solid var(--border);">
+                        <td style="padding: 1rem 0.5rem; font-family: monospace; font-weight: 700; color: var(--primary);">RS-${(item.order_number || 0).toString().padStart(5, '0')}</td>
+                        <td style="padding: 1rem 0.5rem;">
+                            <div style="font-weight: 600; color: var(--secondary);">${item.product_title}</div>
+                            <div style="font-size: 0.7rem; color: var(--text-muted);">Quantity: ${item.quantity}</div>
+                        </td>
+                        <td style="padding: 1rem 0.5rem; font-size: 0.85rem; color: var(--text-muted);">${new Date(item.date).toLocaleDateString()}</td>
+                        <td style="padding: 1rem 0.5rem; font-weight: 700; color: var(--secondary);">Tk. ${(item.price || item.total_amount || 0).toLocaleString()}</td>
+                        <td style="padding: 1rem 0.5rem;">
+                            <span class="badge" style="background: ${getStatusColor(item.status)}; color: white; padding: 4px 8px; border-radius: 6px; font-size: 0.65rem; font-weight: 800;">${getProfessionalStatus(item.status, role).toUpperCase()}</span>
+                        </td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+}
+
+function getProfessionalStatus(status, role) {
+    const s = (status || '').toLowerCase();
+    if (s === 'completed' || s === 'auto_completed') {
+        return role === 'seller' ? 'Sold' : 'Purchased';
+    }
+    if (['paid', 'processing', 'shipped', 'delivered'].includes(s)) {
+        return role === 'seller' ? 'Sold (Processing)' : 'Purchased (In Transit)';
+    }
+    if (s === 'accepted') return 'Awaiting Payment';
+    if (s === 'rejected') return 'Rejected';
+    if (s === 'refunded') return 'Refunded';
+    return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+function getStatusColor(status) {
+    switch(status.toLowerCase()) {
+        case 'completed': case 'auto_completed': return '#10b981';
+        case 'paid': case 'processing': case 'shipped': case 'delivered': return '#3b82f6';
+        case 'pending': return '#f59e0b';
+        case 'rejected': case 'refunded': return '#ef4444';
+        default: return '#94a3b8';
+    }
+}
+
+window.handleDownloadReport = function() {
+    const data = window.currentReportData;
+    if (!data) return alert("Please load the report data before downloading.");
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const user = getUser();
+    const role = data.role || user.role;
+
+    // Premium Border
+    doc.setDrawColor(99, 102, 241);
+    doc.setLineWidth(1.5);
+    doc.rect(5, 5, 200, 287);
+
+    // Title
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(22);
+    doc.setTextColor(31, 41, 55);
+    doc.text("ReSale Marketplace", 105, 20, { align: "center" });
+    
+    let reportTitle = "";
+    if (role === 'admin') reportTitle = "EXECUTIVE PLATFORM OVERSIGHT REPORT";
+    else if (role === 'seller') reportTitle = "OFFICIAL SOLD HISTORY REPORT";
+    else reportTitle = "OFFICIAL PURCHASE HISTORY REPORT";
+
+    doc.setFontSize(14);
+    doc.setTextColor(79, 70, 229);
+    doc.text(reportTitle, 105, 30, { align: "center" });
+
+    // Metadata
+    doc.setFontSize(10);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Generated on: ${new Date().toLocaleString()}`, 20, 45);
+    doc.text(`Generated by: ${user.full_name}`, 20, 50);
+    doc.text(`Reporting Period: ${data.summary.period.toUpperCase()}`, 20, 55);
+
+    // Summary Box
+    doc.setFillColor(248, 250, 252);
+    doc.rect(20, 65, 170, 30, 'F');
+    doc.setDrawColor(226, 232, 240);
+    doc.rect(20, 65, 170, 30);
+
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(31, 41, 55);
+    if (role === 'admin') {
+        doc.text("Platform GTV:", 30, 75);
+        doc.text(`Tk. ${(data.summary.total_gtv || 0).toLocaleString()}`, 100, 75);
+        doc.text("Active Users:", 30, 82);
+        doc.text(`${data.summary.total_users || 0}`, 100, 82);
+    } else {
+        const label1 = role === 'seller' ? 'Total Items Sold:' : 'Total Purchased:';
+        const label2 = role === 'seller' ? 'Net Earnings:' : 'Total Spent:';
+        doc.text(label1, 30, 78);
+        doc.text(`${data.summary.total_count}`, 100, 78);
+        doc.text(label2, 30, 85);
+        doc.text(`Tk. ${data.summary.total_amount.toLocaleString()}`, 100, 85);
+    }
+
+    // Table Header
+    let y = 110;
+    doc.setFillColor(79, 70, 229);
+    doc.setTextColor(255, 255, 255);
+    doc.rect(20, y, 170, 10, 'F');
+    doc.setFontSize(9);
+    doc.text("ID", 25, y + 7);
+    doc.text("ITEM", 50, y + 7);
+    doc.text("DATE", 110, y + 7);
+    doc.text("STATUS", 140, y + 7);
+    doc.text("AMOUNT", 165, y + 7);
+
+    // Rows
+    y += 10;
+    doc.setTextColor(31, 41, 55);
+    doc.setFont("helvetica", "normal");
+    data.history.forEach((item, index) => {
+        if (y > 270) { 
+            doc.addPage(); 
+            doc.setDrawColor(99, 102, 241);
+            doc.setLineWidth(1.5);
+            doc.rect(5, 5, 200, 287); 
+            y = 20; 
+        }
+        const rowId = `RS-${(item.order_number || 0).toString().padStart(5, '0')}`;
+        const amount = role === 'admin' ? (item.total_amount || 0) : (role === 'seller' ? (item.net_earnings || item.price) : item.price);
+        
+        doc.text(rowId, 25, y + 7);
+        doc.text(item.product_title.substring(0, 25), 50, y + 7);
+        doc.text(new Date(item.date).toLocaleDateString(), 110, y + 7);
+        doc.text(item.status.substring(0, 12).toUpperCase(), 140, y + 7);
+        doc.text(`Tk. ${amount.toLocaleString()}`, 165, y + 7);
+        
+        doc.setDrawColor(241, 245, 249);
+        doc.line(20, y + 10, 190, y + 10);
+        y += 10;
+    });
+
+    // Footer
+    doc.setFontSize(8);
+    doc.setTextColor(148, 163, 184);
+    doc.text("This is a computer-generated official document from ReSale Marketplace.", 105, 285, { align: "center" });
+
+    doc.save(`ReSale_Report_${role}_${data.summary.period}.pdf`);
+};
+
+window.handleDownloadAdminEarnings = async function(period) {
+    try {
+        const txs = await window.api.getWalletTransactions();
+        const now = new Date();
+        let filteredTxs = txs.filter(t => t.transaction_type === 'platform_revenue' || t.transaction_type === 'withdrawal');
+
+        if (period === 'daily') {
+            filteredTxs = filteredTxs.filter(t => new Date(t.created_at).toDateString() === now.toDateString());
+        } else if (period === 'weekly') {
+            const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+            filteredTxs = filteredTxs.filter(t => new Date(t.created_at) >= weekAgo);
+        } else if (period === 'monthly') {
+            filteredTxs = filteredTxs.filter(t => new Date(t.created_at).getMonth() === now.getMonth() && new Date(t.created_at).getFullYear() === now.getFullYear());
+        } else if (period === 'yearly') {
+            filteredTxs = filteredTxs.filter(t => new Date(t.created_at).getFullYear() === now.getFullYear());
+        }
+
+        if (filteredTxs.length === 0) return alert(`No platform earnings found for the selected ${period} period.`);
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        // Header
+        doc.setDrawColor(16, 185, 129);
+        doc.setLineWidth(1.5);
+        doc.rect(5, 5, 200, 287);
+        
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(24);
+        doc.setTextColor(16, 185, 129);
+        doc.text("ReSale. Earnings Ledger", 105, 25, { align: "center" });
+        
+        doc.setFontSize(12);
+        doc.setTextColor(100, 116, 139);
+        doc.text(`Official Revenue Report - ${period.toUpperCase()}`, 105, 35, { align: "center" });
+        
+        doc.setFontSize(10);
+        doc.text(`Run Date: ${new Date().toLocaleString()}`, 20, 50);
+        
+        const totalRev = filteredTxs.filter(t => t.transaction_type === 'platform_revenue').reduce((acc, t) => acc + t.amount, 0);
+        const totalWithdraw = filteredTxs.filter(t => t.transaction_type === 'withdrawal').reduce((acc, t) => acc + t.amount, 0);
+
+        doc.setFillColor(248, 250, 252);
+        doc.rect(20, 60, 170, 25, 'F');
+        doc.setDrawColor(226, 232, 240);
+        doc.rect(20, 60, 170, 25);
+        
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(31, 41, 55);
+        doc.text(`Total Period Revenue: Tk. ${totalRev.toLocaleString()}`, 30, 72);
+        doc.text(`Total Withdrawals: Tk. ${totalWithdraw.toLocaleString()}`, 30, 79);
+
+        // Table Header
+        let y = 100;
+        doc.setFillColor(16, 185, 129);
+        doc.setTextColor(255, 255, 255);
+        doc.rect(20, y, 170, 10, 'F');
+        doc.text("DATE", 25, y + 7);
+        doc.text("TYPE", 60, y + 7);
+        doc.text("DESCRIPTION", 95, y + 7);
+        doc.text("AMOUNT", 165, y + 7);
+
+        y += 10;
+        doc.setTextColor(31, 41, 55);
+        doc.setFont("helvetica", "normal");
+        filteredTxs.forEach(t => {
+            if (y > 275) { doc.addPage(); y = 20; }
+            doc.text(new Date(t.created_at).toLocaleDateString(), 25, y + 7);
+            doc.text(t.transaction_type.replace('_', ' ').toUpperCase(), 60, y + 7);
+            doc.text(t.description.substring(0, 30), 95, y + 7);
+            doc.text(`Tk. ${t.amount.toLocaleString()}`, 165, y + 7);
+            doc.line(20, y + 10, 190, y + 10);
+            y += 10;
+        });
+
+        doc.save(`ReSale_Platform_Earnings_${period}_${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (err) {
+        alert("Failed to generate earnings report: " + err.message);
+    }
+};
 
 

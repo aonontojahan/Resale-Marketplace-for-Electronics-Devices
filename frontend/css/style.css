@@ -5,17 +5,19 @@
   --accent-cyan: #06b6d4;
   --accent-purple: #a855f7;
   --accent-green: #10b981;
-  --bg: #fdfdfd;
+  --bg: #f8fafc;
   --surface: #ffffff;
-  --border: #e2e8f0;
+  --border: rgba(226, 232, 240, 0.7);
   --text: #1e293b;
   --text-muted: #64748b;
-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.1);
+  --shadow-sm: 0 4px 6px -1px rgba(0,0,0,0.05);
   --shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
   --shadow-lg: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
   --radius: 16px;
   --container-max: 1560px;
   --container-narrow: 1100px;
+  --glass-bg: rgba(255, 255, 255, 0.75);
+  --glass-border: rgba(255, 255, 255, 0.5);
 }
 
 * {
@@ -102,19 +104,48 @@ header .container {
 }
 
 .search-container {
-  flex: 1;
-  max-width: 800px; /* Wider search bar */
+  display: flex;
+  align-items: center;
   position: relative;
+  width: 100%;
+  max-width: 300px; /* Smaller, compact search */
+  transition: all 0.3s ease;
 }
 
 .search-bar {
   width: 100%;
-  padding: 0.75rem 1rem;
-  padding-left: 2.5rem;
+  padding: 0.55rem 1rem;
+  padding-right: 2.8rem; /* Space for the button */
   border: 1px solid var(--border);
-  border-radius: 99px;
-  background: var(--bg);
+  border-radius: 12px;
+  background: rgba(248, 250, 252, 0.8);
   outline: none;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+}
+
+.search-btn {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  background: var(--primary);
+  color: white;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(99, 102, 241, 0.2);
+}
+
+.search-btn:hover {
+  background: var(--primary-hover);
+  transform: translateY(-50%) scale(1.05);
 }
 
 .search-bar:focus {
@@ -131,6 +162,10 @@ nav {
 nav a {
   font-weight: 500;
   color: var(--text-muted);
+  white-space: nowrap; /* Prevent multi-line links */
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 nav a:hover, nav a.active {
@@ -175,6 +210,46 @@ nav a:hover, nav a.active {
   font-weight: 600;
   color: var(--text);
   white-space: nowrap;
+}
+
+.nav-messages-btn {
+  position: relative;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  transition: all 0.2s;
+  padding: 0.6rem 1.2rem;
+  border-radius: 10px;
+  background: rgba(241, 245, 249, 0.8);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nav-messages-btn:hover {
+  color: var(--primary);
+  background: rgba(99, 102, 241, 0.1);
+  transform: translateY(-2px);
+}
+
+.unread-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  background: #ef4444;
+  color: white;
+  font-size: 0.65rem;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 /* PRODUCT GRID */
@@ -477,24 +552,17 @@ nav a:hover, nav a.active {
 }
 
 .message {
-  max-width: 60%;
-  padding: 0.8rem 1.2rem;
-  border-radius: 18px;
-  font-size: 0.95rem;
+  max-width: 85%;
+  display: flex;
+  flex-direction: column;
 }
 
 .message.user {
   align-self: flex-end;
-  background: var(--primary);
-  color: white;
-  border-bottom-right-radius: 4px;
 }
 
-.message.seller {
+.message.other {
   align-self: flex-start;
-  background: #e2e8f0;
-  color: var(--text);
-  border-bottom-left-radius: 4px;
 }
 
 .chat-input-area {

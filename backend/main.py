@@ -24,6 +24,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 # Ensure uploads directory exists
 os.makedirs("backend/uploads", exist_ok=True)
+os.makedirs("backend/uploads/profiles", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="backend/uploads"), name="uploads")
 
 # Configure CORS for frontend access
@@ -124,32 +125,67 @@ def read_root():
 
 # ─── AUTH ─────────────────────────────────────────────────────────────────────
 
-@app.post("/auth/signup", response_model=schemas.UserResponse)
-def signup(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    """Create a new user with minimal fields."""
-    db_user = db.query(models.User).filter(models.User.email == user.email).first()
+@app.post("/auth/signup", response_model=schemas.SignupResponse)
+def signup(
+    email: str = Form(...),
+    full_name: str = Form(...),
+    password: str = Form(...),
+    role: str = Form("buyer"),
+    phone_number: Optional[str] = Form(None),
+    address_region: Optional[str] = Form(None),
+    address_city: Optional[str] = Form(None),
+    address_area: Optional[str] = Form(None),
+    address_full: Optional[str] = Form(None),
+    profile_pic: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db)
+):
+    """Create a new user with profile picture support."""
+    db_user = db.query(models.User).filter(models.User.email == email).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    account_status = "pending_verification" if user.role == "seller" else "active"
+    account_status = "pending_verification" if role == "seller" else "active"
+    
+    # Handle Profile Picture
+    profile_pic_url = None
+    if profile_pic and profile_pic.filename:
+        ext = profile_pic.filename.rsplit(".", 1)[-1].lower()
+        file_name = f"profile_{uuid.uuid4().hex}.{ext}"
+        file_path = f"backend/uploads/profiles/{file_name}"
+        with open(file_path, "wb") as buf:
+            shutil.copyfileobj(profile_pic.file, buf)
+        profile_pic_url = f"/uploads/profiles/{file_name}"
 
-    hashed_password = auth.get_password_hash(user.password)
+    hashed_password = auth.get_password_hash(password)
     new_user = models.User(
-        email=user.email,
-        full_name=user.full_name,
+        email=email,
+        full_name=full_name,
         hashed_password=hashed_password,
-        role=user.role,
-        phone_number=user.phone_number,
+        role=role,
+        phone_number=phone_number,
         account_status=account_status,
-        address_region=user.address_region,
-        address_city=user.address_city,
-        address_area=user.address_area,
-        address_full=user.address_full
+        address_region=address_region,
+        address_city=address_city,
+        address_area=address_area,
+        address_full=address_full,
+        profile_pic_url=profile_pic_url
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    return new_user
+    
+    # Generate token immediately for auto-login
+    access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = auth.create_access_token(
+        data={"sub": new_user.email, "role": new_user.role},
+        expires_delta=access_token_expires
+    )
+    
+    return {
+        "user": new_user,
+        "access_token": access_token,
+        "token_type": "bearer"
+    }
 
 
 @app.post("/auth/login", response_model=schemas.Token)
@@ -161,6 +197,12 @@ def login(user_in: schemas.UserLogin, db: Session = Depends(get_db)):
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    if user.account_status == "pending_verification":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account is pending admin approval. You will be able to login once verified."
         )
 
     if user.account_status == "banned":
@@ -196,6 +238,10 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     user = db.query(models.User).filter(models.User.email == email).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+
+    if user.account_status == "pending_verification":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="Your account is pending admin approval.")
 
     if user.account_status == "banned":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
@@ -233,6 +279,40 @@ def mock_deposit_funds(
     db.commit()
     db.refresh(current_user)
     return current_user
+
+@app.post("/wallet/withdraw")
+def withdraw_funds(
+    withdraw_req: schemas.WithdrawalRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Processes a withdrawal request from the user's wallet."""
+    if withdraw_req.amount <= 0:
+        raise HTTPException(status_code=400, detail="Withdrawal amount must be greater than 0.")
+    
+    if current_user.wallet_balance < withdraw_req.amount:
+        raise HTTPException(status_code=400, detail="Insufficient funds in wallet.")
+
+    current_user.wallet_balance -= withdraw_req.amount
+    
+    # Construct description based on method
+    desc = f"Withdrawal via {withdraw_req.method.upper()}"
+    if withdraw_req.method == 'bank':
+        desc += f" (Acc: {withdraw_req.account_number}, Bank: {withdraw_req.bank_name})"
+    else:
+        desc += f" (Mobile: {withdraw_req.mobile_number})"
+
+    # Create transaction record
+    new_tx = models.WalletTransaction(
+        user_id=current_user.id,
+        amount=withdraw_req.amount,
+        transaction_type="withdrawal",
+        description=desc
+    )
+    db.add(new_tx)
+    db.commit()
+    
+    return {"message": "Withdrawal request submitted successfully", "new_balance": current_user.wallet_balance}
 
 @app.get("/wallet/transactions", response_model=List[schemas.WalletTransactionResponse])
 def get_user_transactions(
@@ -285,11 +365,15 @@ def create_offer(
     )
     db.add(new_offer)
     
+    # Fetch product title for the message
+    product = db.query(models.Product).filter(models.Product.id == offer_in.product_id).first()
+    p_title = product.title if product else "this item"
+
     # Drop a system message in the chat
     system_msg = models.ChatMessage(
         session_id=offer_in.session_id,
         sender_id=session.buyer_id,
-        text=f"📢 OFFER MADE: {current_user.full_name} offered Tk.{offer_in.offered_price:,d} for this item."
+        text=f"📢 OFFER MADE: {current_user.full_name} offered Tk.{offer_in.offered_price:,d} for {p_title}."
     )
     db.add(system_msg)
     db.flush()
@@ -335,21 +419,25 @@ def accept_offer(
     
     offer.status = models.OfferStatus.ACCEPTED
     
+    p_title = offer.product.title if offer.product else "this item"
+
     # System message
     system_msg = models.ChatMessage(
         session_id=offer.session_id,
         sender_id=offer.seller_id,
-        text=f"✅ OFFER ACCEPTED: {current_user.full_name} has accepted the offer of Tk.{offer.offered_price:,d}!"
+        text=f"✅ OFFER ACCEPTED: {current_user.full_name} has accepted the offer of Tk.{offer.offered_price:,d} for {p_title}!"
     )
     db.add(system_msg)
-    db.flush()
-    push_system_msg(system_msg, offer.buyer_id, offer.seller_id)
     
     # Touch session
     offer.session.updated_at = func.now()
     db.add(offer.session)
     
+    # Commit FIRST, then push via WebSocket
     db.commit()
+    db.refresh(system_msg)
+    push_system_msg(system_msg, offer.buyer_id, offer.seller_id)
+    
     db.refresh(offer)
     return offer
 
@@ -368,21 +456,25 @@ def reject_offer(
     
     offer.status = models.OfferStatus.REJECTED
     
+    p_title = offer.product.title if offer.product else "this item"
+
     # System message
     system_msg = models.ChatMessage(
         session_id=offer.session_id,
         sender_id=offer.seller_id,
-        text=f"❌ OFFER REJECTED: The seller has declined the offer of Tk.{offer.offered_price:,d}."
+        text=f"❌ OFFER REJECTED: The seller has declined the offer of Tk.{offer.offered_price:,d} for {p_title}."
     )
     db.add(system_msg)
-    db.flush()
-    push_system_msg(system_msg, offer.buyer_id, offer.seller_id)
     
     # Touch session
     offer.session.updated_at = func.now()
     db.add(offer.session)
     
+    # Commit FIRST, then push via WebSocket so the message is persisted before delivery
     db.commit()
+    db.refresh(system_msg)
+    push_system_msg(system_msg, offer.buyer_id, offer.seller_id)
+    
     db.refresh(offer)
     return offer
 
@@ -418,16 +510,21 @@ def finalize_payment(
     
     offer.status = models.OfferStatus.PAID
     
+    # Assign sequential Order ID only upon payment
+    max_order = db.query(func.max(models.Offer.order_number)).scalar() or 0
+    offer.order_number = max_order + 1
+    
     # Decrement inventory and sync status
     product.inventory_quantity = max(0, product.inventory_quantity - quantity)
     if product.inventory_quantity == 0:
         product.status = models.ProductStatus.SOLD
     
     # Notify chat
+    order_id_str = f"RS-{offer.order_number:05d}"
     pay_msg = models.ChatMessage(
         session_id=offer.session_id,
         sender_id=offer.buyer_id,
-        text=f"💰 PAYMENT COMPLETED: Tk.{final_total:,d} moved to escrow via SecurePay."
+        text=f"💰 PAYMENT COMPLETED: Tk.{final_total:,d} moved to escrow via SecurePay. Order ID: {order_id_str}"
     )
     db.add(pay_msg)
     
@@ -479,11 +576,13 @@ def process_order(
 
     offer.status = models.OfferStatus.PROCESSING
     
+    p_title = offer.product.title if offer.product else "this item"
+
     # System message
     system_msg = models.ChatMessage(
         session_id=offer.session_id,
         sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1, 
-        text="⚙️ ORDER PROCESSING: The seller is now preparing your item for shipment."
+        text=f"⚙️ ORDER PROCESSING ({p_title}): The seller is now preparing your item for shipment."
     )
     db.add(system_msg)
     db.flush()
@@ -519,7 +618,8 @@ def ship_order(
     if tracking_info:
         offer.tracking_info = tracking_info
     
-    msg_text = "🚚 ORDER SHIPPED:\n" + (tracking_info if tracking_info else "The item has been handed over to the courier.")
+    p_title = offer.product.title if offer.product else "this item"
+    msg_text = f"🚚 ORDER SHIPPED ({p_title}):\n" + (tracking_info if tracking_info else "The item has been handed over to the courier.")
         
     # System message
     system_msg = models.ChatMessage(
@@ -557,12 +657,19 @@ def deliver_order(
         raise HTTPException(status_code=400, detail="Invalid transition: Order must be SHIPPED before it can be delivered")
 
     offer.status = models.OfferStatus.DELIVERED
+    offer.delivered_at = func.now()
     
+    p_title = offer.product.title if offer.product else "this item"
+
     # System message
+    delivered_text = f"📦 ORDER DELIVERED ({p_title}): The seller has marked the order as delivered. Buyer, please confirm delivery to release funds to the seller."
+    if offer.tracking_info:
+        delivered_text += f"\n{offer.tracking_info}"
+    
     system_msg = models.ChatMessage(
         session_id=offer.session_id,
         sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1, 
-        text="📦 ORDER DELIVERED: The seller has marked the order as delivered. Buyer, please confirm delivery to release funds to the seller. Funds will auto-release in 3 days if no action is taken."
+        text=delivered_text
     )
     db.add(system_msg)
     db.flush()
@@ -575,6 +682,80 @@ def deliver_order(
     db.commit()
     return {"message": "Order marked as delivered", "status": offer.status}
 
+def _perform_fund_release(db: Session, offer: models.Offer, is_auto: bool = False):
+    """
+    Internal helper to execute the fund movement from escrow to seller wallet.
+    Used by both manual release and auto-release logic.
+    """
+    total_paid = (offer.offered_price * offer.quantity) + DELIVERY_FEE
+    product_price = offer.offered_price * offer.quantity
+    commission = int(product_price * COMMISSION_RATE)
+    seller_amount = (product_price - commission) + DELIVERY_FEE
+
+    # 1. Deduct from buyer's escrow
+    buyer = offer.buyer
+    if buyer.escrow_balance < total_paid:
+        raise ValueError("Insufficient escrow balance")
+    
+    buyer.escrow_balance -= total_paid
+    
+    # 2. Add to seller's wallet
+    seller = offer.seller
+    seller.wallet_balance += seller_amount
+    
+    # Update offer status
+    offer.status = models.OfferStatus.AUTO_COMPLETED if is_auto else models.OfferStatus.COMPLETED
+    
+    # Record transactions
+    db.add(models.WalletTransaction(
+        user_id=seller.id,
+        amount=seller_amount,
+        transaction_type="sale_payout",
+        description=f"Payout for {offer.product.title} ({'System Auto-Release' if is_auto else 'Buyer Released'})"
+    ))
+    db.add(models.WalletTransaction(
+        user_id=buyer.id,
+        amount=-total_paid,
+        transaction_type="escrow_release",
+        description=f"Escrow released for {offer.product.title}"
+    ))
+
+    # Record platform commission
+    admin = db.query(models.User).filter(models.User.role == models.UserRole.ADMIN).first()
+    if admin and commission > 0:
+        admin.wallet_balance += commission
+        db.add(models.WalletTransaction(
+            user_id=admin.id,
+            amount=commission,
+            transaction_type="platform_revenue",
+            description=f"Commission from Sale ID: {offer.id}"
+        ))
+
+    # System messages
+    status_text = "🤖 SYSTEM AUTO-RELEASE" if is_auto else "✅ FUNDS RELEASED"
+    p_title = offer.product.title if offer.product else "this item"
+    
+    system_msg = models.ChatMessage(
+        session_id=offer.session_id,
+        sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1, 
+        text=f"{status_text} ({p_title}): Tk.{seller_amount:,d} has been moved to the seller's wallet."
+    )
+    db.add(system_msg)
+    
+    if not is_auto:
+        # Only prompt for review on manual release to avoid spamming if buyer is away
+        review_prompt = models.ChatMessage(
+            session_id=offer.session_id,
+            sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1,
+            text=f"[REVIEW_PROMPT]:{offer.product_id}:{offer.product.title}"
+        )
+        db.add(review_prompt)
+        db.flush()
+    push_system_msg(system_msg, offer.buyer_id, offer.seller_id)
+    if not is_auto:
+        push_system_msg(review_prompt, offer.buyer_id, offer.seller_id)
+    return seller_amount, commission
+
 @app.post("/escrow/release/{offer_id}")
 def release_payment(
     offer_id: int,
@@ -583,7 +764,6 @@ def release_payment(
 ):
     """
     Called by the buyer to release escrowed funds to the seller.
-    Deducts the marketplace commission (0.5%).
     """
     offer = db.query(models.Offer).filter(models.Offer.id == offer_id).first()
     if not offer:
@@ -595,84 +775,36 @@ def release_payment(
     if offer.status not in (models.OfferStatus.PAID, models.OfferStatus.PROCESSING, models.OfferStatus.SHIPPED, models.OfferStatus.DELIVERED):
         raise HTTPException(status_code=400, detail="Funds cannot be released at this state")
 
-    # Calculate values
-    total_paid = (offer.offered_price * offer.quantity) + DELIVERY_FEE
-    
-    # Commission is usually on the product price only
-    product_price = offer.offered_price * offer.quantity
-    commission = int(product_price * COMMISSION_RATE)
-    
-    # Seller gets: Product Price - Commission + Delivery Fee (assuming seller handles delivery)
-    # OR Seller gets: Product Price - Commission, and Platform keeps Delivery Fee.
-    # User asked to "hold full money", let's payout the product price - commission to seller.
-    # Usually delivery fee is paid back to seller to cover their shipping cost.
-    seller_amount = (product_price - commission) + DELIVERY_FEE
+    try:
+        seller_amount, commission = _perform_fund_release(db, offer, is_auto=False)
+        db.commit()
+        return {"message": "Funds released successfully", "seller_received": seller_amount, "commission": commission}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
-    # Move funds
-    # 1. Deduct full payment from buyer's escrow
-    if current_user.escrow_balance < total_paid:
-        raise HTTPException(status_code=400, detail="Insufficient escrow balance")
+@app.post("/escrow/check-auto-release")
+def trigger_auto_release(db: Session = Depends(get_db)):
+    """
+    Scans for delivered orders older than 72 hours and auto-releases them.
+    Can be triggered by the frontend on dashboard load.
+    """
+    threshold = datetime.now(timezone.utc) - timedelta(hours=72)
     
-    current_user.escrow_balance -= total_paid
+    pending = db.query(models.Offer).filter(
+        models.Offer.status == models.OfferStatus.DELIVERED,
+        models.Offer.delivered_at <= threshold
+    ).all()
     
-    # 2. Add to seller's wallet
-    seller = db.query(models.User).filter(models.User.id == offer.seller_id).first()
-    seller.wallet_balance += seller_amount
-    
-    # Update offer status
-    offer.status = models.OfferStatus.COMPLETED
-    
-    # Record transaction for seller
-    seller_tx = models.WalletTransaction(
-        user_id=seller.id,
-        amount=seller_amount,
-        transaction_type="sale_payout",
-        description=f"Payout for {offer.product.title} (Commission {COMMISSION_RATE*100}% deducted)"
-    )
-    db.add(seller_tx)
-
-    # Record for Buyer (Escrow release)
-    buyer_tx = models.WalletTransaction(
-        user_id=current_user.id,
-        amount=-total_paid,
-        transaction_type="escrow_release",
-        description=f"Payment released to seller for {offer.product.title}"
-    )
-    db.add(buyer_tx)
-
-    # Record platform commission
-    admin = db.query(models.User).filter(models.User.role == models.UserRole.ADMIN).first()
-    if admin and commission > 0:
-        admin.wallet_balance += commission
-        platform_tx = models.WalletTransaction(
-            user_id=admin.id,
-            amount=commission,
-            transaction_type="platform_revenue",
-            description=f"Commission earned from {offer.product.title} (Sale ID: {offer.id})"
-        )
-        db.add(platform_tx)
-
-    # System message
-    system_msg = models.ChatMessage(
-        session_id=offer.session_id,
-        sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1, 
-        text=f"✅ FUNDS RELEASED: Tk.{seller_amount:,d} has been moved to the seller's wallet after a {COMMISSION_RATE*100}% service fee."
-    )
-    db.add(system_msg)
-
-    # Trigger Review Prompt for Buyer (Dynamic Card in Chat)
-    review_prompt = models.ChatMessage(
-        session_id=offer.session_id,
-        sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1,
-        text=f"[REVIEW_PROMPT]:{offer.product_id}:{offer.product.title}"
-    )
-    db.add(review_prompt)
-    db.flush()
-    push_system_msg(system_msg, offer.buyer_id, offer.seller_id)
-    push_system_msg(review_prompt, offer.buyer_id, offer.seller_id)
-
+    count = 0
+    for offer in pending:
+        try:
+            _perform_fund_release(db, offer, is_auto=True)
+            count += 1
+        except Exception as e:
+            print(f"Auto-release failed for offer {offer.id}: {e}")
+            
     db.commit()
-    return {"message": "Funds released successfully", "seller_received": seller_amount, "commission": commission}
+    return {"message": f"Processed {count} auto-releases."}
 
 @app.post("/escrow/dispute/{offer_id}")
 def dispute_transaction(
@@ -1207,7 +1339,10 @@ def admin_user_action(user_id: int, action_req: schemas.UserActionRequest, db: S
 def get_platform_stats(db: Session = Depends(get_db)):
     """Returns real-time platform statistics."""
     total_buyers  = db.query(models.User).filter(models.User.role == models.UserRole.BUYER).count()
-    total_sellers = db.query(models.User).filter(models.User.role == models.UserRole.SELLER).count()
+    total_sellers = db.query(models.User).filter(
+        models.User.role == models.UserRole.SELLER,
+        models.User.account_status == "active"
+    ).count()
     total_users   = total_buyers + total_sellers
 
     satisfaction = 99 if total_users == 0 else min(99, 94 + round(total_users / 10))
@@ -1247,18 +1382,150 @@ def get_platform_stats(db: Session = Depends(get_db)):
     }
 
 
+# ─── REPORTS ─────────────────────────────────────────────────────────────────
+
+@app.get("/reports/seller", response_model=schemas.SellerReportResponse)
+def get_seller_report(
+    period: str = "all", 
+    db: Session = Depends(get_db), 
+    current_user: models.User = Depends(get_current_user)
+):
+    """Generates a detailed sales report for the seller."""
+    # Filter: Only show items that have been paid (have an order number)
+    query = db.query(models.Offer).filter(
+        models.Offer.seller_id == current_user.id,
+        models.Offer.order_number != None
+    )
+    
+    # Filter by period if needed
+    if period == "monthly":
+        start_date = datetime.now(timezone.utc) - timedelta(days=30)
+        query = query.filter(models.Offer.created_at >= start_date)
+    elif period == "weekly":
+        start_date = datetime.now(timezone.utc) - timedelta(days=7)
+        query = query.filter(models.Offer.created_at >= start_date)
+        
+    offers = query.order_by(models.Offer.created_at.desc()).all()
+    
+    history = []
+    total_amount = 0
+    completed_count = 0
+    
+    for o in offers:
+        # Count ONLY fully completed sales in the summary (as requested)
+        is_completed = o.status in [models.OfferStatus.COMPLETED, models.OfferStatus.AUTO_COMPLETED]
+        
+        offered_price = o.offered_price or 0
+        quantity = o.quantity or 1
+        
+        commission = int(offered_price * quantity * COMMISSION_RATE)
+        net_earnings = (offered_price * quantity) - commission
+        
+        if is_completed:
+            total_amount += net_earnings
+            completed_count += 1
+            
+        history.append(schemas.SellerReportItem(
+            order_id=o.id,
+            order_number=o.order_number,
+            product_title=o.product.title if o.product else "Deleted Product",
+            price=offered_price,
+            quantity=quantity,
+            commission=commission,
+            net_earnings=net_earnings,
+            status=o.status,
+            date=o.created_at
+        ))
+        
+    return schemas.SellerReportResponse(
+        summary=schemas.ReportSummary(
+            total_count=completed_count,
+            total_amount=total_amount,
+            period=period
+        ),
+        history=history
+    )
+
+@app.get("/reports/buyer", response_model=schemas.BuyerReportResponse)
+def get_buyer_report(
+    period: str = "all", 
+    db: Session = Depends(get_db), 
+    current_user: models.User = Depends(get_current_user)
+):
+    """Generates a detailed purchase report for the buyer."""
+    # Filter: Only show items that have been paid (have an order number)
+    query = db.query(models.Offer).filter(
+        models.Offer.buyer_id == current_user.id,
+        models.Offer.order_number != None
+    )
+    
+    if period == "monthly":
+        start_date = datetime.now(timezone.utc) - timedelta(days=30)
+        query = query.filter(models.Offer.created_at >= start_date)
+    elif period == "weekly":
+        start_date = datetime.now(timezone.utc) - timedelta(days=7)
+        query = query.filter(models.Offer.created_at >= start_date)
+        
+    offers = query.order_by(models.Offer.created_at.desc()).all()
+    
+    history = []
+    total_spent = 0
+    completed_count = 0
+    
+    for o in offers:
+        # Count ONLY fully completed purchases in the summary (as requested)
+        is_completed = o.status in [models.OfferStatus.COMPLETED, models.OfferStatus.AUTO_COMPLETED]
+        
+        offered_price = o.offered_price or 0
+        quantity = o.quantity or 1
+        item_total = (offered_price * quantity) + DELIVERY_FEE
+        
+        if is_completed:
+            total_spent += item_total
+            completed_count += 1
+            
+        history.append(schemas.BuyerReportItem(
+            order_id=o.id,
+            order_number=o.order_number,
+            product_title=o.product.title if o.product else "Deleted Product",
+            price=offered_price,
+            quantity=quantity,
+            status=o.status,
+            date=o.created_at
+        ))
+        
+    return schemas.BuyerReportResponse(
+        summary=schemas.ReportSummary(
+            total_count=completed_count,
+            total_amount=total_spent,
+            period=period
+        ),
+        history=history
+    )
+
+
 # ─── CHATS ────────────────────────────────────────────────────────────────────
 
 @app.post("/chats", response_model=schemas.ChatSessionResponse)
 def create_chat(chat_in: schemas.ChatSessionCreate, db: Session = Depends(get_db)):
-    """Create a new chat session between buyer and seller for a product."""
+    """Create or retrieve a unified chat session between buyer and seller."""
     existing_chat = db.query(models.ChatSession).filter(
-        models.ChatSession.product_id == chat_in.product_id,
         models.ChatSession.buyer_id == chat_in.buyer_id,
         models.ChatSession.seller_id == chat_in.seller_id
     ).first()
 
     if existing_chat:
+        # Reset ONLY the buyer's flag — buyer is the one initiating the conversation
+        # Do NOT reset the seller's flag here; seller may have intentionally hidden it
+        existing_chat.deleted_by_buyer = 0
+        
+        # Optionally update the product_id if provided (as the new 'context')
+        if chat_in.product_id:
+            existing_chat.product_id = chat_in.product_id
+            
+        db.commit()
+        db.refresh(existing_chat)
+        
         resp = schemas.ChatSessionResponse.model_validate(existing_chat)
         if existing_chat.product:
             resp.product_title = existing_chat.product.title
@@ -1284,15 +1551,30 @@ def create_chat(chat_in: schemas.ChatSessionCreate, db: Session = Depends(get_db
 
 
 @app.get("/chats", response_model=List[schemas.ChatSessionResponse])
-def get_user_chats(user_id: int, db: Session = Depends(get_db)):
-    """Fetch all chat sessions for a specific user with optimized loading."""
-    chats = db.query(models.ChatSession).options(
+def get_user_chats(
+    user_id: int, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Fetch all chat sessions for a specific user, filtering out sessions they've hidden."""
+    if current_user.id != user_id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    query = db.query(models.ChatSession).options(
         joinedload(models.ChatSession.buyer),
         joinedload(models.ChatSession.seller),
         joinedload(models.ChatSession.product)
     ).filter(
         (models.ChatSession.buyer_id == user_id) | (models.ChatSession.seller_id == user_id)
-    ).order_by(models.ChatSession.updated_at.desc()).all()
+    )
+    
+    # Filter: Don't show if deleted by the requester
+    query = query.filter(
+        ~((models.ChatSession.buyer_id == user_id) & (models.ChatSession.deleted_by_buyer == 1)),
+        ~((models.ChatSession.seller_id == user_id) & (models.ChatSession.deleted_by_seller == 1))
+    )
+    
+    chats = query.order_by(models.ChatSession.updated_at.desc()).all()
 
     results = []
     for chat in chats:
@@ -1318,14 +1600,32 @@ def get_user_chats(user_id: int, db: Session = Depends(get_db)):
 
 
 @app.delete("/chats/{session_id}")
-def delete_chat(session_id: int, db: Session = Depends(get_db)):
-    """Delete a chat session and all its messages."""
+def delete_chat(
+    session_id: int, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Hide a chat session from the current user's view."""
     chat = db.query(models.ChatSession).filter(models.ChatSession.id == session_id).first()
     if not chat:
         raise HTTPException(status_code=404, detail="Chat session not found")
-    db.delete(chat)
+    
+    if current_user.id == chat.buyer_id:
+        chat.deleted_by_buyer = 1
+    elif current_user.id == chat.seller_id:
+        chat.deleted_by_seller = 1
+    else:
+        raise HTTPException(status_code=403, detail="Forbidden")
+
+    # If both parties deleted, permanently remove it
+    if chat.deleted_by_buyer == 1 and chat.deleted_by_seller == 1:
+        db.delete(chat)
+        message = "Chat permanently deleted"
+    else:
+        message = "Chat hidden from your view"
+
     db.commit()
-    return {"status": "success", "message": "Chat session deleted"}
+    return {"status": "success", "message": message}
 
 
 @app.post("/chats/{session_id}/read")
@@ -1343,10 +1643,16 @@ def mark_chat_read(session_id: int, user_id: int, db: Session = Depends(get_db))
 @app.get("/chats/{session_id}/messages", response_model=List[schemas.MessageResponse])
 def get_chat_messages(session_id: int, db: Session = Depends(get_db)):
     """Fetch message history for a chat session."""
-    messages = db.query(models.ChatMessage).filter(
+    messages = db.query(models.ChatMessage).options(joinedload(models.ChatMessage.sender)).filter(
         models.ChatMessage.session_id == session_id
     ).order_by(models.ChatMessage.created_at).all()
-    return messages
+    
+    results = []
+    for m in messages:
+        resp = schemas.MessageResponse.model_validate(m)
+        resp.sender_profile_pic = m.sender.profile_pic_url if m.sender else None
+        results.append(resp)
+    return results
 
 
 @app.websocket("/ws/chat/{session_id}")
@@ -1390,6 +1696,7 @@ async def websocket_chat(websocket: WebSocket, session_id: int, token: str, db: 
                 "id": new_msg.id,
                 "session_id": new_msg.session_id,
                 "sender_id": new_msg.sender_id,
+                "sender_profile_pic": user.profile_pic_url,
                 "text": new_msg.text,
                 "created_at": new_msg.created_at.isoformat()
             }
@@ -1498,3 +1805,168 @@ def get_seller_reviews(seller_id: int, db: Session = Depends(get_db)):
         })
     return results
 
+
+# ─── REPORTS ──────────────────────────────────────────────────────────────────
+
+@app.get("/reports/seller", response_model=schemas.SellerReportResponse)
+def get_seller_report(
+    period: str = Query("all", pattern="^(all|monthly|weekly)$"),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Generates a performance report for the seller."""
+    query = db.query(models.Offer).filter(models.Offer.seller_id == current_user.id)
+    
+    if period == "monthly":
+        query = query.filter(models.Offer.created_at >= datetime.now(timezone.utc) - timedelta(days=30))
+    elif period == "weekly":
+        query = query.filter(models.Offer.created_at >= datetime.now(timezone.utc) - timedelta(days=7))
+        
+    offers = query.order_by(models.Offer.created_at.desc()).all()
+    
+    history = []
+    total_revenue = 0
+    total_orders = 0
+    
+    for o in offers:
+        is_success = o.status in (models.OfferStatus.COMPLETED, models.OfferStatus.AUTO_COMPLETED)
+        item_revenue = (o.offered_price * o.quantity)
+        commission = int(item_revenue * COMMISSION_RATE)
+        net_earnings = (item_revenue - commission) + DELIVERY_FEE
+        
+        if is_success:
+            total_revenue += net_earnings
+            total_orders += 1
+            
+        history.append(schemas.SellerReportItem(
+            order_id=o.id,
+            product_title=o.product.title,
+            date=o.created_at,
+            price=o.offered_price,
+            quantity=o.quantity,
+            status=o.status,
+            net_earnings=net_earnings
+        ))
+        
+    return schemas.SellerReportResponse(
+        summary=schemas.ReportSummary(
+            total_count=total_orders,
+            total_amount=total_revenue,
+            period=period
+        ),
+        history=history
+    )
+
+@app.get("/reports/buyer", response_model=schemas.BuyerReportResponse)
+def get_buyer_report(
+    period: str = Query("all", pattern="^(all|monthly|weekly)$"),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Generates a purchase history report for the buyer."""
+    query = db.query(models.Offer).filter(models.Offer.buyer_id == current_user.id)
+    
+    if period == "monthly":
+        query = query.filter(models.Offer.created_at >= datetime.now(timezone.utc) - timedelta(days=30))
+    elif period == "weekly":
+        query = query.filter(models.Offer.created_at >= datetime.now(timezone.utc) - timedelta(days=7))
+        
+    offers = query.order_by(models.Offer.created_at.desc()).all()
+    
+    history = []
+    total_spent = 0
+    total_items = 0
+    
+    for o in offers:
+        is_success = o.status in (models.OfferStatus.COMPLETED, models.OfferStatus.AUTO_COMPLETED)
+        total_price = (o.offered_price * o.quantity) + DELIVERY_FEE
+        
+        if is_success:
+            total_spent += total_price
+            total_items += 1
+            
+        history.append(schemas.BuyerReportItem(
+            order_id=o.id,
+            product_title=o.product.title,
+            date=o.created_at,
+            price=o.offered_price,
+            quantity=o.quantity,
+            status=o.status
+        ))
+        
+    return schemas.BuyerReportResponse(
+        summary=schemas.ReportSummary(
+            total_count=total_items,
+            total_amount=total_spent,
+            period=period
+        ),
+        history=history
+    )
+
+@app.get("/reports/admin", response_model=schemas.AdminReportResponse)
+def get_admin_report(
+    period: str = Query("all", pattern="^(all|monthly|weekly)$"),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Generates an executive platform-wide performance report."""
+    if current_user.role != models.UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    # Metrics aggregation
+    total_users = db.query(models.User).count()
+    total_sellers = db.query(models.User).filter(
+        models.User.role == models.UserRole.SELLER,
+        models.User.account_status == "active"
+    ).count()
+    total_buyers = db.query(models.User).filter(models.User.role == models.UserRole.BUYER).count()
+    total_products = db.query(models.Product).count()
+    active_escrow = db.query(func.sum(models.User.escrow_balance)).scalar() or 0
+
+    # Offers query: Only show items that have been paid (have an order number)
+    query = db.query(models.Offer).filter(models.Offer.order_number != None)
+    if period == "monthly":
+        query = query.filter(models.Offer.created_at >= datetime.now(timezone.utc) - timedelta(days=30))
+    elif period == "weekly":
+        query = query.filter(models.Offer.created_at >= datetime.now(timezone.utc) - timedelta(days=7))
+    
+    offers = query.order_by(models.Offer.created_at.desc()).all()
+    
+    history = []
+    total_gmv = 0
+    total_revenue = 0
+
+    for o in offers:
+        is_success = o.status in (models.OfferStatus.COMPLETED, models.OfferStatus.AUTO_COMPLETED)
+        item_total = (o.offered_price * o.quantity)
+        commission = int(item_total * COMMISSION_RATE)
+        
+        if is_success or o.status in (models.OfferStatus.PAID, models.OfferStatus.PROCESSING, models.OfferStatus.SHIPPED, models.OfferStatus.DELIVERED):
+            total_gmv += item_total
+            total_revenue += commission
+        
+        history.append(schemas.AdminReportItem(
+            order_id=o.id,
+            order_number=o.order_number,
+            product_title=o.product.title if o.product else "Deleted Product",
+            buyer_name=o.buyer.full_name if o.buyer else "Unknown Buyer",
+            seller_name=o.seller.full_name if o.seller else "Unknown Seller",
+            total_amount=item_total,
+            commission=commission,
+            status=o.status,
+            date=o.created_at
+        ))
+
+    return schemas.AdminReportResponse(
+        summary=schemas.AdminReportSummary(
+            total_users=total_users,
+            total_sellers=total_sellers,
+            total_buyers=total_buyers,
+            total_products=total_products,
+            total_gtv=total_gmv,
+            total_revenue=total_revenue,
+            active_escrow=active_escrow,
+            period=period
+        ),
+        history=history
+    )

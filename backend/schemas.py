@@ -12,6 +12,7 @@ class UserBase(BaseModel):
     address_city: Optional[str] = None
     address_area: Optional[str] = None
     address_full: Optional[str] = None
+    profile_pic_url: Optional[str] = None
 
 class UserCreate(UserBase):
     password: str = Field(..., min_length=8)
@@ -35,6 +36,11 @@ class UserResponse(UserBase):
 
     class Config:
         from_attributes = True
+
+class SignupResponse(BaseModel):
+    user: UserResponse
+    access_token: str
+    token_type: str
 
 class UserActionRequest(BaseModel):
     action: str
@@ -68,6 +74,7 @@ class OfferResponse(OfferBase):
     offered_price: int
     quantity: int = 1
     status: str
+    order_number: Optional[int] = None
     created_at: datetime
     
     class Config:
@@ -91,6 +98,7 @@ class MessageResponse(MessageBase):
     id: int
     session_id: int
     sender_id: int
+    sender_profile_pic: Optional[str] = None
     is_read: bool = False
     created_at: datetime
 
@@ -119,6 +127,14 @@ class ChatSessionResponse(ChatSessionBase):
 
     class Config:
         from_attributes = True
+
+
+class WithdrawalRequest(BaseModel):
+    amount: int
+    method: str  # 'bank', 'bkash', 'nagad'
+    account_number: Optional[str] = None
+    bank_name: Optional[str] = None
+    mobile_number: Optional[str] = None
 
 
 # --- Product Schemas ---
@@ -172,3 +188,61 @@ class ReviewResponse(ReviewBase):
 
     class Config:
         from_attributes = True
+
+class ReportSummary(BaseModel):
+    total_count: int
+    total_amount: int
+    period: str
+
+class SellerReportItem(BaseModel):
+    order_id: int
+    order_number: Optional[int] = None
+    product_title: str
+    price: int
+    quantity: int
+    commission: int
+    net_earnings: int
+    status: str
+    date: datetime
+
+class SellerReportResponse(BaseModel):
+    summary: ReportSummary
+    history: List[SellerReportItem]
+
+class BuyerReportItem(BaseModel):
+    order_id: int
+    order_number: Optional[int] = None
+    product_title: str
+    price: int
+    quantity: int
+    status: str
+    date: datetime
+
+class BuyerReportResponse(BaseModel):
+    summary: ReportSummary
+    history: List[BuyerReportItem]
+
+class AdminReportSummary(BaseModel):
+    total_users: int
+    total_sellers: int
+    total_buyers: int
+    total_products: int
+    total_gtv: int
+    total_revenue: int
+    active_escrow: int
+    period: str
+
+class AdminReportItem(BaseModel):
+    order_id: int
+    order_number: Optional[int] = None
+    product_title: str
+    buyer_name: str
+    seller_name: str
+    total_amount: int
+    commission: int
+    status: str
+    date: datetime
+
+class AdminReportResponse(BaseModel):
+    summary: AdminReportSummary
+    history: List[AdminReportItem]

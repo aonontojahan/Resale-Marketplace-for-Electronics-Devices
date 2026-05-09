@@ -1,5 +1,5 @@
 import enum
-from sqlalchemy import Column, Integer, String, Enum, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Enum, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from .database import Base
@@ -44,6 +44,9 @@ class User(Base):
     # Wallet System
     wallet_balance = Column(Integer, default=0, nullable=False)
     escrow_balance = Column(Integer, default=0, nullable=False)
+    
+    # Profile Customization
+    profile_pic_url = Column(String, nullable=True)
 
     @property
     def average_rating(self):
@@ -61,14 +64,19 @@ class User(Base):
 
 class ChatSession(Base):
     __tablename__ = "chat_sessions"
+    __table_args__ = (UniqueConstraint('buyer_id', 'seller_id', name='_buyer_seller_uc'),)
 
     id = Column(Integer, primary_key=True, index=True)
-    product_id = Column(String, ForeignKey("products.id"), index=True, nullable=False)
+    product_id = Column(String, ForeignKey("products.id"), index=True, nullable=True) # Now nullable/optional
     buyer_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     seller_id = Column(Integer, ForeignKey("users.id"), nullable=False)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Independent Deletion Flags (0=No, 1=Yes)
+    deleted_by_buyer = Column(Integer, default=0, nullable=False)
+    deleted_by_seller = Column(Integer, default=0, nullable=False)
 
     product = relationship("Product", back_populates="chat_sessions")
     buyer = relationship("User", foreign_keys=[buyer_id])
@@ -184,8 +192,10 @@ class Offer(Base):
     offered_price = Column(Integer, nullable=False)
     quantity = Column(Integer, default=1, nullable=False)
     status = Column(Enum(OfferStatus), default=OfferStatus.PENDING, nullable=False)
+    order_number = Column(Integer, nullable=True) # Sequential ID assigned only on payment
     tracking_info = Column(String, nullable=True)
     dispute_reason = Column(String, nullable=True)
+    delivered_at = Column(DateTime(timezone=True), nullable=True)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

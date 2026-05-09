@@ -38,8 +38,18 @@
         <div class="role-tab" data-role="seller">Seller</div>
       </div>
       <input type="hidden" id="selectedRole" value="buyer">
-
+      
       <form id="signupForm">
+        <!-- Profile Picture Section -->
+        <div style="display: flex; flex-direction: column; align-items: center; margin-bottom: 2rem;">
+          <div id="profilePreview" style="width: 120px; height: 120px; border-radius: 50%; background: var(--bg-body); border: 2px dashed var(--border); display: flex; align-items: center; justify-content: center; overflow: hidden; cursor: pointer; position: relative; transition: all 0.3s ease;" onclick="document.getElementById('profile_pic').click()">
+            <span id="previewText" style="color: var(--text-muted); font-size: 0.8rem; text-align: center; padding: 10px;">Click to Upload Profile Pic</span>
+            <img id="previewImg" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+          </div>
+          <input type="file" id="profile_pic" accept="image/*" style="display: none;" onchange="previewProfilePic(this)">
+          <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">Recommended: Square image (High Res supported)</p>
+        </div>
+
         <!-- Minimal Information Section -->
         <div class="form-row">
           <div class="form-group">
@@ -63,7 +73,7 @@
           </div>
         </div>
 
-        <div style="margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: 1.5rem;">
+        <div id="deliveryInfoSection" style="margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: 1.5rem;">
           <h3 style="font-size: 1.1rem; margin-bottom: 1rem;">Optional Delivery Information</h3>
           <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Provide these details now for faster checkout later. You can skip this and add it later.</p>
           
@@ -140,6 +150,24 @@
     </div>
   </footer>
 
+  <script>
+    function previewProfilePic(input) {
+      const preview = document.getElementById('previewImg');
+      const text = document.getElementById('previewText');
+      const container = document.getElementById('profilePreview');
+      
+      if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          preview.src = e.target.result;
+          preview.style.display = 'block';
+          text.style.display = 'none';
+          container.style.border = '2px solid var(--primary)';
+        }
+        reader.readAsDataURL(input.files[0]);
+      }
+    }
+  </script>
   <script src="js/api.js"></script>
   <script src="js/app.js"></script>
 </body>

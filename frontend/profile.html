@@ -37,11 +37,8 @@
         </div>
         <div class="profile-menu">
           <a href="#" class="profile-menu-item active" id="menuListings">My Dashboard</a>
-          <a href="wallet.html" class="profile-menu-item">Escrow Wallet</a>
-          <a href="chat.html" class="profile-menu-item" id="sidebarMessagesLink" style="display:flex; align-items:center; justify-content:space-between;">
-            <span>Messages</span>
-            <span id="sidebarUnreadBadge" class="sidebar-unread-badge" style="display:none;"></span>
-          </a>
+          <a href="#" class="profile-menu-item" id="menuWallet">Escrow Wallet</a>
+          <a href="#" class="profile-menu-item" id="menuReports">Order History</a>
           <a href="#" class="profile-menu-item" id="menuPlatformWallet" style="display:none;">Platform Wallet</a>
           <a href="javascript:void(0)" onclick="logoutUser()" class="profile-menu-item logout">Logout</a>
         </div>
@@ -78,8 +75,7 @@
         <!-- ====== BUYER VIEW ====== -->
         <div id="buyerView" style="display:none;">
           <div class="profile-section-title">
-            <h2 style="font-size: 1.5rem; font-weight: 700;">Browse <span class="text-gradient">Approved Products</span></h2>
-            <span class="badge badge-condition" style="font-size:0.85rem;">Buyer Mode</span>
+            <h2 style="font-size: 1.5rem; font-weight: 700;">Browse <span class="text-gradient">Products</span></h2>
           </div>
 
           <!-- Category Filter -->
@@ -104,7 +100,6 @@
         <div id="adminView" style="display:none;">
           <div class="profile-section-title">
             <h2 style="font-size: 1.5rem; font-weight: 700;">Admin <span class="text-gradient">Panel</span></h2>
-            <span class="badge badge-condition" style="font-size:0.85rem; background:rgba(234,179,8,0.15); color:#eab308; border-color:#eab308;">Admin Mode</span>
           </div>
 
           <!-- Admin Statistics -->
@@ -204,39 +199,98 @@
           </div>
         </div>
 
-        <!-- ====== PLATFORM WALLET VIEW ====== -->
+        <!-- ====== USER WALLET VIEW (Integrated) ====== -->
+        <div id="userWalletView" style="display:none;">
+          <div class="profile-section-title">
+            <h2 style="font-size: 1.5rem; font-weight: 700;">Escrow <span class="text-gradient">Wallet</span></h2>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+            <div class="wallet-card dashboard-wallet glass-card" style="padding: 2rem; border-left: 6px solid #10b981;">
+              <h3 style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em;" id="availableTitle">Available for Deposit</h3>
+              <p class="balance" id="userWalletBalance" style="font-size: 2.2rem; font-weight: 900; color: #10b981; margin: 0;">Tk.0</p>
+              <div style="margin-top: 1.5rem; display: flex; gap: 0.75rem;">
+                <button id="walletActionBtn" class="btn-primary" onclick="window.location.href='wallet.html'" style="flex: 1; border-radius: 10px; font-weight: 700;">Add Money</button>
+              </div>
+            </div>
+
+            <div class="wallet-card dashboard-wallet glass-card" style="padding: 2rem; border-left: 6px solid var(--accent-purple);">
+              <h3 style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em;" id="escrowTitle">Funds in Escrow</h3>
+              <p class="balance" id="userEscrowBalance" style="font-size: 2.2rem; font-weight: 900; color: var(--accent-purple); margin: 0;">Tk.0</p>
+              <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;" id="escrowDesc">Securely held for your ongoing transactions.</p>
+            </div>
+          </div>
+
+          <div class="recent-transactions glass-card" style="padding: 1.5rem;">
+            <div class="transactions-header" style="font-size: 1.1rem; font-weight: 800; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem;">
+              Recent Wallet Activity
+            </div>
+            <div id="userWalletTransactionsList">
+               <p style="text-align: center; padding: 2rem; color: var(--text-muted);">Loading transactions...</p>
+            </div>
+          </div>
+        </div>
         <div id="platformWalletView" style="display:none;">
           <div class="profile-section-title">
             <h2 style="font-size: 1.5rem; font-weight: 700;">Platform <span class="text-gradient">Revenue Wallet</span></h2>
-            <span class="badge badge-approved" style="font-size:0.85rem; background:rgba(16,185,129,0.15); color:#10b981; border-color:#10b981;">Financial Admin</span>
           </div>
 
-          <div class="wallet-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
-            <div class="wallet-card available" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; padding: 2rem; border-left: 5px solid #10b981;">
-              <h3 style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em;">Total Platform Revenue</h3>
-              <p class="balance" id="platformWalletBalance" style="font-size: 2.5rem; font-weight: 900; color: #10b981; margin: 0;">Tk.0</p>
-              <div style="margin-top: 2rem;">
-                <button class="btn-primary" onclick="alert('Platform withdrawal processed to Admin bank account.')"
-                  style="width: 100%; border-radius: 12px; background: linear-gradient(135deg, #10b981, #059669); font-weight: 800; padding: 1rem; border: none; color: white; cursor: pointer; box-shadow: 0 10px 15px -3px rgba(16,185,129,0.2);">Withdraw Revenue</button>
-              </div>
+          <!-- Horizontal Revenue Card -->
+          <div class="wallet-card glass-card" style="display: flex; justify-content: space-between; align-items: center; padding: 2.5rem; border-left: 8px solid #10b981; margin-bottom: 2.5rem;">
+            <div>
+              <h3 style="font-size: 1rem; color: var(--text-muted); margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700;">Total Platform Revenue</h3>
+              <p class="balance" id="platformWalletBalance" style="font-size: 3.5rem; font-weight: 900; color: #10b981; margin: 0; line-height: 1;">Tk.0</p>
             </div>
-
-            <div class="wallet-card info" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; padding: 2rem; border-left: 5px solid var(--primary);">
-              <h3 style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em;">Revenue Stats</h3>
-              <p style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.6; margin: 1rem 0;">This wallet stores all marketplace commissions (0.5%) collected from successful transactions.</p>
-              <div style="background: rgba(99,102,241,0.05); padding: 1rem; border-radius: 12px; border: 1px dashed var(--primary);">
-                <p style="margin: 0; font-size: 0.8rem; font-weight: 600; color: var(--primary);">Commission Rate: 0.5%</p>
-              </div>
-            </div>
+            <button class="btn-primary" onclick="alert('Platform withdrawal processed to Admin bank account.')"
+              style="border-radius: 14px; background: linear-gradient(135deg, #10b981, #059669); font-weight: 800; padding: 1.2rem 2.5rem; border: none; color: white; cursor: pointer; box-shadow: var(--shadow-lg); font-size: 1rem;">
+              Withdraw Revenue
+            </button>
           </div>
 
-          <div class="recent-transactions" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; padding: 1.5rem;">
-            <div class="transactions-header" style="font-size: 1.1rem; font-weight: 800; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
-              Earnings Ledger
-              <span style="font-size: 0.75rem; background: var(--bg-body); padding: 4px 10px; border-radius: 20px; color: var(--text-muted); border: 1px solid var(--border);">Live Updates</span>
+          <div class="recent-transactions glass-card" style="padding: 1.5rem;">
+            <div class="transactions-header" style="font-size: 1.1rem; font-weight: 800; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
+              <span>Earnings Ledger</span>
+              <div style="display: flex; gap: 0.5rem; align-items: center;">
+                 <span style="font-size: 0.8rem; color: var(--text-muted); margin-right: 0.5rem; font-weight: 600;">Download Report:</span>
+                 <button onclick="handleDownloadAdminEarnings('daily')" class="btn-outline" style="font-size: 0.7rem; padding: 0.4rem 0.8rem; border-radius: 8px;">Daily</button>
+                 <button onclick="handleDownloadAdminEarnings('weekly')" class="btn-outline" style="font-size: 0.7rem; padding: 0.4rem 0.8rem; border-radius: 8px;">Weekly</button>
+                 <button onclick="handleDownloadAdminEarnings('monthly')" class="btn-outline" style="font-size: 0.7rem; padding: 0.4rem 0.8rem; border-radius: 8px;">Monthly</button>
+                 <button onclick="handleDownloadAdminEarnings('yearly')" class="btn-outline" style="font-size: 0.7rem; padding: 0.4rem 0.8rem; border-radius: 8px;">Yearly</button>
+              </div>
             </div>
             <div id="platformTransactionsList">
               <p style="color: var(--text-muted); font-size: 0.9rem; text-align: center; padding: 2rem;">No earnings recorded yet.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- ====== ORDER HISTORY VIEW ====== -->
+        <div id="reportsView" style="display:none;">
+          <div class="profile-section-title" style="margin-bottom: 2rem;">
+            <h2 style="font-size: 1.5rem; font-weight: 700;">Order <span class="text-gradient">History</span></h2>
+            <div style="display: flex; gap: 0.75rem; align-items: center;">
+               <select id="reportPeriodSelect" class="form-input" style="padding: 0.5rem 1rem; font-size: 0.85rem; width: auto; margin-bottom: 0; border-radius: 12px; background: white; border: 1px solid var(--border);">
+                 <option value="all">All Time History</option>
+                 <option value="monthly">Monthly Snapshot</option>
+               </select>
+               <button id="downloadReportBtn" class="btn-outline" style="border-radius: 12px; font-size: 0.85rem; padding: 0.6rem 1.2rem; display: flex; align-items: center; gap: 0.5rem; border-color: var(--border); background: white; color: var(--text-muted); font-weight: 600;">
+                 <span>📥</span> Download History PDF
+               </button>
+            </div>
+          </div>
+
+          <!-- Stats Grid: Side-by-Side -->
+          <div id="reportSummaryCards" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+            <!-- Stats cards injected via JS -->
+          </div>
+
+          <!-- Table: Below Stats -->
+          <div class="recent-transactions glass-card" style="padding: 1.5rem;">
+            <div class="transactions-header" style="font-size: 1.1rem; font-weight: 800; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem;">
+              Recent Orders
+            </div>
+            <div id="reportHistoryTableContainer" style="overflow-x: auto;">
+              <p style="text-align:center; padding: 3rem; color: var(--text-muted);">Loading order history...</p>
             </div>
           </div>
         </div>
@@ -352,55 +406,90 @@
     </div>
   </div>
 
-  <!-- ====== FOOTER ====== -->
-  <footer class="site-footer">
-    <div class="container">
-      <div class="footer-grid">
-        <div>
-          <a href="index.html" class="footer-logo logo">ReSale.</a>
-          <p style="color: #94a3b8; line-height: 1.6;">Your ultimate destination for high-quality, pre-owned electronic devices. Secure, reliable, and transparent.</p>
-        </div>
-        <div>
-          <h4 class="footer-title">Quick Links</h4>
-          <ul class="footer-links">
-            <li><a href="index.html">Browse Products</a></li>
-            <li><a href="index.html#escrow">How Escrow Works</a></li>
-            <li><a href="escrow-policy.html">Escrow &amp; Policy</a></li>
-          </ul>
-        </div>
-        <div>
-          <h4 class="footer-title">Legal &amp; Trust</h4>
-          <ul class="footer-links">
-            <li><a href="index.html#safety">Safety Tips</a></li>
-            <li><a href="escrow-policy.html#privacy">Privacy Policy</a></li>
-            <li><a href="escrow-policy.html#dispute">Dispute Resolution</a></li>
-          </ul>
-        </div>
-        <div>
-          <h4 class="footer-title">Need Assistance?</h4>
-          <ul class="footer-links">
-            <li>
-              <a href="https://wa.me/8801723740704" target="_blank" style="display: flex; align-items: center; gap: 0.5rem; color: #25d366;">
-                <span style="font-size: 1.2rem;">💬</span> WhatsApp Support
-              </a>
-            </li>
-            <li style="margin-top: 0.5rem;">
-              <a href="https://mail.google.com/mail/?view=cm&to=aonontojahan@gmail.com&su=ReSale%20Support" target="_blank" rel="noopener" style="display: flex; align-items: center; gap: 0.5rem; color: #ea4335;">
-                <span style="font-size: 1.2rem;">📧</span> Gmail Support
-              </a>
-            </li>
-            <li style="margin-top: 1rem; border-top: 1px solid #334155; padding-top: 1rem;">
-              <a href="https://mail.google.com/mail/?view=cm&to=aonontojahan@gmail.com&su=ReSale%20Issue%20Report" target="_blank" rel="noopener" style="color: var(--accent-cyan); font-weight: 600;">Report an Issue</a>
-            </li>
-          </ul>
-        </div>
+  <!-- ====== WITHDRAWAL MODAL ====== -->
+  <div id="withdrawModal" class="modal" style="display:none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(10px); display: none; align-items: center; justify-content: center; overflow-y: auto; padding: 2rem 0;">
+    <div style="background: white; width: 100%; max-width: 500px; padding: 2.5rem; border-radius: 28px; position: relative; animation: slideUp 0.3s ease-out; margin: auto; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); border: 1px solid #f1f5f9; max-height: 90vh; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #e2e8f0 transparent;">
+      <div style="text-align: center; margin-bottom: 2rem;">
+        <div style="width: 60px; height: 60px; background: #f0fdf4; border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; font-size: 2rem;">💰</div>
+        <h2 style="font-size: 1.8rem; font-weight: 900; margin-bottom: 0.5rem; color: #0f172a; letter-spacing: -0.02em;">Withdraw <span style="color: #10b981;">Earnings</span></h2>
+        <p style="color: #64748b; font-size: 1rem; font-weight: 500;">Securely transfer your balance to your account.</p>
       </div>
-      <div class="footer-bottom">
-        &copy; 2026 ReSale Marketplace. Built with Aononto Jahan. All Rights Reserved.
-      </div>
-    </div>
-  </footer>
+      
+      <form id="withdrawForm" onsubmit="handleWithdrawSubmit(event)">
+        <div style="margin-bottom: 1.75rem;">
+          <label style="display: block; font-size: 0.8rem; font-weight: 800; color: #1e293b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem;">Withdrawal Amount</label>
+          <div style="position: relative;">
+            <span style="position: absolute; left: 1.25rem; top: 50%; transform: translateY(-50%); font-weight: 900; color: #10b981; font-size: 1.1rem;">Tk.</span>
+            <input type="number" id="withdrawAmount" required min="1" placeholder="0.00" style="width: 100%; padding: 1.1rem 1.25rem 1.1rem 3.5rem; border-radius: 16px; border: 2.5px solid #f1f5f9; background: #f8fafc; font-size: 1.3rem; font-weight: 900; color: #0f172a; transition: all 0.2s; outline: none;" onfocus="this.style.borderColor='#10b981'; this.style.background='white'; this.style.boxShadow='0 0 0 4px rgba(16, 185, 129, 0.1)'" onblur="this.style.borderColor='#f1f5f9'; this.style.background='#f8fafc'; this.style.boxShadow='none'">
+          </div>
+          <p style="font-size: 0.85rem; color: #10b981; margin-top: 0.6rem; font-weight: 700;" id="withdrawMaxHint"></p>
+        </div>
 
+        <div style="margin-bottom: 1.75rem;">
+          <label style="display: block; font-size: 0.8rem; font-weight: 800; color: #1e293b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem;">Payment Method</label>
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;">
+            <label style="cursor: pointer; position: relative;">
+              <input type="radio" name="withdrawMethod" value="bank" checked style="position: absolute; opacity: 0;" onchange="toggleWithdrawFields('bank')">
+              <div class="method-btn" style="padding: 1.25rem 0.5rem; border: 2.5px solid #f1f5f9; background: #f8fafc; border-radius: 18px; text-align: center; transition: all 0.2s;">
+                <span style="display: block; font-size: 1.5rem; margin-bottom: 0.4rem;">🏦</span>
+                <span style="font-size: 0.75rem; font-weight: 800; color: #475569; display: block; text-transform: uppercase;">Bank</span>
+              </div>
+            </label>
+            <label style="cursor: pointer; position: relative;">
+              <input type="radio" name="withdrawMethod" value="bkash" style="position: absolute; opacity: 0;" onchange="toggleWithdrawFields('bkash')">
+              <div class="method-btn" style="padding: 1.25rem 0.5rem; border: 2.5px solid #f1f5f9; background: #f8fafc; border-radius: 18px; text-align: center; transition: all 0.2s;">
+                <span style="display: block; font-size: 1.5rem; margin-bottom: 0.4rem;">📱</span>
+                <span style="font-size: 0.75rem; font-weight: 800; color: #475569; display: block; text-transform: uppercase;">bKash</span>
+              </div>
+            </label>
+            <label style="cursor: pointer; position: relative;">
+              <input type="radio" name="withdrawMethod" value="nagad" style="position: absolute; opacity: 0;" onchange="toggleWithdrawFields('nagad')">
+              <div class="method-btn" style="padding: 1.25rem 0.5rem; border: 2.5px solid #f1f5f9; background: #f8fafc; border-radius: 18px; text-align: center; transition: all 0.2s;">
+                <span style="display: block; font-size: 1.5rem; margin-bottom: 0.4rem;">💸</span>
+                <span style="font-size: 0.75rem; font-weight: 800; color: #475569; display: block; text-transform: uppercase;">Nagad</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div id="bankFields" style="margin-bottom: 2.5rem; background: #f8fafc; padding: 1.5rem; border-radius: 20px; border: 1px solid #f1f5f9;">
+          <div style="margin-bottom: 1.25rem;">
+            <label style="display: block; font-size: 0.75rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.5rem;">Account Number</label>
+            <input type="text" id="bankAccountNumber" placeholder="Enter bank account number" style="width: 100%; padding: 0.9rem 1.1rem; border-radius: 12px; border: 1.5px solid #e2e8f0; font-size: 1rem; font-weight: 600; color: #0f172a;">
+          </div>
+          <div>
+            <label style="display: block; font-size: 0.75rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.5rem;">Bank Name</label>
+            <input type="text" id="bankName" placeholder="e.g. Dutch Bangla Bank" style="width: 100%; padding: 0.9rem 1.1rem; border-radius: 12px; border: 1.5px solid #e2e8f0; font-size: 1rem; font-weight: 600; color: #0f172a;">
+          </div>
+        </div>
+
+        <div id="mobileFields" style="margin-bottom: 2.5rem; display: none; background: #f8fafc; padding: 1.5rem; border-radius: 20px; border: 1px solid #f1f5f9;">
+          <label style="display: block; font-size: 0.75rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 0.5rem;">Mobile Number</label>
+          <input type="text" id="mobileNumber" placeholder="017XXXXXXXX" style="width: 100%; padding: 1rem 1.25rem; border-radius: 12px; border: 1.5px solid #e2e8f0; font-size: 1.1rem; font-weight: 700; color: #0f172a; letter-spacing: 0.05em;">
+        </div>
+
+        <div style="display: flex; gap: 1.25rem; align-items: center;">
+          <button type="button" style="flex: 1; padding: 1.1rem; border-radius: 18px; font-weight: 700; background: #f1f5f9; color: #475569; border: none; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='#f1f5f9'" onclick="document.getElementById('withdrawModal').style.display='none'">Cancel</button>
+          <button type="submit" style="flex: 1.8; padding: 1.1rem; border-radius: 18px; font-weight: 900; background: #10b981; color: white; border: none; cursor: pointer; box-shadow: 0 10px 20px -5px rgba(16, 185, 129, 0.4); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 15px 25px -5px rgba(16, 185, 129, 0.5)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 10px 20px -5px rgba(16, 185, 129, 0.4)'">Request Payout</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <style>
+    input[name="withdrawMethod"]:checked + .method-btn {
+      border-color: #10b981 !important;
+      background: #f0fdf4;
+      color: #10b981;
+    }
+  </style>
+
+  <!-- Subtle App Footer -->
+  <div style="padding: 2rem; text-align: center; color: var(--text-muted); font-size: 0.8rem; border-top: 1px solid var(--border); background: var(--bg-card); margin-top: auto;">
+    &copy; 2026 ReSale Marketplace. Platform Managed by Aononto Jahan. All Rights Reserved.
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="js/api.js?v=3"></script>
   <script src="js/app.js?v=3"></script>
 </body>
