@@ -105,6 +105,7 @@ class MessageResponse(MessageBase):
     id: int
     session_id: int
     sender_id: int
+    sender_name: Optional[str] = None
     sender_profile_pic: Optional[str] = None
     is_read: bool = False
     created_at: datetime

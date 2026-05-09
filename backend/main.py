@@ -1,5 +1,6 @@
 import os
 import asyncio
+import json
 import shutil
 import uuid
 from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, Form, File, UploadFile, Query
@@ -31,7 +32,7 @@ app.mount("/uploads", StaticFiles(directory="backend/uploads"), name="uploads")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Adjust this in production
-    allow_credentials=True,
+    allow_credentials=False, # Credentials (cookies) not needed for Bearer tokens; incompatible with "*"
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -66,55 +67,88 @@ def on_startup():
     global _app_loop
     _app_loop = asyncio.get_running_loop()
 
-@app.websocket("/ws/{user_id}")
-async def websocket_endpoint(websocket: WebSocket, user_id: int):
+@app.websocket("/ws/chat/{session_id}")
+async def websocket_endpoint(websocket: WebSocket, session_id: int, token: str = Query(None)):
     """
-    Real-time chat handler. Connects users and processes incoming messages.
+    Real-time chat handler. Authenticates user via token and connects to session.
     """
+    if not token:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    # Authenticate User
+    payload = auth.decode_access_token(token)
+    if not payload:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    email = payload.get("sub")
+    db = next(get_db())
+    user = db.query(models.User).filter(models.User.email == email).first()
+    
+    if not user:
+        db.close()
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    user_id = user.id
     await manager.connect(websocket, user_id)
+    
     try:
         while True:
-            data = await websocket.receive_json()
-            if "session_id" in data and "text" in data:
-                session_id = data["session_id"]
-                text = data["text"]
+            # Handle both JSON and Raw Text
+            raw_text = await websocket.receive_text()
+            try:
+                data = json.loads(raw_text)
+                text = data.get("text")
+            except (json.JSONDecodeError, AttributeError):
+                text = raw_text
+            
+            if text:
+                # Use session_id from the URL path for security
+                # Fetch session and verify user is a participant
+                session = db.query(models.ChatSession).filter(
+                    (models.ChatSession.id == session_id) &
+                    ((models.ChatSession.buyer_id == user_id) | (models.ChatSession.seller_id == user_id))
+                ).first()
                 
-                db = next(get_db())
-                try:
-                    # Save to DB
-                    new_msg = models.ChatMessage(
-                        session_id=session_id,
-                        sender_id=user_id,
-                        text=text
-                    )
-                    db.add(new_msg)
-                    
-                    # Update session activity
-                    session = db.query(models.ChatSession).filter(models.ChatSession.id == session_id).first()
-                    if session:
-                        session.updated_at = func.now()
-                        db.add(session)
-                        db.commit()
-                        db.refresh(new_msg)
-                        
-                        # Push to both parties
-                        msg_dict = {
-                            "id": new_msg.id,
-                            "session_id": session_id,
-                            "sender_id": user_id,
-                            "text": text,
-                            "created_at": new_msg.created_at.isoformat()
-                        }
-                        await manager.send_personal_message(msg_dict, session.buyer_id)
-                        if session.buyer_id != session.seller_id:
-                            await manager.send_personal_message(msg_dict, session.seller_id)
-                finally:
-                    db.close()
+                if not session:
+                    continue
+
+                # Save message to DB
+                new_msg = models.ChatMessage(
+                    session_id=session_id,
+                    sender_id=user_id,
+                    text=text
+                )
+                db.add(new_msg)
+                
+                # Update session activity
+                session.updated_at = func.now()
+                db.add(session)
+                db.commit()
+                db.refresh(new_msg)
+                
+                # Push to both parties with sender info for rendering
+                msg_dict = {
+                    "id": new_msg.id,
+                    "session_id": session_id,
+                    "sender_id": user_id,
+                    "sender_name": user.full_name,
+                    "sender_profile_pic": user.profile_pic_url,
+                    "text": text,
+                    "created_at": new_msg.created_at.isoformat()
+                }
+                await manager.send_personal_message(msg_dict, session.buyer_id)
+                if session.buyer_id != session.seller_id:
+                    await manager.send_personal_message(msg_dict, session.seller_id)
     except WebSocketDisconnect:
         manager.disconnect(websocket, user_id)
     except Exception as e:
         print(f"WebSocket error for user {user_id}: {e}")
         manager.disconnect(websocket, user_id)
+    finally:
+        db.close()
 
 
 def push_system_msg(msg: models.ChatMessage, buyer_id: int, seller_id: int):
@@ -1475,26 +1509,61 @@ def get_chats(
     if current_user.id != user_id and current_user.role != models.UserRole.ADMIN:
         raise HTTPException(status_code=403, detail="Not authorized")
 
-    sessions = db.query(models.ChatSession).filter(
+    sessions = db.query(models.ChatSession).options(
+        joinedload(models.ChatSession.buyer),
+        joinedload(models.ChatSession.seller),
+        joinedload(models.ChatSession.product),
+        joinedload(models.ChatSession.messages)
+    ).filter(
         (models.ChatSession.buyer_id == user_id) | (models.ChatSession.seller_id == user_id)
     ).all()
 
-    # Filter out hidden/deleted sessions
-    active_sessions = []
+    # Filter out hidden/deleted sessions and populate response fields
+    results = []
     for s in sessions:
         if s.buyer_id == user_id and s.deleted_by_buyer == 1: continue
         if s.seller_id == user_id and s.deleted_by_seller == 1: continue
-        active_sessions.append(s)
+        
+        # Build the response with extra fields
+        resp = schemas.ChatSessionResponse.model_validate(s)
+        resp.product_title = s.product.title if s.product else "Enquiry"
+        resp.product_price = s.product.price if s.product else None
+        
+        # Avatar URL logic
+        if s.product:
+            if s.product.image_url:
+                resp.product_image_url = s.product.image_url
+            elif s.product.images:
+                resp.product_image_url = s.product.images[0].image_url
+            
+        # Unread Count calculation
+        resp.unread_count = db.query(models.ChatMessage).filter(
+            models.ChatMessage.session_id == s.id,
+            models.ChatMessage.sender_id != user_id,
+            models.ChatMessage.is_read == 0
+        ).count()
+        
+        results.append(resp)
 
-    active_sessions.sort(key=lambda x: x.updated_at or x.created_at, reverse=True)
-    return active_sessions
+    results.sort(key=lambda x: x.updated_at or x.created_at, reverse=True)
+    return results
 
 @app.get("/chats/{session_id}/messages", response_model=List[schemas.MessageResponse])
 def get_chat_messages(session_id: int, db: Session = Depends(get_db)):
-    """Retrieve history for a specific chat."""
-    return db.query(models.ChatMessage).filter(
+    """Retrieve history for a specific chat, enriched with sender info."""
+    messages = db.query(models.ChatMessage).options(
+        joinedload(models.ChatMessage.sender)
+    ).filter(
         models.ChatMessage.session_id == session_id
     ).order_by(models.ChatMessage.created_at.asc()).all()
+    
+    results = []
+    for m in messages:
+        resp = schemas.MessageResponse.model_validate(m)
+        resp.sender_name = m.sender.full_name if m.sender else "Unknown"
+        resp.sender_profile_pic = m.sender.profile_pic_url if m.sender else None
+        results.append(resp)
+    return results
 
 @app.post("/chats/{session_id}/read")
 def mark_chat_read(session_id: int, user_id: int, db: Session = Depends(get_db)):
