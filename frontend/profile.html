@@ -248,14 +248,16 @@
           </div>
 
           <div class="recent-transactions glass-card" style="padding: 1.5rem;">
-            <div class="transactions-header" style="font-size: 1.1rem; font-weight: 800; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
+            <div class="transactions-header" style="font-size: 1.1rem; font-weight: 800; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
               <span>Earnings Ledger</span>
-              <div style="display: flex; gap: 0.5rem; align-items: center;">
-                 <span style="font-size: 0.8rem; color: var(--text-muted); margin-right: 0.5rem; font-weight: 600;">Download Report:</span>
-                 <button onclick="handleDownloadAdminEarnings('daily')" class="btn-outline" style="font-size: 0.7rem; padding: 0.4rem 0.8rem; border-radius: 8px;">Daily</button>
-                 <button onclick="handleDownloadAdminEarnings('weekly')" class="btn-outline" style="font-size: 0.7rem; padding: 0.4rem 0.8rem; border-radius: 8px;">Weekly</button>
-                 <button onclick="handleDownloadAdminEarnings('monthly')" class="btn-outline" style="font-size: 0.7rem; padding: 0.4rem 0.8rem; border-radius: 8px;">Monthly</button>
-                 <button onclick="handleDownloadAdminEarnings('yearly')" class="btn-outline" style="font-size: 0.7rem; padding: 0.4rem 0.8rem; border-radius: 8px;">Yearly</button>
+              <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                 <span style="font-size: 0.8rem; color: var(--text-muted); margin-right: 0.5rem; font-weight: 600;">Date Range:</span>
+                 <input type="date" id="adminReportStartDate" class="form-input" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; width: auto; margin-bottom: 0; border-radius: 8px; border: 1px solid var(--border);">
+                 <span style="color: var(--text-muted); font-size: 0.8rem;">to</span>
+                 <input type="date" id="adminReportEndDate" class="form-input" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; width: auto; margin-bottom: 0; border-radius: 8px; border: 1px solid var(--border);">
+                 <button onclick="handleDownloadAdminEarnings()" class="btn-outline" style="font-size: 0.75rem; padding: 0.4rem 0.8rem; border-radius: 8px; display: flex; align-items: center; gap: 0.3rem;">
+                   <span>📥</span> Download PDF
+                 </button>
               </div>
             </div>
             <div id="platformTransactionsList">
@@ -266,15 +268,15 @@
 
         <!-- ====== ORDER HISTORY VIEW ====== -->
         <div id="reportsView" style="display:none;">
-          <div class="profile-section-title" style="margin-bottom: 2rem;">
-            <h2 style="font-size: 1.5rem; font-weight: 700;">Order <span class="text-gradient">History</span></h2>
-            <div style="display: flex; gap: 0.75rem; align-items: center;">
-               <select id="reportPeriodSelect" class="form-input" style="padding: 0.5rem 1rem; font-size: 0.85rem; width: auto; margin-bottom: 0; border-radius: 12px; background: white; border: 1px solid var(--border);">
-                 <option value="all">All Time History</option>
-                 <option value="monthly">Monthly Snapshot</option>
-               </select>
-               <button id="downloadReportBtn" class="btn-outline" style="border-radius: 12px; font-size: 0.85rem; padding: 0.6rem 1.2rem; display: flex; align-items: center; gap: 0.5rem; border-color: var(--border); background: white; color: var(--text-muted); font-weight: 600;">
-                 <span>📥</span> Download History PDF
+          <div class="profile-section-title transactions-header" style="margin-bottom: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+            <h2 style="font-size: 1.5rem; font-weight: 700; margin: 0;">Order <span class="text-gradient">History</span></h2>
+            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+               <span style="font-size: 0.8rem; color: var(--text-muted); margin-right: 0.5rem; font-weight: 600;">Date Range:</span>
+               <input type="date" id="reportStartDate" class="form-input" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; width: auto; margin-bottom: 0; border-radius: 8px; border: 1px solid var(--border);" title="Start Date">
+               <span style="color: var(--text-muted); font-size: 0.8rem;">to</span>
+               <input type="date" id="reportEndDate" class="form-input" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; width: auto; margin-bottom: 0; border-radius: 8px; border: 1px solid var(--border);" title="End Date">
+               <button id="downloadReportBtn" class="btn-outline" style="font-size: 0.75rem; padding: 0.4rem 0.8rem; border-radius: 8px; display: flex; align-items: center; gap: 0.3rem;">
+                 <span>📥</span> Download PDF
                </button>
             </div>
           </div>

@@ -238,9 +238,33 @@ const api = {
 
     // ─── Reports ────────────────────────────────────────────────────────────
 
-    async getSellerReport(period = 'all') { return await this.request(`/reports/seller?period=${period}`, 'GET'); },
-    async getBuyerReport(period = 'all') { return await this.request(`/reports/buyer?period=${period}`, 'GET'); },
-    async getAdminReport(period = 'all') { return await this.request(`/reports/admin?period=${period}`, 'GET'); },
+    async getSellerReport(startDate = null, endDate = null) {
+        let url = `/reports/seller`;
+        const params = new URLSearchParams();
+        if (startDate) params.append('start_date', startDate);
+        if (endDate) params.append('end_date', endDate);
+        const qs = params.toString();
+        if (qs) url += `?${qs}`;
+        return await this.request(url, 'GET');
+    },
+    async getBuyerReport(startDate = null, endDate = null) {
+        let url = `/reports/buyer`;
+        const params = new URLSearchParams();
+        if (startDate) params.append('start_date', startDate);
+        if (endDate) params.append('end_date', endDate);
+        const qs = params.toString();
+        if (qs) url += `?${qs}`;
+        return await this.request(url, 'GET');
+    },
+    async getAdminReport(startDate = null, endDate = null) {
+        let url = `/reports/admin`;
+        const params = new URLSearchParams();
+        if (startDate) params.append('start_date', startDate);
+        if (endDate) params.append('end_date', endDate);
+        const qs = params.toString();
+        if (qs) url += `?${qs}`;
+        return await this.request(url, 'GET');
+    },
     async checkAutoRelease() {
         return this.request('/escrow/check-auto-release', 'POST');
     }
