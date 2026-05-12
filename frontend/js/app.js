@@ -1269,28 +1269,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        // Category cards (Quick filters on landing page)
-        const categoryCards = document.querySelectorAll('.category-card');
-        categoryCards.forEach(card => {
-            card.addEventListener('click', () => {
-                const cat = card.dataset.category;
-                
-                // Highlight the card
-                categoryCards.forEach(c => c.classList.remove('selected'));
-                card.classList.add('selected');
-
-                // Sync with the filter buttons
-                const targetBtn = document.querySelector(`#listingsFilter .filter-btn[data-category="${cat}"]`);
-                if (targetBtn) {
-                    filterBtns.forEach(b => b.classList.remove('active'));
-                    targetBtn.classList.add('active');
-                }
-
-                // Scroll to listings and filter
-                document.getElementById('listings').scrollIntoView({ behavior: 'smooth' });
-                renderPublicListings(cat);
-            });
-        });
     }
 
     // ──────────────────────────────────────────────────────────
@@ -1769,7 +1747,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.currentChatSocket = null;
         let activeSessionId = new URLSearchParams(window.location.search).get('session');
 
-        function appendMessage(msg) {
+        function appendMessage(msg, alreadyReviewed = false) {
             if (!chatBox) return;
             const div = document.createElement('div');
             // Use == for type-agnostic comparison or cast both to String
@@ -2010,37 +1988,50 @@ document.addEventListener('DOMContentLoaded', () => {
                 const productTitle = parts.slice(2).join(':');
 
                 if (user.role === 'buyer') {
-                    div.innerHTML = `
-                        <div class="review-prompt-card" style="background: white; border: 1.5px solid #f59e0b; padding: 1.5rem; border-radius: 20px; border-top: 6px solid #f59e0b; box-shadow: 0 10px 15px -3px rgba(245,158,11,0.1);">
-                            <div style="font-weight: 800; color: #1e293b; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between;">
-                                <span style="display: flex; align-items: center; gap: 0.5rem;"><span style="font-size: 1.4rem;">⭐️</span> Leave a Review</span>
-                                <span style="font-size: 0.65rem; background: #fef3c7; color: #d97706; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; font-weight: 800;">Action Required</span>
+                    if (alreadyReviewed) {
+                        div.innerHTML = `
+                            <div class="review-prompt-card" style="background: white; border: 1.5px solid #10b981; padding: 1.5rem; border-radius: 20px; border-top: 6px solid #10b981; box-shadow: 0 10px 15px -3px rgba(16,185,129,0.1);">
+                                <div style="font-weight: 800; color: #1e293b; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                                    <span style="font-size: 1.4rem;">✅</span> Review Submitted
+                                </div>
+                                <div style="background: #ecfdf5; color: #065f46; padding: 1rem; border-radius: 12px; text-align: center; font-weight: 700; border: 1px solid #10b981;">
+                                    Thank you! You have already reviewed this product.
+                                </div>
                             </div>
-                            <div style="background: #fffbeb; border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem; border-left: 4px solid #f59e0b;">
-                                <p style="margin: 0; font-size: 0.95rem; color: #92400e; line-height: 1.5; font-weight: 600;">
-                                    The transaction for <strong>${productTitle}</strong> is complete. Please take a moment to rate your experience with the seller.
-                                </p>
-                            </div>
-                            <div id="chatReviewForm-${productId}" style="display: flex; flex-direction: column; gap: 1rem;">
-                                <div>
-                                    <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #92400e; margin-bottom: 0.4rem; text-transform: uppercase;">Rating</label>
-                                    <div class="star-rating" style="display: flex; gap: 0.5rem; font-size: 1.8rem; cursor: pointer; color: #f59e0b;">
-                                        <span onclick="setChatStar(1, '${productId}')" id="star-${productId}-1">☆</span>
-                                        <span onclick="setChatStar(2, '${productId}')" id="star-${productId}-2">☆</span>
-                                        <span onclick="setChatStar(3, '${productId}')" id="star-${productId}-3">☆</span>
-                                        <span onclick="setChatStar(4, '${productId}')" id="star-${productId}-4">☆</span>
-                                        <span onclick="setChatStar(5, '${productId}')" id="star-${productId}-5">☆</span>
+                        `;
+                    } else {
+                        div.innerHTML = `
+                            <div class="review-prompt-card" style="background: white; border: 1.5px solid #f59e0b; padding: 1.5rem; border-radius: 20px; border-top: 6px solid #f59e0b; box-shadow: 0 10px 15px -3px rgba(245,158,11,0.1);">
+                                <div style="font-weight: 800; color: #1e293b; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between;">
+                                    <span style="display: flex; align-items: center; gap: 0.5rem;"><span style="font-size: 1.4rem;">⭐️</span> Leave a Review</span>
+                                    <span style="font-size: 0.65rem; background: #fef3c7; color: #d97706; padding: 4px 10px; border-radius: 20px; text-transform: uppercase; font-weight: 800;">Action Required</span>
+                                </div>
+                                <div style="background: #fffbeb; border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem; border-left: 4px solid #f59e0b;">
+                                    <p style="margin: 0; font-size: 0.95rem; color: #92400e; line-height: 1.5; font-weight: 600;">
+                                        The transaction for <strong>${productTitle}</strong> is complete. Please take a moment to rate your experience with the seller.
+                                    </p>
+                                </div>
+                                <div id="chatReviewForm-${productId}" style="display: flex; flex-direction: column; gap: 1rem;">
+                                    <div>
+                                        <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #92400e; margin-bottom: 0.4rem; text-transform: uppercase;">Rating</label>
+                                        <div class="star-rating" style="display: flex; gap: 0.5rem; font-size: 1.8rem; cursor: pointer; color: #f59e0b;">
+                                            <span onclick="setChatStar(1, '${productId}')" id="star-${productId}-1">☆</span>
+                                            <span onclick="setChatStar(2, '${productId}')" id="star-${productId}-2">☆</span>
+                                            <span onclick="setChatStar(3, '${productId}')" id="star-${productId}-3">☆</span>
+                                            <span onclick="setChatStar(4, '${productId}')" id="star-${productId}-4">☆</span>
+                                            <span onclick="setChatStar(5, '${productId}')" id="star-${productId}-5">☆</span>
+                                        </div>
+                                        <input type="hidden" id="chatRatingInput-${productId}" value="0">
                                     </div>
-                                    <input type="hidden" id="chatRatingInput-${productId}" value="0">
+                                    <div>
+                                        <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #92400e; margin-bottom: 0.4rem; text-transform: uppercase;">Comment</label>
+                                        <textarea id="chatComment-${productId}" style="width: 100%; border-radius: 10px; border: 1.5px solid #fde68a; padding: 0.75rem; font-size: 0.9rem; resize: vertical; background: #fffbeb;" rows="2" placeholder="How was your experience?"></textarea>
+                                    </div>
+                                    <button class="btn-primary" style="background: #f59e0b; border: none; padding: 0.8rem; border-radius: 10px; color: white; font-weight: 800; cursor: pointer; box-shadow: 0 4px 6px rgba(245,158,11,0.2);" onclick="handleChatReviewSubmit('${productId}', '${activeSessionId}', this)">Submit Review</button>
                                 </div>
-                                <div>
-                                    <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #92400e; margin-bottom: 0.4rem; text-transform: uppercase;">Comment</label>
-                                    <textarea id="chatComment-${productId}" style="width: 100%; border-radius: 10px; border: 1.5px solid #fde68a; padding: 0.75rem; font-size: 0.9rem; resize: vertical; background: #fffbeb;" rows="2" placeholder="How was your experience?"></textarea>
-                                </div>
-                                <button class="btn-primary" style="background: #f59e0b; border: none; padding: 0.8rem; border-radius: 10px; color: white; font-weight: 800; cursor: pointer; box-shadow: 0 4px 6px rgba(245,158,11,0.2);" onclick="handleChatReviewSubmit('${productId}', '${activeSessionId}', this)">Submit Review</button>
                             </div>
-                        </div>
-                    `;
+                        `;
+                    }
                 } else {
                     div.innerHTML = `
                         <div style="background: #f8fafc; border: 1px dashed #cbd5e1; padding: 1rem; border-radius: 12px; text-align: center; color: #64748b; font-size: 0.85rem;">
@@ -2267,7 +2258,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (chatBox) chatBox.innerHTML = '<div style="text-align:center; padding:1rem; color:#94a3b8;">Loading history...</div>';
             window.api.getChatMessages(chat.id).then(messages => {
                 if (chatBox) chatBox.innerHTML = '';
-                messages.forEach(msg => appendMessage(msg));
+                const alreadyReviewed = messages.some(m => m.text.includes("REVIEW SUBMITTED") || m.text.includes("Buyer left a"));
+                messages.forEach(msg => appendMessage(msg, alreadyReviewed));
 
                 // Temporarily disable smooth scrolling to snap instantly to the bottom
                 chatBox.style.scrollBehavior = 'auto';
@@ -2304,7 +2296,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             // Calculate BEFORE appending so huge cards don't break the math
                             const isNearBottom = chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight < 120;
 
-                            appendMessage(msg);
+                            // Smart check: If this is a review submission message, we should hide future prompts
+                            const isReviewMsg = msg.text.includes("REVIEW SUBMITTED") || msg.text.includes("Buyer left a");
+                            appendMessage(msg, isReviewMsg);
 
                             if (isNearBottom) {
                                 setTimeout(() => { chatBox.scrollTop = chatBox.scrollHeight; }, 50);

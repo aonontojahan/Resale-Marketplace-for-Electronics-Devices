@@ -1518,6 +1518,31 @@ def create_review(
     db.add(new_review)
     db.commit()
     db.refresh(new_review)
+
+    # Smart Logic: Post a system message to the chat history
+    # This serves as a "Completion Receipt" and prevents duplicate reviews
+    session = db.query(models.ChatSession).filter(
+        (models.ChatSession.product_id == review_in.product_id) &
+        (models.ChatSession.buyer_id == current_user.id)
+    ).first()
+
+    if session:
+        stars = "⭐" * review_in.rating
+        msg_text = f"⭐ Buyer left a {review_in.rating}-star review: \"{review_in.comment or 'No comment'}\""
+        
+        chat_msg = models.ChatMessage(
+            session_id=session.id,
+            sender_id=current_user.id,
+            text=msg_text
+        )
+        db.add(chat_msg)
+        session.updated_at = func.now()
+        db.commit()
+        db.refresh(chat_msg)
+        
+        # Broadcast to both parties via Global Notification and Chat Socket
+        push_system_msg(chat_msg, session.buyer_id, session.seller_id)
+
     return new_review
 
 @app.get("/reviews/seller/{seller_id}", response_model=List[schemas.ReviewResponse])
