@@ -1711,19 +1711,26 @@ def mark_chat_read(session_id: int, user_id: int, db: Session = Depends(get_db))
 @app.delete("/chats/{session_id}")
 def delete_chat(
     session_id: int,
-    user_id: int = Query(...),
+    role: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    """Hide a chat session from the user's list."""
+    """Hide a chat session from the user's list for a specific role."""
     session = db.query(models.ChatSession).filter(models.ChatSession.id == session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Chat not found")
 
-    if session.buyer_id == user_id:
+    # If role is specified, use it. Otherwise, fallback to matching ID.
+    if role == 'buyer' and session.buyer_id == current_user.id:
         session.deleted_by_buyer = 1
-    elif session.seller_id == user_id:
+    elif role == 'seller' and session.seller_id == current_user.id:
         session.deleted_by_seller = 1
+    else:
+        # Fallback logic if no role provided
+        if session.buyer_id == current_user.id:
+            session.deleted_by_buyer = 1
+        elif session.seller_id == current_user.id:
+            session.deleted_by_seller = 1
     
     db.commit()
     return {"message": "Hidden"}

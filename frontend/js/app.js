@@ -2604,8 +2604,11 @@ async function handleChatDelete(sessionId, event) {
     if (event) event.stopPropagation();
     if (!confirm('Are you sure you want to delete this conversation? This cannot be undone.')) return;
 
+    const user = getUser();
+    const role = user ? user.role : null;
+
     try {
-        await window.api.deleteChat(sessionId);
+        await window.api.deleteChat(sessionId, role);
         // If we are currently viewing this chat, clear the URL and reload
         const params = new URLSearchParams(window.location.search);
         const activeSessionId = params.get('session');
