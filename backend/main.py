@@ -397,6 +397,31 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     if user.suspended_until and user.suspended_until > datetime.now(timezone.utc):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="Your account is suspended.")
+
+    # Dynamically calculate "Pending Clearance" for sellers
+    if user.role == models.UserRole.SELLER:
+        pending_offers = db.query(models.Offer).filter(
+            models.Offer.seller_id == user.id,
+            models.Offer.status.in_([
+                models.OfferStatus.PAID,
+                models.OfferStatus.PROCESSING,
+                models.OfferStatus.SHIPPED,
+                models.OfferStatus.DELIVERED,
+                models.OfferStatus.DISPUTED
+            ])
+        ).all()
+        
+        total_pending = 0
+        for offer in pending_offers:
+            product_price = offer.offered_price * offer.quantity
+            commission = int(product_price * COMMISSION_RATE)
+            # Formula matches _perform_fund_release logic
+            seller_amount = (product_price - commission) + DELIVERY_FEE
+            total_pending += seller_amount
+        
+        # Override the field for the frontend response (memory-only, no db.commit)
+        user.escrow_balance = total_pending
+
     return user
 
 
@@ -734,10 +759,11 @@ def process_order(
     p_title = offer.product.title if offer.product else "this item"
 
     # System message
+    order_id_str = f"RS-{offer.order_number:05d}"
     system_msg = models.ChatMessage(
         session_id=offer.session_id,
         sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1, 
-        text=f"⚙️ ORDER PROCESSING ({p_title}): The seller is now preparing your item for shipment."
+        text=f"⚙️ ORDER PROCESSING (Order: {order_id_str}): The seller is now preparing your item ({p_title}) for shipment."
     )
     db.add(system_msg)
     db.flush()
@@ -774,7 +800,8 @@ def ship_order(
         offer.tracking_info = tracking_info
     
     p_title = offer.product.title if offer.product else "this item"
-    msg_text = f"🚚 ORDER SHIPPED ({p_title}):\n" + (tracking_info if tracking_info else "The item has been handed over to the courier.")
+    order_id_str = f"RS-{offer.order_number:05d}"
+    msg_text = f"🚚 ORDER SHIPPED (Order: {order_id_str} | {p_title}):\n" + (tracking_info if tracking_info else "The item has been handed over to the courier.")
         
     # System message
     system_msg = models.ChatMessage(
@@ -817,9 +844,10 @@ def deliver_order(
     p_title = offer.product.title if offer.product else "this item"
 
     # System message
-    delivered_text = f"📦 ORDER DELIVERED ({p_title}): The seller has marked the order as delivered. Buyer, please confirm delivery to release funds to the seller."
+    order_id_str = f"RS-{offer.order_number:05d}"
+    delivered_text = f"📦 ORDER DELIVERED (Order: {order_id_str} | {p_title}): The seller has marked the order as delivered. Buyer, please confirm delivery to release funds."
     if offer.tracking_info:
-        delivered_text += f"\n{offer.tracking_info}"
+        delivered_text += f"\nTracking: {offer.tracking_info}"
     
     system_msg = models.ChatMessage(
         session_id=offer.session_id,
@@ -889,11 +917,12 @@ def _perform_fund_release(db: Session, offer: models.Offer, is_auto: bool = Fals
     # System messages
     status_text = "🤖 SYSTEM AUTO-RELEASE" if is_auto else "✅ FUNDS RELEASED"
     p_title = offer.product.title if offer.product else "this item"
+    order_id_str = f"RS-{offer.order_number:05d}"
     
     system_msg = models.ChatMessage(
         session_id=offer.session_id,
         sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1, 
-        text=f"{status_text} ({p_title}): Tk.{seller_amount:,d} has been moved to the seller's wallet."
+        text=f"{status_text} (Order: {order_id_str} | {p_title}): Tk.{seller_amount:,d} has been moved to the seller's wallet."
     )
     db.add(system_msg)
     db.flush() # Ensure system_msg gets an ID first
@@ -997,7 +1026,8 @@ def dispute_transaction(
     db.add(dispute_tx)
 
     # Notify chat
-    msg_text = f"⚠️ DISPUTE RAISED: {reason}" if reason else f"⚠️ DISPUTE RAISED: {current_user.full_name} reported a problem. Funds are locked in Escrow until an Admin reviews the case."
+    order_id_str = f"RS-{offer.order_number:05d}"
+    msg_text = f"⚠️ DISPUTE RAISED (Order: {order_id_str}): {reason}" if reason else f"⚠️ DISPUTE RAISED (Order: {order_id_str}): {current_user.full_name} reported a problem. Funds are locked in Escrow until an Admin reviews the case."
     
     system_msg = models.ChatMessage(
         session_id=offer.session_id,
@@ -1042,9 +1072,8 @@ def resolve_dispute(
         
         buyer.escrow_balance -= total_escrow
         seller.wallet_balance += seller_payout
-        offer.status = models.OfferStatus.COMPLETED
-        
-        msg_text = f"⚖️ ADMIN RESOLUTION: Dispute resolved in favor of SELLER. Tk.{seller_payout:,d} released to seller wallet."
+        order_id_str = f"RS-{offer.order_number:05d}"
+        msg_text = f"⚖️ ADMIN RESOLUTION (Order: {order_id_str}): Dispute resolved in favor of SELLER. Tk.{seller_payout:,d} released to seller wallet."
 
         # Record for Seller
         seller_tx = models.WalletTransaction(
@@ -1087,7 +1116,8 @@ def resolve_dispute(
             offer.product.status = models.ProductStatus.APPROVED
             offer.product.inventory_quantity += offer.quantity
             
-        msg_text = f"⚖️ ADMIN RESOLUTION: Dispute resolved with FULL REFUND. Tk.{total_escrow:,d} returned to buyer wallet. Product has been re-listed."
+        order_id_str = f"RS-{offer.order_number:05d}"
+        msg_text = f"⚖️ ADMIN RESOLUTION (Order: {order_id_str}): Dispute resolved with FULL REFUND. Tk.{total_escrow:,d} returned to buyer wallet. Product has been re-listed."
 
         # Record for Buyer
         refund_tx = models.WalletTransaction(
@@ -1117,7 +1147,8 @@ def resolve_dispute(
             offer.product.status = models.ProductStatus.APPROVED
             offer.product.inventory_quantity += offer.quantity
 
-        msg_text = f"⚖️ ADMIN RESOLUTION: Dispute resolved with PARTIAL REFUND. Tk.{product_price_total:,d} returned to buyer. Tk.{DELIVERY_FEE:,d} released to seller to cover shipping. Product has been re-listed."
+        order_id_str = f"RS-{offer.order_number:05d}"
+        msg_text = f"⚖️ ADMIN RESOLUTION (Order: {order_id_str}): Dispute resolved with PARTIAL REFUND. Tk.{product_price_total:,d} returned to buyer. Tk.{DELIVERY_FEE:,d} released to seller to cover shipping. Product has been re-listed."
         
         # Record for Buyer
         buyer_tx = models.WalletTransaction(

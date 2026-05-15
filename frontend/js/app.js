@@ -1749,6 +1749,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         function appendMessage(msg, alreadyReviewed = false) {
             if (!chatBox) return;
+
+            // Extract Order Number from text if present (e.g., RS-00001)
+            let orderNum = null;
+            if (msg.text) {
+                const orderMatch = msg.text.match(/RS-(\d+)/);
+                if (orderMatch) {
+                    orderNum = orderMatch[1];
+                }
+            }
+
             const div = document.createElement('div');
             // Use == for type-agnostic comparison or cast both to String
             const isMe = String(msg.sender_id) === String(user.id);
@@ -1842,7 +1852,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <p style="margin: 0; font-size: 0.9rem; color: #0f172a; font-weight: 600;">Please check the invoice for exact shipping details.</p>
                         </div>
                         `}
-                        <button style="margin-top: 0.5rem; width:100%; background: #0ea5e9; color: white; border: none; padding: 0.8rem; border-radius: 10px; font-size: 0.9rem; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: 0 4px 6px -1px rgba(14,165,233,0.3);" onclick="handleDownloadReceipt('${activeSessionId}')">
+                        <button style="margin-top: 0.5rem; width:100%; background: #0ea5e9; color: white; border: none; padding: 0.8rem; border-radius: 10px; font-size: 0.9rem; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: 0 4px 6px -1px rgba(14,165,233,0.3);" onclick="handleDownloadReceipt('${activeSessionId}', '${orderNum}')">
                             📄 Download Order Invoice
                         </button>
                     </div>
@@ -2057,7 +2067,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             The escrow period has ended and funds are now available in the seller's wallet.
                         </div>
 
-                        <button style="margin-top: 1rem; width:100%; background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; padding: 0.6rem; border-radius: 10px; font-size: 0.85rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;" onclick="handleDownloadReceipt('${activeSessionId}')">
+                        <button style="margin-top: 1rem; width:100%; background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; padding: 0.6rem; border-radius: 10px; font-size: 0.85rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;" onclick="handleDownloadReceipt('${activeSessionId}', '${orderNum}')">
                             📄 Download Final Invoice
                         </button>
                     </div>
@@ -2082,7 +2092,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             This decision is final and has been applied to both wallets.
                         </div>
 
-                        <button style="margin-top: 1rem; width:100%; background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; padding: 0.6rem; border-radius: 10px; font-size: 0.85rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;" onclick="handleDownloadReceipt('${activeSessionId}')">
+                        <button style="margin-top: 1rem; width:100%; background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; padding: 0.6rem; border-radius: 10px; font-size: 0.85rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;" onclick="handleDownloadReceipt('${activeSessionId}', '${orderNum}')">
                             📄 Download Final Invoice
                         </button>
                     </div>
@@ -2952,7 +2962,7 @@ window.handleMarkShipped = async function (sessionId) {
     }
 };
 
-window.handleDownloadReceipt = async function (sessionId) {
+window.handleDownloadReceipt = async function (sessionId, orderNumber = null) {
     try {
         // Find the download button to show loading state if called from event
         const btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
@@ -2962,7 +2972,15 @@ window.handleDownloadReceipt = async function (sessionId) {
         // Fetch offers for session
         const offers = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
         const activeStatuses = ['paid', 'shipped', 'delivered', 'completed', 'auto_completed', 'refunded'];
-        const offer = offers.reverse().find(o => activeStatuses.includes(o.status));
+        
+        let offer;
+        if (orderNumber && orderNumber !== 'null' && orderNumber !== 'undefined') {
+            // Find specific offer by order number
+            offer = offers.find(o => String(o.order_number) === String(parseInt(orderNumber)));
+        } else {
+            // Fallback: pick the latest active offer
+            offer = offers.reverse().find(o => activeStatuses.includes(o.status));
+        }
 
         if (!offer) {
             alert('No valid invoice found for this order yet.');
