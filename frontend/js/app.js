@@ -1747,14 +1747,27 @@ document.addEventListener('DOMContentLoaded', () => {
         window.currentChatSocket = null;
         let activeSessionId = new URLSearchParams(window.location.search).get('session');
 
-        function appendMessage(msg, alreadyReviewed = false) {
+        function appendMessage(msg, reviewedOrders = []) {
             if (!chatBox) return;
+
+            // Extract Order Number and Offer ID from text if present
+            let orderNum = null;
+            let offerId = null;
+            if (msg.text) {
+                const orderMatch = msg.text.match(/RS-\d+/);
+                if (orderMatch) orderNum = orderMatch[0];
+                
+                const oidMatch = msg.text.match(/\[OID:(\d+)\]/);
+                if (oidMatch) offerId = oidMatch[1];
+            }
+
             const div = document.createElement('div');
             // Use == for type-agnostic comparison or cast both to String
             const isMe = String(msg.sender_id) === String(user.id);
+            const isSystem = String(msg.sender_id) === '1' || msg.sender_id === 'system';
 
             // Senior Engineer Logic: Smart Dynamic Cards
-            if (msg.text && msg.text.startsWith("📢 OFFER MADE:")) {
+            if (isSystem && msg.text && msg.text.includes("📢 OFFER MADE")) {
                 div.className = "message-system offer-card-container";
                 div.style.cssText = "align-self: center; width: 85%; margin: 1.5rem 0;";
 
@@ -1779,7 +1792,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>` : ''}
                     </div>
                 `;
-            } else if (msg.text && msg.text.includes("OFFER ACCEPTED:")) {
+            } else if (msg.text && msg.text.includes("OFFER ACCEPTED")) {
                 div.className = "message-system";
                 div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
                 const priceMatch = msg.text.match(/Tk.([\d,]+)/);
@@ -1796,11 +1809,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             </p>
                         </div>
                         ${user.role === 'buyer' ? `
-                        <button class="btn-primary" style="width:100%; background: #10b981; border: none; padding: 0.8rem; color: white; font-weight: 800; border-radius: 10px; cursor: pointer; transition: transform 0.2s;" onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'" onclick="handleProceedToCheckout('${activeSessionId}')">Complete Purchase Now</button>
+                        <button class="btn-primary" style="width:100%; background: #10b981; border: none; padding: 0.8rem; color: white; font-weight: 800; border-radius: 10px; cursor: pointer; transition: transform 0.2s;" onmousedown="this.style.transform='scale(0.98)'" onmouseup="this.style.transform='scale(1)'" onclick="handleProceedToCheckout('${activeSessionId}', '${offerId}')">Complete Purchase Now</button>
                         ` : `<div style="font-size: 0.85rem; color: #059669; font-weight: 700; background: #d1fae5; padding: 0.5rem; text-align:center; border-radius:8px;">Ready for Buyer Payment</div>`}
                     </div>
                 `;
-            } else if (msg.text && (msg.text.includes("OFFER DECLINED:") || msg.text.includes("OFFER REJECTED:"))) {
+            } else if (msg.text && (msg.text.includes("OFFER DECLINED") || msg.text.includes("OFFER REJECTED"))) {
                 div.className = "message-system";
                 div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
 
@@ -1819,7 +1832,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         ` : `<div style="font-size: 0.85rem; color: #e11d48; font-weight: 700; background: #ffe4e6; padding: 0.5rem; text-align:center; border-radius:8px;">Offer Rejected</div>`}
                     </div>
                 `;
-            } else if (msg.text.startsWith("💰 PAYMENT COMPLETED:")) {
+            } else if (msg.text && msg.text.includes("💰 PAYMENT COMPLETED")) {
                 div.className = "message-system";
                 div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
 
@@ -1842,12 +1855,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             <p style="margin: 0; font-size: 0.9rem; color: #0f172a; font-weight: 600;">Please check the invoice for exact shipping details.</p>
                         </div>
                         `}
-                        <button style="margin-top: 0.5rem; width:100%; background: #0ea5e9; color: white; border: none; padding: 0.8rem; border-radius: 10px; font-size: 0.9rem; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: 0 4px 6px -1px rgba(14,165,233,0.3);" onclick="handleDownloadReceipt('${activeSessionId}')">
+                        <button style="margin-top: 0.5rem; width:100%; background: #0ea5e9; color: white; border: none; padding: 0.8rem; border-radius: 10px; font-size: 0.9rem; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: 0 4px 6px -1px rgba(14,165,233,0.3);" onclick="handleDownloadReceipt('${activeSessionId}', '${orderNum}', '${offerId}')">
                             📄 Download Order Invoice
                         </button>
                     </div>
                 `;
-            } else if (msg.text && msg.text.includes("ORDER ALERT:")) {
+            } else if (msg.text && msg.text.includes("ORDER ALERT")) {
                 div.className = "message-system";
                 div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
 
@@ -1863,7 +1876,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                         ${user.role === 'seller' ? `
                         <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                            <button style="flex:1; background: #f59e0b; color: white; padding: 0.75rem; border-radius: 10px; font-weight: 800; border: none; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.filter='brightness(1.1)'" onmouseout="this.style.filter='none'" onclick="handleMarkProcessing('${activeSessionId}')">Start Processing Order</button>
+                            <button class="btn-primary" style="flex:1; background: #6366f1; border: none; padding: 0.6rem; border-radius: 8px; color: white; font-weight: 700; cursor: pointer; width: 100%; box-shadow: 0 4px 6px rgba(99,102,241,0.2);" onclick="handleMarkProcessing('${activeSessionId}', '${offerId}')">
+                                📦 Start Processing
+                            </button>
                         </div>
                         ` : `<div style="font-size: 0.85rem; color: #d97706; font-weight: 700; background: #fef3c7; padding: 0.5rem; text-align:center; border-radius:8px;">Waiting for Seller to Process Order</div>`}
                     </div>
@@ -1884,7 +1899,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                         ${user.role === 'seller' ? `
                         <div style="display: flex; gap: 0.75rem;">
-                            <button style="flex:1; background: #d946ef; color: white; padding: 0.75rem; border-radius: 10px; font-weight: 800; border: none; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(217,70,239,0.2);" onclick="handleMarkShipped('${activeSessionId}')">
+                            <button class="btn-primary" style="flex:1; background: #d946ef; color: white; padding: 0.75rem; border-radius: 10px; font-weight: 800; border: none; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(217,70,239,0.2);" onclick="handleMarkShipped('${activeSessionId}', '${offerId}')">
                                 🚚 Mark Shipment Done
                             </button>
                         </div>
@@ -1927,7 +1942,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         
                         <div style="display: flex; flex-direction: column; gap: 0.75rem;">
                             ${user.role === 'seller' ? `
-                            <button style="background: #6366f1; color: white; padding: 0.75rem; border-radius: 10px; font-weight: 800; border: none; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(99,102,241,0.2);" onclick="handleMarkDelivered('${activeSessionId}')">
+                            <button style="background: #6366f1; color: white; padding: 0.75rem; border-radius: 10px; font-weight: 800; border: none; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(99,102,241,0.2);" onclick="handleMarkDelivered('${activeSessionId}', '${offerId}')">
                                 ✅ Mark Delivery Done
                             </button>
                             ` : `<div style="font-size: 0.8rem; color: #6366f1; text-align: center; font-weight: 600; font-style: italic;">Your item is on its way!</div>`}
@@ -1951,13 +1966,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                         ${user.role === 'buyer' ? `
                         <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                            <button class="btn-primary" style="width:100%; background: #22c55e; border: none; padding: 0.8rem; color: white; font-weight: 800; border-radius: 10px; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(34,197,94,0.3);" onclick="handleReleaseFunds('${activeSessionId}')">Confirm Receipt & Release Funds</button>
-                            <button class="btn-secondary" style="width:100%; background: transparent; border: 1.5px solid #ef4444; padding: 0.6rem; color: #ef4444; font-weight: 700; border-radius: 10px; cursor: pointer;" onclick="handleReportIssue('${activeSessionId}')">⚠ Report a Problem</button>
+                            <button class="btn-primary" style="width:100%; background: #22c55e; border: none; padding: 0.8rem; color: white; font-weight: 800; border-radius: 10px; cursor: pointer; box-shadow: 0 4px 6px -1px rgba(34,197,94,0.3);" onclick="handleReleaseFunds('${activeSessionId}', '${offerId}')">Confirm Receipt & Release Funds</button>
+                            <button class="btn-secondary" style="width:100%; background: transparent; border: 1.5px solid #ef4444; padding: 0.6rem; color: #ef4444; font-weight: 700; border-radius: 10px; cursor: pointer;" onclick="handleReportIssue('${activeSessionId}', '${offerId}')">⚠ Report a Problem</button>
                         </div>
                         ` : `<div style="font-size: 0.85rem; color: #16a34a; font-weight: 700; background: #d1fae5; padding: 0.6rem; text-align:center; border-radius:10px;">Waiting for Buyer Confirmation</div>`}
                     </div>
                 `;
-            } else if (msg.text.startsWith("⚠️ DISPUTE RAISED:")) {
+            } else if (msg.text && msg.text.includes("⚠️ DISPUTE RAISED")) {
                 div.className = "message-system";
                 div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
                 const rawReason = msg.text.replace("⚠️ DISPUTE RAISED:", "").trim();
@@ -1980,7 +1995,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     </div>
                 `;
-            } else if (msg.text.startsWith("[REVIEW_PROMPT]:")) {
+            } else if (msg.text && msg.text.startsWith("[REVIEW_PROMPT]:")) {
                 div.className = "message-system";
                 div.style.cssText = "align-self: center; width: 90%; margin: 1.5rem 0;";
                 const parts = msg.text.split(':');
@@ -1988,7 +2003,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const productTitle = parts.slice(2).join(':');
 
                 if (user.role === 'buyer') {
-                    if (alreadyReviewed) {
+                    const isAlreadyReviewed = orderNum && Array.isArray(reviewedOrders) ? reviewedOrders.includes(orderNum) : false;
+                    if (isAlreadyReviewed) {
                         div.innerHTML = `
                             <div class="review-prompt-card" style="background: white; border: 1.5px solid #10b981; padding: 1.5rem; border-radius: 20px; border-top: 6px solid #10b981; box-shadow: 0 10px 15px -3px rgba(16,185,129,0.1);">
                                 <div style="font-weight: 800; color: #1e293b; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
@@ -2027,7 +2043,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                         <label style="display: block; font-size: 0.75rem; font-weight: 700; color: #92400e; margin-bottom: 0.4rem; text-transform: uppercase;">Comment</label>
                                         <textarea id="chatComment-${productId}" style="width: 100%; border-radius: 10px; border: 1.5px solid #fde68a; padding: 0.75rem; font-size: 0.9rem; resize: vertical; background: #fffbeb;" rows="2" placeholder="How was your experience?"></textarea>
                                     </div>
-                                    <button class="btn-primary" style="background: #f59e0b; border: none; padding: 0.8rem; border-radius: 10px; color: white; font-weight: 800; cursor: pointer; box-shadow: 0 4px 6px rgba(245,158,11,0.2);" onclick="handleChatReviewSubmit('${productId}', '${activeSessionId}', this)">Submit Review</button>
+                                    <button class="btn-primary" style="background: #f59e0b; border: none; padding: 0.8rem; border-radius: 10px; color: white; font-weight: 800; cursor: pointer; box-shadow: 0 4px 6px rgba(245,158,11,0.2);" onclick="handleChatReviewSubmit('${productId}', '${activeSessionId}', this, '${orderNum}')">Submit Review</button>
                                 </div>
                             </div>
                         `;
@@ -2057,12 +2073,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             The escrow period has ended and funds are now available in the seller's wallet.
                         </div>
 
-                        <button style="margin-top: 1rem; width:100%; background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; padding: 0.6rem; border-radius: 10px; font-size: 0.85rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;" onclick="handleDownloadReceipt('${activeSessionId}')">
+                        <button style="margin-top: 1rem; width:100%; background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; padding: 0.6rem; border-radius: 10px; font-size: 0.85rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;" onclick="handleDownloadReceipt('${activeSessionId}', '${orderNum}', '${offerId}')">
                             📄 Download Final Invoice
                         </button>
                     </div>
                 `;
-            } else if (msg.text.startsWith("⚖️ ADMIN RESOLUTION:")) {
+            } else if (msg.text && msg.text.includes("⚖️ ADMIN RESOLUTION")) {
                 div.className = "message-system";
                 div.style.cssText = "align-self: center; width: 85%; margin: 1.5rem 0;";
                 const resDetails = msg.text.replace("⚖️ ADMIN RESOLUTION:", "").trim();
@@ -2082,12 +2098,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             This decision is final and has been applied to both wallets.
                         </div>
 
-                        <button style="margin-top: 1rem; width:100%; background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; padding: 0.6rem; border-radius: 10px; font-size: 0.85rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;" onclick="handleDownloadReceipt('${activeSessionId}')">
+                        <button style="margin-top: 1rem; width:100%; background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; padding: 0.6rem; border-radius: 10px; font-size: 0.85rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 0.5rem;" onclick="handleDownloadReceipt('${activeSessionId}', '${orderNum}', '${offerId}')">
                             📄 Download Final Invoice
                         </button>
                     </div>
                 `;
-            } else if (msg.text.startsWith("⭐ Buyer left a") || msg.text.startsWith("🌟 REVIEW SUBMITTED:")) {
+            } else if (msg.text && (msg.text.includes("REVIEW SUBMITTED") || msg.text.includes("Buyer left a"))) {
                 div.className = "message-system";
                 div.style.cssText = "align-self: center; width: 85%; margin: 1.5rem 0;";
 
@@ -2139,7 +2155,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                     </div>
                 `;
-            } else if (msg.text.startsWith("❌ OFFER REJECTED:")) {
+            } else if (msg.text && msg.text.includes("❌ OFFER REJECTED:")) {
                 div.className = "message-system";
                 div.style.cssText = "align-self: center; width: 85%; margin: 1rem 0;";
                 div.innerHTML = `
@@ -2258,8 +2274,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (chatBox) chatBox.innerHTML = '<div style="text-align:center; padding:1rem; color:#94a3b8;">Loading history...</div>';
             window.api.getChatMessages(chat.id).then(messages => {
                 if (chatBox) chatBox.innerHTML = '';
-                const alreadyReviewed = messages.some(m => m.text.includes("REVIEW SUBMITTED") || m.text.includes("Buyer left a"));
-                messages.forEach(msg => appendMessage(msg, alreadyReviewed));
+                const reviewedOrders = messages
+                    .filter(m => m.text.includes("REVIEW SUBMITTED"))
+                    .map(m => {
+                        const match = m.text.match(/RS-\d+/);
+                        return match ? match[0] : null;
+                    })
+                    .filter(Boolean);
+                messages.forEach(msg => appendMessage(msg, reviewedOrders));
 
                 // Temporarily disable smooth scrolling to snap instantly to the bottom
                 chatBox.style.scrollBehavior = 'auto';
@@ -2297,8 +2319,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             const isNearBottom = chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight < 120;
 
                             // Smart check: If this is a review submission message, we should hide future prompts
-                            const isReviewMsg = msg.text.includes("REVIEW SUBMITTED") || msg.text.includes("Buyer left a");
-                            appendMessage(msg, isReviewMsg);
+                            const isReviewMsg = msg.text.includes("REVIEW SUBMITTED");
+                            // We don't have the full history here for live messages, so we just append.
+                            // The user will refresh or the sidebar will update.
+                            appendMessage(msg, []);
 
                             if (isNearBottom) {
                                 setTimeout(() => { chatBox.scrollTop = chatBox.scrollHeight; }, 50);
@@ -2445,10 +2469,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 sidebar.innerHTML = '';
                 chats.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
                 chats.forEach(chat => {
-                    const isBuyer = user.role === 'buyer';
-                    const otherParty = isBuyer ? chat.seller : chat.buyer;
+                    const isBuyerInChat = chat.buyer_id === user.id;
+                    const otherParty = isBuyerInChat ? chat.seller : chat.buyer;
                     const otherPartyName = otherParty.full_name;
-                    const otherPartyRole = isBuyer ? 'SELLER' : 'BUYER';
+                    const otherPartyRole = isBuyerInChat ? 'SELLER' : 'BUYER';
                     const isActive = chat.id.toString() === activeSessionId;
                     const activeClass = isActive ? 'active' : '';
                     const unreadClass = (chat.unread_count > 0 && !isActive) ? 'unread' : '';
@@ -2593,6 +2617,9 @@ function animateCount(elementId, target, suffix = '') {
 async function handleChatDelete(sessionId, event) {
     if (event) event.stopPropagation();
     if (!confirm('Are you sure you want to delete this conversation? This cannot be undone.')) return;
+
+    const user = getUser();
+    if (!user) return;
 
     try {
         await window.api.deleteChat(sessionId);
@@ -2808,10 +2835,16 @@ window.handleRejectOffer = async function (sessionId) {
     }
 };
 
-window.handleProceedToCheckout = async function (sessionId) {
+window.handleProceedToCheckout = async function (sessionId, offerId = null) {
     try {
-        const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
-        const acceptedOffer = offersResponses.reverse().find(o => o.status === 'accepted');
+        let acceptedOffer = null;
+        if (offerId && offerId !== 'null') {
+            acceptedOffer = await window.api.request(`/offers/${offerId}`, 'GET');
+        } else {
+            const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
+            acceptedOffer = offersResponses.reverse().find(o => o.status === 'accepted');
+        }
+        
         if (!acceptedOffer) return alert("No accepted offer found.");
         window.location.href = `wallet.html?action=buy&listing=${acceptedOffer.product_id}&offer=${acceptedOffer.id}`;
     } catch (e) {
@@ -2819,10 +2852,16 @@ window.handleProceedToCheckout = async function (sessionId) {
     }
 };
 
-window.handleReleaseFunds = async function (sessionId) {
+window.handleReleaseFunds = async function (sessionId, offerId = null) {
     try {
-        const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
-        const activeOffer = offersResponses.reverse().find(o => ['paid', 'processing', 'shipped', 'delivered'].includes(o.status));
+        let activeOffer = null;
+        if (offerId && offerId !== 'null') {
+            activeOffer = await window.api.request(`/offers/${offerId}`, 'GET');
+        } else {
+            const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
+            activeOffer = offersResponses.reverse().find(o => ['paid', 'processing', 'shipped', 'delivered'].includes(o.status));
+        }
+        
         if (!activeOffer) return alert("No active paid offer found to release.");
 
         const modal = document.getElementById('releaseModal');
@@ -2852,18 +2891,22 @@ window.handleReleaseFunds = async function (sessionId) {
     }
 };
 
-window.handleReportIssue = async function (sessionId) {
+window.handleReportIssue = async function (sessionId, offerId = null) {
     try {
-        const chats = await window.api.getUserChats(getUser().id);
-        const chat = chats.find(c => c.id.toString() === sessionId);
-        if (!chat) return alert("Chat session not found.");
-
-        const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
-        const activeOffer = offersResponses.reverse().find(o => ['paid', 'processing', 'shipped', 'delivered'].includes(o.status));
+        let activeOffer = null;
+        if (offerId && offerId !== 'null') {
+            activeOffer = await window.api.request(`/offers/${offerId}`, 'GET');
+        } else {
+            const chats = await window.api.getUserChats(getUser().id);
+            const chat = chats.find(c => c.id.toString() === sessionId);
+            if (!chat) return alert("Chat session not found.");
+            const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
+            activeOffer = offersResponses.reverse().find(o => ['paid', 'processing', 'shipped', 'delivered'].includes(o.status));
+        }
         if (!activeOffer) return alert("No active payment found to dispute.");
 
         const modal = document.getElementById('disputeModal');
-        document.getElementById('disputeProductName').innerText = chat.product_title;
+        document.getElementById('disputeProductName').innerText = activeOffer.product_title || 'Product';
         document.getElementById('disputeAmount').innerText = `Tk. ${parseInt(activeOffer.offered_price, 10)}`;
         document.getElementById('disputeReason').value = '';
 
@@ -2888,31 +2931,41 @@ window.handleReportIssue = async function (sessionId) {
     }
 };
 
-window.handleMarkProcessing = async function (sessionId) {
+window.handleMarkProcessing = async function (sessionId, offerId = null) {
     try {
-        const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
-        const activeOffer = offersResponses.reverse().find(o => o.status === 'paid');
+        let activeOffer = null;
+        if (offerId && offerId !== 'null' && offerId !== 'undefined') {
+            activeOffer = await window.api.request(`/offers/${offerId}`, 'GET');
+        } else {
+            const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
+            activeOffer = offersResponses.reverse().find(o => o.status === 'paid');
+        }
+        
         if (!activeOffer) return alert("No paid offer found.");
 
         await window.api.request(`/escrow/process/${activeOffer.id}`, 'POST');
-        // Backend auto-sends the ⚙️ ORDER PROCESSING card — no manual send needed.
     } catch (e) {
         alert(e.message);
     }
 };
 
-window.handleMarkShipped = async function (sessionId) {
+window.handleMarkShipped = async function (sessionId, offerId = null) {
     try {
-        const chats = await window.api.getUserChats(getUser().id);
-        const chat = chats.find(c => c.id.toString() === sessionId);
-        if (!chat) return alert("Chat session not found.");
-
-        const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
-        const activeOffer = offersResponses.reverse().find(o => o.status === 'processing');
-        if (!activeOffer) return alert("Order must be PROCESSING to ship.");
+        let activeOffer = null;
+        if (offerId && offerId !== 'null' && offerId !== 'undefined') {
+            activeOffer = await window.api.request(`/offers/${offerId}`, 'GET');
+        } else {
+            const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
+            activeOffer = offersResponses.reverse().find(o => o.status === 'processing');
+        }
+        
+        if (!activeOffer) return alert("Order must be in PROCESSING state to be shipped.");
 
         // Show modal and pre-fill
         const modal = document.getElementById('shippingModal');
+        
+        // Fetch chat/product details if needed for modal context
+        const chat = await window.api.request(`/chats/${sessionId}`, 'GET');
 
         // Populate inputs
         document.getElementById('shipSellerName').value = chat.seller.full_name;
@@ -2942,7 +2995,6 @@ window.handleMarkShipped = async function (sessionId) {
 
                 await window.api.request(`/escrow/ship/${activeOffer.id}?tracking_info=` + encodeURIComponent(trackingStr), 'POST');
                 modal.style.display = 'none';
-                // Backend auto-sends the 🚚 ORDER SHIPPED card — no manual send needed.
             } catch (e) {
                 alert(e.message);
             }
@@ -2952,17 +3004,25 @@ window.handleMarkShipped = async function (sessionId) {
     }
 };
 
-window.handleDownloadReceipt = async function (sessionId) {
+window.handleDownloadReceipt = async function (sessionId, orderNumber = null, offerId = null) {
     try {
-        // Find the download button to show loading state if called from event
         const btn = event && event.target && event.target.tagName === 'BUTTON' ? event.target : null;
         const originalText = btn ? btn.innerHTML : '';
         if (btn) btn.innerHTML = '⏳ Generating...';
 
-        // Fetch offers for session
-        const offers = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
-        const activeStatuses = ['paid', 'shipped', 'delivered', 'completed', 'auto_completed', 'refunded'];
-        const offer = offers.reverse().find(o => activeStatuses.includes(o.status));
+        let offer;
+        if (offerId && offerId !== 'null') {
+            offer = await window.api.request(`/offers/${offerId}`, 'GET');
+        } else {
+            const offers = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
+            const activeStatuses = ['paid', 'shipped', 'delivered', 'completed', 'auto_completed', 'refunded'];
+            if (orderNumber && orderNumber !== 'null' && orderNumber !== 'undefined') {
+                const cleanOrderNum = String(orderNumber).replace('RS-', '');
+                offer = offers.find(o => String(o.order_number) === String(parseInt(cleanOrderNum)));
+            } else {
+                offer = offers.reverse().find(o => activeStatuses.includes(o.status));
+            }
+        }
 
         if (!offer) {
             alert('No valid invoice found for this order yet.');
@@ -2970,22 +3030,20 @@ window.handleDownloadReceipt = async function (sessionId) {
             return;
         }
 
-        // Fetch Product and Seller details
         const product = await window.api.request(`/products/${offer.product_id}`, 'GET');
 
-        // Define Dynamic Status Texts
         let invoiceStatusText = "FUNDS IN ESCROW";
         let footerText = "Funds are held in escrow until buyer confirms delivery.";
-        let statusColor = [14, 165, 233]; // Blue for escrow
+        let statusColor = [14, 165, 233]; 
 
         if (offer.status === 'completed' || offer.status === 'auto_completed') {
             invoiceStatusText = "COMPLETED (FUNDS RELEASED)";
             footerText = "This transaction is complete and funds have been released.";
-            statusColor = [34, 197, 94]; // Green
+            statusColor = [34, 197, 94];
         } else if (offer.status === 'refunded') {
             invoiceStatusText = "CANCELLED / REFUNDED";
             footerText = "This transaction was cancelled and funds were returned to the buyer.";
-            statusColor = [239, 68, 68]; // Red
+            statusColor = [239, 68, 68];
         } else if (offer.status === 'shipped') {
             invoiceStatusText = "SHIPPED (IN TRANSIT)";
         } else if (offer.status === 'delivered') {
@@ -2996,18 +3054,15 @@ window.handleDownloadReceipt = async function (sessionId) {
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
 
-        // Premium Background/Border
         doc.setDrawColor(...statusColor);
         doc.setLineWidth(1.5);
         doc.rect(5, 5, 200, 287);
 
-        // Receipt Header
         doc.setFont("helvetica", "bold");
         doc.setFontSize(28);
         doc.setTextColor(31, 41, 55);
         doc.text("RESALE MARKETPLACE", pageWidth / 2, 30, { align: "center" });
 
-        // Dynamic Status Badge
         doc.setFontSize(10);
         doc.setTextColor(...statusColor);
         doc.text(`STATUS: ${invoiceStatusText}`, pageWidth / 2, 38, { align: "center" });
@@ -3023,7 +3078,6 @@ window.handleDownloadReceipt = async function (sessionId) {
         doc.text(`INVOICE NO: RS-${receiptId}`, 20, 52);
         doc.text(`ISSUED DATE: ${new Date(offer.created_at).toLocaleDateString().toUpperCase()}`, 145, 52);
 
-        // Section 1: Transaction Parties
         doc.setFillColor(248, 250, 252);
         doc.rect(20, 60, 170, 55, 'F');
 
@@ -3040,7 +3094,6 @@ window.handleDownloadReceipt = async function (sessionId) {
         doc.text(`Name: ${product.sellerName || 'N/A'}`, 25, 80);
         doc.text(`Email: ${product.sellerEmail || 'N/A'}`, 25, 87);
 
-        // Buyer Delivery Info from the Offer record
         doc.text(`Name: ${offer.delivery_name || 'N/A'}`, 110, 80);
         doc.text(`Phone: ${offer.delivery_phone || 'N/A'}`, 110, 87);
         doc.text(`Area: ${offer.delivery_area || 'N/A'}, ${offer.delivery_city || 'N/A'}`, 110, 94);
@@ -3048,7 +3101,6 @@ window.handleDownloadReceipt = async function (sessionId) {
         const splitAddress = doc.splitTextToSize(offer.delivery_address_full || 'N/A', 75);
         doc.text(splitAddress, 110, 101);
 
-        // Section 2: Logistics (if available)
         let y = 130;
         if (offer.tracking_info) {
             doc.setFont("helvetica", "bold");
@@ -3059,7 +3111,6 @@ window.handleDownloadReceipt = async function (sessionId) {
             doc.setFontSize(10);
 
             if (offer.tracking_info.includes('Courier:')) {
-                // Old multi-line format: split into two columns (and hide redundant OrderID)
                 const lines = offer.tracking_info.split('\n').filter(l => l.trim() && !l.includes('OrderID:'));
                 let col1Y = y;
                 let col2Y = y;
@@ -3074,7 +3125,6 @@ window.handleDownloadReceipt = async function (sessionId) {
                 });
                 y = Math.max(col1Y, col2Y) + 5;
             } else {
-                // Standard tracking info
                 const trackingText = `Tracking Info: ${offer.tracking_info}`;
                 const trackingLines = doc.splitTextToSize(trackingText, 170);
                 doc.text(trackingLines, 20, y);
@@ -3148,11 +3198,17 @@ window.handleDownloadReceipt = async function (sessionId) {
     }
 };
 
-window.handleMarkDelivered = async function (sessionId) {
+window.handleMarkDelivered = async function (sessionId, offerId = null) {
     try {
-        const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
-        const activeOffer = offersResponses.reverse().find(o => o.status === 'shipped');
-        if (!activeOffer) return alert("Order must be SHIPPED to be delivered.");
+        let activeOffer = null;
+        if (offerId && offerId !== 'null' && offerId !== 'undefined') {
+            activeOffer = await window.api.request(`/offers/${offerId}`, 'GET');
+        } else {
+            const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
+            activeOffer = offersResponses.reverse().find(o => o.status === 'shipped');
+        }
+        
+        if (!activeOffer) return alert("Order must be SHIPPED before it can be marked as delivered.");
 
         await window.api.request(`/escrow/deliver/${activeOffer.id}`, 'POST');
     } catch (e) {
@@ -3192,7 +3248,7 @@ window.setChatStar = function (rating, productId) {
     }
 };
 
-window.handleChatReviewSubmit = async function (productId, sessionId, btn) {
+window.handleChatReviewSubmit = async function (productId, sessionId, btn, orderNumber = null) {
     const rating = parseInt(document.getElementById(`chatRatingInput-${productId}`).value);
     const comment = document.getElementById(`chatComment-${productId}`).value.trim();
 
@@ -3209,7 +3265,8 @@ window.handleChatReviewSubmit = async function (productId, sessionId, btn) {
         await window.api.createReview({
             product_id: productId,
             rating: rating,
-            comment: comment
+            comment: comment,
+            order_number: orderNumber
         });
 
         // Update the card UI to show success

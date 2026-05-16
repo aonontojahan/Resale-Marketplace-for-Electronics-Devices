@@ -55,8 +55,12 @@ class ConnectionManager:
 
     async def send_personal_message(self, message: dict, user_id: int):
         if user_id in self.active_connections:
-            for connection in self.active_connections[user_id]:
-                await connection.send_json(message)
+            for connection in self.active_connections[user_id][:]:
+                try:
+                    await connection.send_json(message)
+                except Exception:
+                    # Connection might be stale or closed
+                    self.disconnect(connection, user_id)
 
 manager = ConnectionManager()
 
@@ -216,7 +220,7 @@ def push_system_msg(msg: models.ChatMessage, buyer_id: int, seller_id: int):
     msg_dict = {
         "id": msg.id or 0,
         "session_id": msg.session_id,
-        "sender_id": msg.sender_id,
+        "sender_id": 1, # Always use System ID for push_system_msg
         "text": msg.text,
         "created_at": msg.created_at.isoformat() if msg.created_at else datetime.now(timezone.utc).isoformat()
     }
@@ -397,6 +401,31 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     if user.suspended_until and user.suspended_until > datetime.now(timezone.utc):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
                             detail="Your account is suspended.")
+
+    # Dynamically calculate "Pending Clearance" for sellers
+    if user.role == models.UserRole.SELLER:
+        pending_offers = db.query(models.Offer).filter(
+            models.Offer.seller_id == user.id,
+            models.Offer.status.in_([
+                models.OfferStatus.PAID,
+                models.OfferStatus.PROCESSING,
+                models.OfferStatus.SHIPPED,
+                models.OfferStatus.DELIVERED,
+                models.OfferStatus.DISPUTED
+            ])
+        ).all()
+        
+        total_pending = 0
+        for offer in pending_offers:
+            product_price = offer.offered_price * offer.quantity
+            commission = int(product_price * COMMISSION_RATE)
+            # Formula matches _perform_fund_release logic
+            seller_amount = (product_price - commission) + DELIVERY_FEE
+            total_pending += seller_amount
+        
+        # Override the field for the frontend response (memory-only, no db.commit)
+        user.escrow_balance = total_pending
+
     return user
 
 
@@ -511,6 +540,7 @@ def create_offer(
         status=models.OfferStatus.PENDING
     )
     db.add(new_offer)
+    db.flush() # Ensure it gets an ID
     
     # Fetch product title for the message
     product = db.query(models.Product).filter(models.Product.id == offer_in.product_id).first()
@@ -519,8 +549,8 @@ def create_offer(
     # Drop a system message in the chat
     system_msg = models.ChatMessage(
         session_id=offer_in.session_id,
-        sender_id=session.buyer_id,
-        text=f"📢 OFFER MADE: {current_user.full_name} offered Tk.{offer_in.offered_price:,d} for {p_title}."
+        sender_id=1, # Use System ID for card rendering
+        text=f"📢 OFFER MADE [OID:{new_offer.id}]: {current_user.full_name} offered Tk.{offer_in.offered_price:,d} for {p_title}."
     )
     db.add(system_msg)
     db.flush()
@@ -571,8 +601,8 @@ def accept_offer(
     # System message
     system_msg = models.ChatMessage(
         session_id=offer.session_id,
-        sender_id=offer.seller_id,
-        text=f"✅ OFFER ACCEPTED: {current_user.full_name} has accepted the offer of Tk.{offer.offered_price:,d} for {p_title}!"
+        sender_id=1, # Use System ID for card rendering
+        text=f"✅ OFFER ACCEPTED [OID:{offer.id}]: {current_user.full_name} has accepted the offer of Tk.{offer.offered_price:,d} for {p_title}!"
     )
     db.add(system_msg)
     
@@ -608,8 +638,8 @@ def reject_offer(
     # System message
     system_msg = models.ChatMessage(
         session_id=offer.session_id,
-        sender_id=offer.seller_id,
-        text=f"❌ OFFER REJECTED: The seller has declined the offer of Tk.{offer.offered_price:,d} for {p_title}."
+        sender_id=1, # Use System ID for card rendering
+        text=f"❌ OFFER REJECTED [OID:{offer.id}]: The seller has declined the offer of Tk.{offer.offered_price:,d} for {p_title}."
     )
     db.add(system_msg)
     
@@ -678,16 +708,16 @@ def finalize_payment(
     order_id_str = f"RS-{offer.order_number:05d}"
     pay_msg = models.ChatMessage(
         session_id=offer.session_id,
-        sender_id=offer.buyer_id,
-        text=f"💰 PAYMENT COMPLETED: Tk.{final_total:,d} moved to escrow via SecurePay. Order ID: {order_id_str}"
+        sender_id=1, # Use System ID for card rendering
+        text=f"💰 PAYMENT COMPLETED [OID:{offer.id}]: Tk.{final_total:,d} moved to escrow via SecurePay. Order ID: {order_id_str}"
     )
     db.add(pay_msg)
     
     # Notify seller explicitly
     seller_notify_msg = models.ChatMessage(
         session_id=offer.session_id,
-        sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1,
-        text=f"📢 ORDER ALERT: The buyer has made the payment. Please prepare the item for delivery and mark it as DELIVERED once shipped."
+        sender_id=1, # Always use System ID for card rendering
+        text=f"📢 ORDER ALERT [OID:{offer.id}]: The buyer has made the payment. Please prepare the item for delivery and mark it as DELIVERED once shipped."
     )
     db.add(seller_notify_msg)
     db.flush()
@@ -734,10 +764,11 @@ def process_order(
     p_title = offer.product.title if offer.product else "this item"
 
     # System message
+    order_id_str = f"RS-{offer.order_number:05d}"
     system_msg = models.ChatMessage(
         session_id=offer.session_id,
         sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1, 
-        text=f"⚙️ ORDER PROCESSING ({p_title}): The seller is now preparing your item for shipment."
+        text=f"⚙️ ORDER PROCESSING [OID:{offer.id}] (Order: {order_id_str}): The seller is now preparing your item ({p_title}) for shipment."
     )
     db.add(system_msg)
     db.flush()
@@ -774,7 +805,8 @@ def ship_order(
         offer.tracking_info = tracking_info
     
     p_title = offer.product.title if offer.product else "this item"
-    msg_text = f"🚚 ORDER SHIPPED ({p_title}):\n" + (tracking_info if tracking_info else "The item has been handed over to the courier.")
+    order_id_str = f"RS-{offer.order_number:05d}"
+    msg_text = f"🚚 ORDER SHIPPED [OID:{offer.id}] (Order: {order_id_str} | {p_title}):\n" + (tracking_info if tracking_info else "The item has been handed over to the courier.")
         
     # System message
     system_msg = models.ChatMessage(
@@ -817,9 +849,10 @@ def deliver_order(
     p_title = offer.product.title if offer.product else "this item"
 
     # System message
-    delivered_text = f"📦 ORDER DELIVERED ({p_title}): The seller has marked the order as delivered. Buyer, please confirm delivery to release funds to the seller."
+    order_id_str = f"RS-{offer.order_number:05d}"
+    delivered_text = f"📦 ORDER DELIVERED [OID:{offer.id}] (Order: {order_id_str} | {p_title}): The seller has marked the order as delivered. Buyer, please confirm delivery to release funds."
     if offer.tracking_info:
-        delivered_text += f"\n{offer.tracking_info}"
+        delivered_text += f"\nTracking: {offer.tracking_info}"
     
     system_msg = models.ChatMessage(
         session_id=offer.session_id,
@@ -889,11 +922,12 @@ def _perform_fund_release(db: Session, offer: models.Offer, is_auto: bool = Fals
     # System messages
     status_text = "🤖 SYSTEM AUTO-RELEASE" if is_auto else "✅ FUNDS RELEASED"
     p_title = offer.product.title if offer.product else "this item"
+    order_id_str = f"RS-{offer.order_number:05d}"
     
     system_msg = models.ChatMessage(
         session_id=offer.session_id,
         sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1, 
-        text=f"{status_text} ({p_title}): Tk.{seller_amount:,d} has been moved to the seller's wallet."
+        text=f"{status_text} [OID:{offer.id}] (Order: {order_id_str} | {p_title}): Tk.{seller_amount:,d} has been moved to the seller's wallet."
     )
     db.add(system_msg)
     db.flush() # Ensure system_msg gets an ID first
@@ -905,7 +939,7 @@ def _perform_fund_release(db: Session, offer: models.Offer, is_auto: bool = Fals
         review_prompt = models.ChatMessage(
             session_id=offer.session_id,
             sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1,
-            text=f"[REVIEW_PROMPT]:{offer.product_id}:{offer.product.title}"
+            text=f"[REVIEW_PROMPT]:{offer.product_id}:{offer.product.title}:{order_id_str}"
         )
         db.add(review_prompt)
         db.flush()
@@ -997,7 +1031,8 @@ def dispute_transaction(
     db.add(dispute_tx)
 
     # Notify chat
-    msg_text = f"⚠️ DISPUTE RAISED: {reason}" if reason else f"⚠️ DISPUTE RAISED: {current_user.full_name} reported a problem. Funds are locked in Escrow until an Admin reviews the case."
+    order_id_str = f"RS-{offer.order_number:05d}"
+    msg_text = f"⚠️ DISPUTE RAISED [OID:{offer.id}] (Order: {order_id_str}): {reason}" if reason else f"⚠️ DISPUTE RAISED [OID:{offer.id}] (Order: {order_id_str}): {current_user.full_name} reported a problem. Funds are locked in Escrow until an Admin reviews the case."
     
     system_msg = models.ChatMessage(
         session_id=offer.session_id,
@@ -1042,9 +1077,8 @@ def resolve_dispute(
         
         buyer.escrow_balance -= total_escrow
         seller.wallet_balance += seller_payout
-        offer.status = models.OfferStatus.COMPLETED
-        
-        msg_text = f"⚖️ ADMIN RESOLUTION: Dispute resolved in favor of SELLER. Tk.{seller_payout:,d} released to seller wallet."
+        order_id_str = f"RS-{offer.order_number:05d}"
+        msg_text = f"⚖️ ADMIN RESOLUTION [OID:{offer.id}] (Order: {order_id_str}): Dispute resolved in favor of SELLER. Tk.{seller_payout:,d} released to seller wallet."
 
         # Record for Seller
         seller_tx = models.WalletTransaction(
@@ -1087,7 +1121,8 @@ def resolve_dispute(
             offer.product.status = models.ProductStatus.APPROVED
             offer.product.inventory_quantity += offer.quantity
             
-        msg_text = f"⚖️ ADMIN RESOLUTION: Dispute resolved with FULL REFUND. Tk.{total_escrow:,d} returned to buyer wallet. Product has been re-listed."
+        order_id_str = f"RS-{offer.order_number:05d}"
+        msg_text = f"⚖️ ADMIN RESOLUTION [OID:{offer.id}] (Order: {order_id_str}): Dispute resolved with FULL REFUND. Tk.{total_escrow:,d} returned to buyer wallet. Product has been re-listed."
 
         # Record for Buyer
         refund_tx = models.WalletTransaction(
@@ -1117,7 +1152,8 @@ def resolve_dispute(
             offer.product.status = models.ProductStatus.APPROVED
             offer.product.inventory_quantity += offer.quantity
 
-        msg_text = f"⚖️ ADMIN RESOLUTION: Dispute resolved with PARTIAL REFUND. Tk.{product_price_total:,d} returned to buyer. Tk.{DELIVERY_FEE:,d} released to seller to cover shipping. Product has been re-listed."
+        order_id_str = f"RS-{offer.order_number:05d}"
+        msg_text = f"⚖️ ADMIN RESOLUTION [OID:{offer.id}] (Order: {order_id_str}): Dispute resolved with PARTIAL REFUND. Tk.{product_price_total:,d} returned to buyer. Tk.{DELIVERY_FEE:,d} released to seller to cover shipping. Product has been re-listed."
         
         # Record for Buyer
         buyer_tx = models.WalletTransaction(
@@ -1150,7 +1186,7 @@ def resolve_dispute(
     review_prompt = models.ChatMessage(
         session_id=offer.session_id,
         sender_id=auth.SYSTEM_USER_ID if hasattr(auth, 'SYSTEM_USER_ID') else 1,
-        text=f"[REVIEW_PROMPT]:{offer.product_id}:{offer.product.title}"
+        text=f"[REVIEW_PROMPT]:{offer.product_id}:{offer.product.title}:{order_id_str}"
     )
     db.add(review_prompt)
     db.flush()
@@ -1528,7 +1564,7 @@ def create_review(
 
     if session:
         stars = "⭐" * review_in.rating
-        msg_text = f"⭐ Buyer left a {review_in.rating}-star review: \"{review_in.comment or 'No comment'}\""
+        msg_text = f"⭐ REVIEW SUBMITTED ({review_in.order_number or 'Order'}): Buyer left a {review_in.rating}-star rating."
         
         chat_msg = models.ChatMessage(
             session_id=session.id,
@@ -1650,6 +1686,30 @@ def get_chats(
     results.sort(key=lambda x: x.updated_at or x.created_at, reverse=True)
     return results
 
+@app.get("/chats/{session_id}", response_model=schemas.ChatSessionResponse)
+def get_chat_session(session_id: int, db: Session = Depends(get_db)):
+    """Fetch metadata for a single chat session."""
+    s = db.query(models.ChatSession).options(
+        joinedload(models.ChatSession.buyer),
+        joinedload(models.ChatSession.seller),
+        joinedload(models.ChatSession.product)
+    ).filter(models.ChatSession.id == session_id).first()
+    
+    if not s:
+        raise HTTPException(status_code=404, detail="Chat not found")
+        
+    resp = schemas.ChatSessionResponse.model_validate(s)
+    resp.product_title = s.product.title if s.product else "Enquiry"
+    resp.product_price = s.product.price if s.product else None
+    
+    if s.product:
+        if s.product.image_url:
+            resp.product_image_url = s.product.image_url
+        elif s.product.images:
+            resp.product_image_url = s.product.images[0].image_url
+            
+    return resp
+
 @app.get("/chats/{session_id}/messages", response_model=List[schemas.MessageResponse])
 def get_chat_messages(session_id: int, db: Session = Depends(get_db)):
     """Retrieve history for a specific chat, enriched with sender info."""
@@ -1680,18 +1740,18 @@ def mark_chat_read(session_id: int, user_id: int, db: Session = Depends(get_db))
 @app.delete("/chats/{session_id}")
 def delete_chat(
     session_id: int,
-    user_id: int = Query(...),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    """Hide a chat session from the user's list."""
+    """Hide a chat session from the user's list by detecting their role automatically."""
     session = db.query(models.ChatSession).filter(models.ChatSession.id == session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Chat not found")
 
-    if session.buyer_id == user_id:
+    if session.buyer_id == current_user.id:
         session.deleted_by_buyer = 1
-    elif session.seller_id == user_id:
+    
+    if session.seller_id == current_user.id:
         session.deleted_by_seller = 1
     
     db.commit()
