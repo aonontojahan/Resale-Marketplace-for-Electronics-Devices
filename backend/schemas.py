@@ -195,7 +195,7 @@ class ReviewBase(BaseModel):
     comment: Optional[str] = None
 
 class ReviewCreate(ReviewBase):
-    pass
+    order_number: Optional[str] = None
 
 class ReviewResponse(ReviewBase):
     id: int

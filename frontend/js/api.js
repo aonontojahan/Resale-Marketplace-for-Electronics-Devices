@@ -219,10 +219,8 @@ const api = {
         return this.request(`/chats/${sessionId}/messages`, "GET");
     },
 
-    async deleteChat(sessionId, role = null) {
-        let url = `/chats/${sessionId}`;
-        if (role) url += `?role=${role}`;
-        return this.request(url, "DELETE");
+    async deleteChat(sessionId) {
+        return this.request(`/chats/${sessionId}`, "DELETE");
     },
 
     async markChatRead(sessionId, userId) {
