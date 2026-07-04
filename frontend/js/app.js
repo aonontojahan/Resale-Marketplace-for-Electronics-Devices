@@ -1756,7 +1756,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (msg.text) {
                 const orderMatch = msg.text.match(/RS-\d+/);
                 if (orderMatch) orderNum = orderMatch[0];
-                
+
                 const oidMatch = msg.text.match(/\[OID:(\d+)\]/);
                 if (oidMatch) offerId = oidMatch[1];
             }
@@ -2844,7 +2844,7 @@ window.handleProceedToCheckout = async function (sessionId, offerId = null) {
             const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
             acceptedOffer = offersResponses.reverse().find(o => o.status === 'accepted');
         }
-        
+
         if (!acceptedOffer) return alert("No accepted offer found.");
         window.location.href = `wallet.html?action=buy&listing=${acceptedOffer.product_id}&offer=${acceptedOffer.id}`;
     } catch (e) {
@@ -2861,7 +2861,7 @@ window.handleReleaseFunds = async function (sessionId, offerId = null) {
             const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
             activeOffer = offersResponses.reverse().find(o => ['paid', 'processing', 'shipped', 'delivered'].includes(o.status));
         }
-        
+
         if (!activeOffer) return alert("No active paid offer found to release.");
 
         const modal = document.getElementById('releaseModal');
@@ -2940,7 +2940,7 @@ window.handleMarkProcessing = async function (sessionId, offerId = null) {
             const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
             activeOffer = offersResponses.reverse().find(o => o.status === 'paid');
         }
-        
+
         if (!activeOffer) return alert("No paid offer found.");
 
         await window.api.request(`/escrow/process/${activeOffer.id}`, 'POST');
@@ -2958,12 +2958,12 @@ window.handleMarkShipped = async function (sessionId, offerId = null) {
             const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
             activeOffer = offersResponses.reverse().find(o => o.status === 'processing');
         }
-        
+
         if (!activeOffer) return alert("Order must be in PROCESSING state to be shipped.");
 
         // Show modal and pre-fill
         const modal = document.getElementById('shippingModal');
-        
+
         // Fetch chat/product details if needed for modal context
         const chat = await window.api.request(`/chats/${sessionId}`, 'GET');
 
@@ -3034,7 +3034,7 @@ window.handleDownloadReceipt = async function (sessionId, orderNumber = null, of
 
         let invoiceStatusText = "FUNDS IN ESCROW";
         let footerText = "Funds are held in escrow until buyer confirms delivery.";
-        let statusColor = [14, 165, 233]; 
+        let statusColor = [14, 165, 233];
 
         if (offer.status === 'completed' || offer.status === 'auto_completed') {
             invoiceStatusText = "COMPLETED (FUNDS RELEASED)";
@@ -3207,7 +3207,7 @@ window.handleMarkDelivered = async function (sessionId, offerId = null) {
             const offersResponses = await window.api.request(`/offers?session_id=${sessionId}`, 'GET');
             activeOffer = offersResponses.reverse().find(o => o.status === 'shipped');
         }
-        
+
         if (!activeOffer) return alert("Order must be SHIPPED before it can be marked as delivered.");
 
         await window.api.request(`/escrow/deliver/${activeOffer.id}`, 'POST');
