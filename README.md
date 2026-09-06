@@ -87,7 +87,7 @@ pip install -r requirements.txt
 ### 4. Running the Application
 ```bash
 # Start the FastAPI server
-uvicorn backend.main:app --reload
+uvicorn breloadackend.main:app --
 ```
 - **Frontend**: Open `frontend/index.html` in your modern browser.
 - **API Docs**: Explore the interactive documentation at `http://localhost:8000/docs`.
